@@ -30,6 +30,8 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Hybrid ranking fixed that specific regression by protecting the FTS top five before reranking. It kept Symbol Hit@5 at 0.40 while improving Symbol Hit@1 from FTS 0.00 to Hybrid 0.10.
 - Adding JSON benchmark details made the remaining misses concrete: broad questions often land in topical support modules, while some right-file hits still miss the exact expected function.
 - Source-only hygiene v2 removed fixture/sample corpora from the benchmark index, reducing Graphify from 51 indexed Python files to 37. Metrics stayed flat, but noisy `worked/` results disappeared from the miss table.
+- Query-intent candidate expansion changed the best hybrid result from Symbol Hit@1 0.10 / Symbol Hit@5 0.40 to Symbol Hit@1 0.50 / Symbol Hit@5 0.70. The win came from adding likely candidates for high-signal terms such as `entrypoint`, `export json`, `report`, `community detection`, and `mcp server` before reranking.
+- The query-intent layer is deliberately labeled as a hand-built retrieval prior. It is useful evidence that agents need query understanding, but it is not yet evidence that a fixed rule list generalizes across repositories.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas
@@ -48,3 +50,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Should the default scanner include tests, or should benchmark/query modes support source-only filtering?
 - Which hybrid ranking signals can improve Symbol Hit@1 without reducing protected FTS top-five recall?
 - Can query-intent terms like "entrypoint", "export", and "report" be mapped to likely file/symbol patterns without overfitting to Graphify?
+- Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?

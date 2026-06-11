@@ -181,6 +181,40 @@ The detail output makes the next bottlenecks clearer:
 - `graph-export` lands in the right file at rank 1 but picks the wrong export function, so symbol ranking within the file needs work.
 - `community-detection` finds the expected symbols in top five, but unrelated reporting code still beats them.
 
+Hybrid with query-intent candidate expansion:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 0.50
+Symbol Hit@5: 0.70
+Symbol MRR: 0.58
+File Hit@1: 0.60
+File Hit@5: 0.70
+File MRR: 0.63
+Partial file hits: 0.00
+Avg latency: 56ms
+```
+
+This adds a narrow hand-built intent layer for high-signal terms such as `entrypoint`, `export json`, `report`, `community detection`, and `mcp server`. The key change is candidate expansion, not just reranking: if the likely symbol is not in the FTS top five, the query can add a small set of likely file/symbol matches before hybrid scoring.
+
+Intent-expanded hybrid detail:
+
+```text
+semantic-cache        symbolRank=1     fileRank=1     top=save_semantic_cache      file=graphify/cache.py
+main-entrypoint       symbolRank=1     fileRank=1     top=main                     file=graphify/__main__.py
+extract-code          symbolRank=null  fileRank=null  top=graphify/llm.py          file=graphify/llm.py
+build-graph           symbolRank=null  fileRank=null  top=graphify/watch.py        file=graphify/watch.py
+incremental-cache     symbolRank=3     fileRank=3     top=graphify/watch.py        file=graphify/watch.py
+query-seeds           symbolRank=null  fileRank=null  top=select_diagram_nodes     file=graphify/callflow_html.py
+graph-export          symbolRank=1     fileRank=1     top=to_json                  file=graphify/export.py
+mcp-server            symbolRank=1     fileRank=1     top=serve                    file=graphify/serve.py
+report-generation     symbolRank=1     fileRank=1     top=generate                 file=graphify/report.py
+community-detection   symbolRank=2     fileRank=1     top=_split_community         file=graphify/cluster.py
+```
+
+This is the strongest prototype result so far, but it is also less general than the previous hybrid mode. The improvement comes from explicit code-search priors, so it should be treated as evidence that agents benefit from query understanding, not proof that this exact rule list will transfer unchanged to every repository.
+
 ## Qualitative Examples
 
 Strong partial success:
@@ -193,16 +227,24 @@ Strong partial success:
 Miss caused by broad wording:
 
 - Query: `where is the command line entrypoint?`
-- Top result after source-only filtering: `_env_command_args` in `graphify/detect.py`
+- Top result before intent expansion: `extract_bash` in `graphify/extract.py`
+- Top result after intent expansion: `main` in `graphify/__main__.py`
 - Expected result: `main` in `graphify/__main__.py`
-- Finding: generic terms like "command line" still match argument-parsing helpers. Ranking needs stronger file-path and entrypoint-name handling for `__main__.py`.
+- Finding: generic terms like "command line" match unrelated helpers unless the query layer knows that entrypoints often live in `__main__.py` and symbols named `main`.
+
+Strong intent success:
+
+- Query: `where is mcp server exposed?`
+- Top result after intent expansion: `serve` in `graphify/serve.py`
+- Expected result: `serve` or `_build_server` in `graphify/serve.py`
+- Finding: candidate expansion fixes a case where plain lexical matching preferred MCP ingestion/configuration code over the server implementation.
 
 Miss with relevant pipeline context:
 
 - Query: `where does community detection run?`
-- Top result after source-only filtering: module `graphify/watch.py`
+- Top result after intent expansion: `_split_community` in `graphify/cluster.py`
 - Expected result: `cluster` or `_partition` in `graphify/cluster.py`
-- Finding: broad source text mentions of clustering still outrank the implementation file. Ranking needs a stronger exact-file/symbol boost for query terms like "community detection."
+- Finding: the file-level answer is now correct, but exact symbol ranking still needs nuance because an adjacent helper outranks the two expected implementation symbols.
 
 Truth-set corrections:
 
@@ -220,6 +262,6 @@ Truth-set corrections:
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
 - Treat `--mode hybrid` as the current best prototype ranking mode.
 - Keep comparing every ranking change against both `--mode fts` and `--mode hybrid`.
-- Next ranking work should improve Hybrid Symbol Hit@1 without reducing Hybrid Symbol Hit@5.
+- Next ranking work should focus on the remaining misses: extraction, graph building, query seed selection, incremental cache ranking, and exact community symbol ordering.
 - Use `--json` detail output before every ranking change to verify which questions moved and why.
-- Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are ranking/query-intent problems.
+- Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are query understanding and exact-symbol ordering problems.

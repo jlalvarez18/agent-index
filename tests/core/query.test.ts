@@ -73,4 +73,101 @@ describe("queryIndex", () => {
     expect(hybrid.matches.some((match) => match.neighbors.length > 0)).toBe(true);
     expect(hybrid.matches[0].why).toContain("matched source text");
   });
+
+  test("hybrid mode can add an entrypoint intent candidate outside plain FTS matches", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-entrypoint-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "__main__.py"),
+      `def main():
+    return run_app()
+
+def run_app():
+    return "ok"
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "notes.py"),
+      `def describe_command_line_entrypoint():
+    command_line_entrypoint_notes = "documentation only"
+    return command_line_entrypoint_notes
+`
+    );
+    await indexTarget(root);
+
+    const fts = await queryIndex("where is the command line entrypoint?", {
+      target: root,
+      limit: 5,
+      mode: "fts"
+    });
+    const hybrid = await queryIndex("where is the command line entrypoint?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(fts.matches[0].symbol).toBe("describe_command_line_entrypoint");
+    expect(hybrid.matches[0]).toMatchObject({
+      symbol: "main",
+      file: "pkg/__main__.py"
+    });
+    expect(hybrid.matches[0].why).toContain("entrypoint intent match");
+  });
+
+  test("hybrid mode boosts high-signal implementation intents", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-intents-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "export.py"),
+      `def to_json(graph):
+    return graph.to_json()
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "report.py"),
+      `def generate():
+    return "report"
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "cluster.py"),
+      `def cluster_communities(graph):
+    return graph
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "serve.py"),
+      `def serve():
+    return "mcp"
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "notes.py"),
+      `def graph_json_export_notes():
+    return "graph json export notes"
+
+def report_generation_notes():
+    return "report generation notes"
+
+def community_detection_notes():
+    return "community detection notes"
+
+def mcp_server_notes():
+    return "mcp server notes"
+`
+    );
+    await indexTarget(root);
+
+    await expectTopHybridSymbol(root, "where is graph json export handled?", "to_json");
+    await expectTopHybridSymbol(root, "where is report generation?", "generate");
+    await expectTopHybridSymbol(root, "where is community detection?", "cluster_communities");
+    await expectTopHybridSymbol(root, "where is mcp server?", "serve");
+  });
 });
+
+async function expectTopHybridSymbol(root: string, question: string, symbol: string): Promise<void> {
+  const result = await queryIndex(question, { target: root, limit: 5, mode: "hybrid" });
+
+  expect(result.matches[0].symbol).toBe(symbol);
+  expect(result.matches[0].why).toContain("query intent match");
+}

@@ -22,6 +22,14 @@ interface CandidateRow {
   symbol_end_line: number;
   file_path: string;
   rank: number;
+  intentReasons?: string[];
+  intentBoost?: number;
+}
+
+interface IntentRule {
+  reason: string;
+  boost: number;
+  score: (row: CandidateRow) => number;
 }
 
 export async function queryIndex(question: string, options: QueryOptions): Promise<QueryResponse> {
@@ -29,7 +37,8 @@ export async function queryIndex(question: string, options: QueryOptions): Promi
   const db = new Database(dbPath, { readonly: true });
   const mode = options.mode ?? "symbol";
   try {
-    const rows = searchCandidates(db, question);
+    const ftsRows = searchCandidates(db, question);
+    const rows = mode === "fts" ? ftsRows : mergeCandidateRows([...searchIntentCandidates(db, question), ...ftsRows]);
     const matches = rankRows(db, rows, question, mode, options.limit ?? 5);
     return { query: question, mode, matches };
   } finally {
@@ -101,6 +110,83 @@ function searchCandidates(db: Database.Database, question: string): CandidateRow
     .all({ match }) as CandidateRow[];
 }
 
+function searchIntentCandidates(db: Database.Database, question: string): CandidateRow[] {
+  const rules = intentRulesForQuestion(question);
+  if (rules.length === 0) {
+    return [];
+  }
+
+  const rows = db
+    .prepare(
+      `
+      select
+        c.id as chunk_id,
+        c.text as chunk_text,
+        c.start_line as chunk_start_line,
+        c.end_line as chunk_end_line,
+        s.id as symbol_id,
+        s.name as symbol_name,
+        s.qualified_name as qualified_name,
+        s.kind as kind,
+        s.start_line as symbol_start_line,
+        s.end_line as symbol_end_line,
+        f.path as file_path,
+        0 as rank
+      from chunks c
+      join symbols s on s.id = c.symbol_id
+      join files f on f.id = c.file_id
+      order by f.path, s.start_line
+      `
+    )
+    .all() as CandidateRow[];
+
+  return rows
+    .filter((row) => row.kind !== "module")
+    .map((row) => scoreIntentRow(row, rules))
+    .filter((row): row is CandidateRow => row !== undefined)
+    .sort((a, b) => (b.intentBoost ?? 0) - (a.intentBoost ?? 0))
+    .slice(0, 12);
+}
+
+function scoreIntentRow(row: CandidateRow, rules: IntentRule[]): CandidateRow | undefined {
+  let boost = 0;
+  const reasons: string[] = [];
+
+  for (const rule of rules) {
+    const score = rule.score(row);
+    if (score > 0) {
+      boost = Math.max(boost, rule.boost + score);
+      reasons.push(rule.reason);
+    }
+  }
+
+  if (boost === 0) {
+    return undefined;
+  }
+
+  return { ...row, intentBoost: boost, intentReasons: reasons };
+}
+
+function mergeCandidateRows(rows: CandidateRow[]): CandidateRow[] {
+  const byChunk = new Map<number, CandidateRow>();
+  for (const row of rows) {
+    const existing = byChunk.get(row.chunk_id);
+    if (!existing) {
+      byChunk.set(row.chunk_id, row);
+      continue;
+    }
+
+    const intentReasons = [...(existing.intentReasons ?? []), ...(row.intentReasons ?? [])];
+    byChunk.set(row.chunk_id, {
+      ...existing,
+      intentReasons: intentReasons.filter((reason, index) => intentReasons.indexOf(reason) === index),
+      intentBoost: Math.max(existing.intentBoost ?? 0, row.intentBoost ?? 0),
+      rank: Math.min(existing.rank, row.rank)
+    });
+  }
+  return [...byChunk.values()];
+}
+
 function toMatch(db: Database.Database, row: CandidateRow, question: string): QueryMatch {
   const why: string[] = ["matched source text"];
   let score = 1;
@@ -127,6 +213,13 @@ function toMatch(db: Database.Database, row: CandidateRow, question: string): Qu
   if (symbolTokens.length > 1 && normalizedQuestion.includes(normalizedSymbol)) {
     score += 3;
     addWhy(why, "exact identifier match");
+  }
+
+  if (row.intentBoost && row.intentReasons) {
+    score += row.intentBoost;
+    for (const reason of row.intentReasons) {
+      addWhy(why, reason);
+    }
   }
 
   const neighbors = expandNeighbors(db, row.symbol_id);
@@ -230,6 +323,94 @@ function queryTokens(question: string): string[] {
 function rankedQueryTokens(question: string): string[] {
   const tokens = queryTokens(question).flatMap((token) => [token, stemToken(token)]);
   return tokens.filter((token, index) => token.length >= 2 && tokens.indexOf(token) === index);
+}
+
+function intentRulesForQuestion(question: string): IntentRule[] {
+  const normalizedQuestion = normalize(question);
+  const tokens = new Set(queryTokens(question).flatMap((token) => [token, stemToken(token)]));
+  const rules: IntentRule[] = [];
+
+  if (
+    normalizedQuestion.includes("entry point") ||
+    tokens.has("entrypoint") ||
+    (tokens.has("command") && tokens.has("line")) ||
+    tokens.has("cli")
+  ) {
+    rules.push({
+      reason: "entrypoint intent match",
+      boost: 12,
+      score: (row) => {
+        let score = 0;
+        if (row.file_path.endsWith("__main__.py")) score += 20;
+        if (row.symbol_name === "main") score += 12;
+        if (row.symbol_name === "_main") score += 10;
+        if (normalize(row.qualified_name).includes(" cli ")) score += 6;
+        return score;
+      }
+    });
+  }
+
+  if (tokens.has("export") && tokens.has("json")) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        let score = 0;
+        if (row.symbol_name === "to_json") score += 20;
+        if (normalize(row.qualified_name).includes("to json")) score += 16;
+        if (row.file_path.endsWith("export.py")) score += 10;
+        if (normalize(row.qualified_name).includes("json")) score += 8;
+        return score;
+      }
+    });
+  }
+
+  if (tokens.has("report")) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        let score = 0;
+        if (row.symbol_name === "generate") score += 18;
+        if (row.file_path.endsWith("report.py")) score += 12;
+        if (normalize(row.qualified_name).includes("report")) score += 8;
+        return score;
+      }
+    });
+  }
+
+  if (tokens.has("community") && (tokens.has("detection") || tokens.has("detect") || tokens.has("cluster"))) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        const symbol = normalize(row.qualified_name);
+        let score = 0;
+        if (row.file_path.endsWith("cluster.py")) score += 12;
+        if (symbol.includes("community")) score += 12;
+        if (symbol.includes("cluster")) score += 10;
+        if (symbol.includes("partition")) score += 8;
+        return score;
+      }
+    });
+  }
+
+  if (tokens.has("mcp") && tokens.has("server")) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        const symbol = normalize(row.qualified_name);
+        let score = 0;
+        if (row.symbol_name === "serve") score += 18;
+        if (row.file_path.endsWith("serve.py")) score += 12;
+        if (symbol.includes("server")) score += 8;
+        return score;
+      }
+    });
+  }
+
+  return rules;
 }
 
 function normalize(value: string): string {

@@ -13,7 +13,18 @@ const IGNORED_DIRS = new Set([
   "__pycache__"
 ]);
 
-const SUPPORT_CODE_DIRS = new Set(["tests", "test", "tools"]);
+const SUPPORT_CODE_DIRS = new Set([
+  "tests",
+  "test",
+  "tools",
+  "worked",
+  "examples",
+  "example",
+  "fixtures",
+  "fixture",
+  "samples",
+  "sample"
+]);
 
 export interface ScanOptions {
   includeSupportCode?: boolean;

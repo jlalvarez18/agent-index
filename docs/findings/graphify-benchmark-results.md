@@ -147,6 +147,33 @@ report-generation     symbolRank=null  fileRank=null  top=graphify/callflow_html
 community-detection   symbolRank=4     fileRank=5     top=generate                 file=graphify/report.py
 ```
 
+Source-only hygiene v2 excluded fixture/sample corpora (`worked/`, `examples/`, `fixtures/`, `samples/`) in addition to tests/tools. The Graphify source-only index changed from:
+
+```text
+Indexed 51 files, 978 symbols, 978 chunks, 7014 edges
+```
+
+to:
+
+```text
+Indexed 37 files, 779 symbols, 779 chunks, 6416 edges
+```
+
+The headline hybrid metrics stayed flat, but the detail output got cleaner because fixture/sample results no longer compete:
+
+```text
+semantic-cache        symbolRank=1     fileRank=1     top=save_semantic_cache      file=graphify/cache.py
+main-entrypoint       symbolRank=null  fileRank=null  top=extract_bash             file=graphify/extract.py
+extract-code          symbolRank=null  fileRank=null  top=graphify/llm.py          file=graphify/llm.py
+build-graph           symbolRank=null  fileRank=null  top=graphify/watch.py        file=graphify/watch.py
+incremental-cache     symbolRank=3     fileRank=3     top=graphify/watch.py        file=graphify/watch.py
+query-seeds           symbolRank=null  fileRank=null  top=select_diagram_nodes     file=graphify/callflow_html.py
+graph-export          symbolRank=null  fileRank=1     top=to_graphml               file=graphify/export.py
+mcp-server            symbolRank=4     fileRank=4     top=graphify/mcp_ingest.py   file=graphify/mcp_ingest.py
+report-generation     symbolRank=null  fileRank=null  top=graphify/callflow_html.py file=graphify/callflow_html.py
+community-detection   symbolRank=3     fileRank=3     top=generate                 file=graphify/report.py
+```
+
 The detail output makes the next bottlenecks clearer:
 
 - `main-entrypoint` is lost because generic command-line terms match shell/code extraction helpers before `graphify/__main__.py`.
@@ -195,3 +222,4 @@ Truth-set corrections:
 - Keep comparing every ranking change against both `--mode fts` and `--mode hybrid`.
 - Next ranking work should improve Hybrid Symbol Hit@1 without reducing Hybrid Symbol Hit@5.
 - Use `--json` detail output before every ranking change to verify which questions moved and why.
+- Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are ranking/query-intent problems.

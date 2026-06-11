@@ -27,6 +27,7 @@ Agents do not only need more text search. They need search results tied to code 
 - Hybrid mode: Symbol Hit@1 0.10, Symbol Hit@5 0.40, File Hit@5 0.50, Avg 43ms.
 - Early conclusion: structure is useful as a conservative reranker, not as a replacement for lexical recall.
 - Detailed benchmark JSON shows the current misses are mostly broad-question ranking misses, not parser/indexing failures.
+- Source-only hygiene v2 removed fixture/sample corpora; remaining misses are now cleaner evidence for ranking/query-intent work.
 
 ## Evidence To Include Later
 

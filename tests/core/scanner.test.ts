@@ -41,10 +41,16 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, "graphify"), { recursive: true });
     await mkdir(path.join(root, "tests"), { recursive: true });
     await mkdir(path.join(root, "tools", "skillgen"), { recursive: true });
+    await mkdir(path.join(root, "worked", "mixed-corpus"), { recursive: true });
+    await mkdir(path.join(root, "examples"), { recursive: true });
+    await mkdir(path.join(root, "fixtures"), { recursive: true });
 
     await writeFile(path.join(root, "graphify", "cache.py"), "def product():\n    return 1\n");
     await writeFile(path.join(root, "tests", "test_cache.py"), "def test_product():\n    return 1\n");
     await writeFile(path.join(root, "tools", "skillgen", "gen.py"), "def helper():\n    return 1\n");
+    await writeFile(path.join(root, "worked", "mixed-corpus", "demo.py"), "def demo():\n    return 1\n");
+    await writeFile(path.join(root, "examples", "example.py"), "def example():\n    return 1\n");
+    await writeFile(path.join(root, "fixtures", "fixture.py"), "def fixture():\n    return 1\n");
 
     const files = await scanPythonFiles(root, { includeSupportCode: false });
 

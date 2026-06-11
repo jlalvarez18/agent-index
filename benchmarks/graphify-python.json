@@ -4,7 +4,7 @@
     "question": "where is semantic cache handled?",
     "expected": {
       "files": ["graphify/cache.py"],
-      "symbols": ["check_semantic_cache"]
+      "symbols": ["check_semantic_cache", "save_semantic_cache"]
     }
   },
   {
@@ -19,32 +19,32 @@
     "id": "extract-code",
     "question": "where does code extraction happen?",
     "expected": {
-      "files": ["graphify/extractors/code.py"],
-      "symbols": ["extract_code"]
+      "files": ["graphify/extract.py"],
+      "symbols": ["extract", "_extract_single_file", "extract_python"]
     }
   },
   {
     "id": "build-graph",
     "question": "where is the graph built from extracted nodes and edges?",
     "expected": {
-      "files": ["graphify/graph.py"],
-      "symbols": ["build_graph"]
+      "files": ["graphify/build.py"],
+      "symbols": ["build_from_json", "build"]
     }
   },
   {
     "id": "incremental-cache",
     "question": "where does incremental indexing decide what changed?",
     "expected": {
-      "files": ["graphify/cache.py"],
-      "symbols": ["load_manifest"]
+      "files": ["graphify/detect.py"],
+      "symbols": ["detect_incremental", "load_manifest", "save_manifest"]
     }
   },
   {
     "id": "query-seeds",
     "question": "where are query seed nodes selected?",
     "expected": {
-      "files": ["graphify/query.py"],
-      "symbols": ["find_seed_nodes"]
+      "files": ["graphify/serve.py"],
+      "symbols": ["_pick_seeds", "_score_nodes"]
     }
   },
   {
@@ -52,15 +52,15 @@
     "question": "where is graph json exported?",
     "expected": {
       "files": ["graphify/export.py"],
-      "symbols": ["export_graph_json"]
+      "symbols": ["to_json"]
     }
   },
   {
     "id": "mcp-server",
     "question": "where is the MCP server implemented?",
     "expected": {
-      "files": ["graphify/mcp.py"],
-      "symbols": ["serve"]
+      "files": ["graphify/serve.py"],
+      "symbols": ["serve", "_build_server"]
     }
   },
   {
@@ -68,7 +68,7 @@
     "question": "where are analysis reports generated?",
     "expected": {
       "files": ["graphify/report.py"],
-      "symbols": ["generate_report"]
+      "symbols": ["generate"]
     }
   },
   {
@@ -76,7 +76,7 @@
     "question": "where does community detection run?",
     "expected": {
       "files": ["graphify/cluster.py"],
-      "symbols": ["detect_communities"]
+      "symbols": ["cluster", "_partition"]
     }
   }
 ]

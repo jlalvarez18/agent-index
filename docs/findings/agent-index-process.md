@@ -24,6 +24,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Tree-sitter's Node binding can reject large Python source strings with `Invalid argument`. Feeding the parser through its callback API avoids that native string-argument failure.
 - Running against Graphify showed a major benchmark hygiene issue: indexing `tests/` and `tools/` lets helper code outrank product code for broad natural-language questions.
 - Source-only indexing improved Graphify Hit@5 from 0.20 to 0.30 and average latency from 65ms to 48ms by reducing the corpus from 142 Python files to 51.
+- Auditing the golden truth set against real Graphify v8 symbols improved source-only Hit@5 from 0.30 to 0.50. Several initial benchmark expectations were plausible guesses but not real v8 symbol names.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas
@@ -40,3 +41,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Does normalized lexical search cover enough natural-language phrasing before embeddings are added?
 - How large can the SQLite-only approach get before query latency or index time becomes a problem?
 - Should the default scanner include tests, or should benchmark/query modes support source-only filtering?
+- Should benchmark scoring split symbol hits from file/module hits? The current aggregate can hide cases where the right file is found but the expected function is not.

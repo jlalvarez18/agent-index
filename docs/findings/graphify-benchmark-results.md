@@ -52,7 +52,7 @@ Source-only index summary:
 Indexed 51 files, 978 symbols, 978 chunks, 7014 edges at /Users/juan/Repos/graphify/.codeindex/index.sqlite
 ```
 
-Source-only benchmark summary:
+Source-only benchmark summary before truth-set audit:
 
 ```text
 Questions: 10
@@ -63,7 +63,18 @@ Partial file hits: 0.20
 Avg latency: 48ms
 ```
 
-Source-only filtering improved every metric in this first run, but the absolute score is still low. The next bottleneck is likely the benchmark seed quality plus ranking, not just corpus noise.
+Source-only benchmark summary after truth-set audit:
+
+```text
+Questions: 10
+Hit@1: 0.20
+Hit@5: 0.50
+MRR: 0.29
+Partial file hits: 0.30
+Avg latency: 47ms
+```
+
+Source-only filtering improved every metric in the first run. Correcting the golden expected symbols improved Hit@5 again, from 0.30 to 0.50, which means part of the earlier low score was benchmark-label noise rather than retrieval quality.
 
 ## Qualitative Examples
 
@@ -71,26 +82,37 @@ Strong partial success:
 
 - Query: `where is semantic cache handled?`
 - Top result: `save_semantic_cache` in `graphify/cache.py`
-- Expected result: `check_semantic_cache` in `graphify/cache.py`
-- Finding: the right file and topic rank at the top, but sibling functions tie closely. This suggests the benchmark expectation may need to allow related symbols or the ranker needs stronger action-word discrimination.
+- Expected result: `check_semantic_cache` or `save_semantic_cache` in `graphify/cache.py`
+- Finding: the corrected truth set treats both semantic-cache directions as valid because the wording says "handled" rather than "checked" or "saved."
 
-Miss caused by test/helper noise:
+Miss caused by broad wording:
 
 - Query: `where is the command line entrypoint?`
-- Top result: `_is_chunk_cleanup_line` in `tools/skillgen/gen.py`
+- Top result after source-only filtering: `_env_command_args` in `graphify/detect.py`
 - Expected result: `main` in `graphify/__main__.py`
-- Finding: generic terms like "line" and "entrypoint" match helper/test code too easily. The scanner likely needs default ignore rules for tests/tools or query ranking needs production-path boosts.
+- Finding: generic terms like "command line" still match argument-parsing helpers. Ranking needs stronger file-path and entrypoint-name handling for `__main__.py`.
 
 Miss with relevant pipeline context:
 
 - Query: `where does community detection run?`
-- Top result: `test_obsidian_dangling_community_member_does_not_crash` in `tests/test_obsidian_dangling_member.py`
-- Best visible relevant result in top 3: `run_pipeline` in `tests/test_pipeline.py`, with graph neighbors including `cluster` and `detect`
-- Finding: tests dominate this query. The graph edges are useful, but retrieval needs corpus filtering before graph expansion.
+- Top result after source-only filtering: module `graphify/watch.py`
+- Expected result: `cluster` or `_partition` in `graphify/cluster.py`
+- Finding: broad source text mentions of clustering still outrank the implementation file. Ranking needs a stronger exact-file/symbol boost for query terms like "community detection."
+
+Truth-set corrections:
+
+- `extract-code`: `graphify/extract.py` with `extract`, `_extract_single_file`, or `extract_python`
+- `build-graph`: `graphify/build.py` with `build_from_json` or `build`
+- `incremental-cache`: `graphify/detect.py` with `detect_incremental`, `load_manifest`, or `save_manifest`
+- `query-seeds`: `graphify/serve.py` with `_pick_seeds` or `_score_nodes`
+- `graph-export`: `graphify/export.py` with `to_json`
+- `mcp-server`: `graphify/serve.py` with `serve` or `_build_server`
+- `report-generation`: `graphify/report.py` with `generate`
+- `community-detection`: `graphify/cluster.py` with `cluster` or `_partition`
 
 ## Next Benchmark Improvements
 
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
-- Revisit golden expected symbols against the actual `v8` source; several seed names were plausible placeholders before the corpus was available.
+- Revisit benchmark scoring so module/file hits are reported separately from true symbol hits.
 - Add a plain FTS baseline so the symbol-first approach can be compared against something concrete.
 - Improve ranking so exact symbol intent beats broad source-text matches.

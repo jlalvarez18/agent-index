@@ -63,7 +63,7 @@ Partial file hits: 0.20
 Avg latency: 48ms
 ```
 
-Source-only benchmark summary after truth-set audit:
+Source-only benchmark summary after truth-set audit, using blended symbol/file scoring:
 
 ```text
 Questions: 10
@@ -75,6 +75,22 @@ Avg latency: 47ms
 ```
 
 Source-only filtering improved every metric in the first run. Correcting the golden expected symbols improved Hit@5 again, from 0.30 to 0.50, which means part of the earlier low score was benchmark-label noise rather than retrieval quality.
+
+Split benchmark summary after separating exact symbol hits from file hits:
+
+```text
+Questions: 10
+Symbol Hit@1: 0.10
+Symbol Hit@5: 0.20
+Symbol MRR: 0.13
+File Hit@1: 0.20
+File Hit@5: 0.50
+File MRR: 0.29
+Partial file hits: 0.30
+Avg latency: 45ms
+```
+
+This is the most honest metric shape so far. The prototype often lands in the right file, but it is still weak at ranking the exact expected symbol.
 
 ## Qualitative Examples
 
@@ -113,6 +129,6 @@ Truth-set corrections:
 ## Next Benchmark Improvements
 
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
-- Revisit benchmark scoring so module/file hits are reported separately from true symbol hits.
+- Use split symbol/file scoring for all future benchmark comparisons.
 - Add a plain FTS baseline so the symbol-first approach can be compared against something concrete.
-- Improve ranking so exact symbol intent beats broad source-text matches.
+- Improve ranking so exact symbol intent beats broad source-text and module-level matches.

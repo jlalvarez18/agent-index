@@ -56,9 +56,12 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
 function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>): string {
   return [
     `Questions: ${result.questions}`,
-    `Hit@1: ${result.hitAt1.toFixed(2)}`,
-    `Hit@5: ${result.hitAt5.toFixed(2)}`,
-    `MRR: ${result.mrr.toFixed(2)}`,
+    `Symbol Hit@1: ${result.symbolHitAt1.toFixed(2)}`,
+    `Symbol Hit@5: ${result.symbolHitAt5.toFixed(2)}`,
+    `Symbol MRR: ${result.symbolMrr.toFixed(2)}`,
+    `File Hit@1: ${result.fileHitAt1.toFixed(2)}`,
+    `File Hit@5: ${result.fileHitAt5.toFixed(2)}`,
+    `File MRR: ${result.fileMrr.toFixed(2)}`,
     `Partial file hits: ${result.partialFileHits.toFixed(2)}`,
     `Avg latency: ${Math.round(result.avgLatencyMs)}ms`
   ].join("\n");

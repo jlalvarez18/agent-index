@@ -21,10 +21,16 @@ export async function runBenchmark(benchmarkPath: string, options: BenchmarkOpti
 
   return {
     questions: questions.length,
-    hitAt1: ratio(cases.filter((result) => result.hitAt1).length, questions.length),
-    hitAt5: ratio(cases.filter((result) => result.hitAt5).length, questions.length),
-    mrr: ratio(
-      cases.reduce((sum, result) => sum + result.reciprocalRank, 0),
+    symbolHitAt1: ratio(cases.filter((result) => result.symbolHitAt1).length, questions.length),
+    symbolHitAt5: ratio(cases.filter((result) => result.symbolHitAt5).length, questions.length),
+    symbolMrr: ratio(
+      cases.reduce((sum, result) => sum + result.symbolReciprocalRank, 0),
+      questions.length
+    ),
+    fileHitAt1: ratio(cases.filter((result) => result.fileHitAt1).length, questions.length),
+    fileHitAt5: ratio(cases.filter((result) => result.fileHitAt5).length, questions.length),
+    fileMrr: ratio(
+      cases.reduce((sum, result) => sum + result.fileReciprocalRank, 0),
       questions.length
     ),
     partialFileHits: ratio(cases.filter((result) => result.partialFileHit).length, questions.length),
@@ -43,14 +49,15 @@ function scoreCase(question: BenchmarkQuestion, matches: QueryMatch[], latencyMs
   const firstFileRank = matches.findIndex((match) => expectedFiles.has(match.file));
   const symbolRank = firstSymbolRank === -1 ? undefined : firstSymbolRank + 1;
   const fileRank = firstFileRank === -1 ? undefined : firstFileRank + 1;
-  const bestRank = Math.min(symbolRank ?? Number.POSITIVE_INFINITY, fileRank ?? Number.POSITIVE_INFINITY);
-  const hasAnyRank = Number.isFinite(bestRank);
 
   return {
     id: question.id,
-    hitAt1: bestRank === 1,
-    hitAt5: hasAnyRank && bestRank <= 5,
-    reciprocalRank: hasAnyRank ? 1 / bestRank : 0,
+    symbolHitAt1: symbolRank === 1,
+    symbolHitAt5: symbolRank !== undefined && symbolRank <= 5,
+    symbolReciprocalRank: symbolRank === undefined ? 0 : 1 / symbolRank,
+    fileHitAt1: fileRank === 1,
+    fileHitAt5: fileRank !== undefined && fileRank <= 5,
+    fileReciprocalRank: fileRank === undefined ? 0 : 1 / fileRank,
     partialFileHit: symbolRank === undefined && fileRank !== undefined && fileRank <= 5,
     latencyMs,
     firstMatch: matches[0]

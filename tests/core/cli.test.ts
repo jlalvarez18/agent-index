@@ -42,7 +42,8 @@ describe("runCli", () => {
     const queryJson = JSON.parse(output[1]);
     expect(queryJson.matches[0].symbol).toBe("load_value");
     expect(output[2]).toContain("Questions: 1");
-    expect(output[2]).toContain("Hit@5: 1.00");
+    expect(output[2]).toContain("Symbol Hit@5: 1.00");
+    expect(output[2]).toContain("File Hit@5: 1.00");
   });
 
   test("supports source-only indexing that skips tests and tools", async () => {

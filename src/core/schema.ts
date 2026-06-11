@@ -90,9 +90,12 @@ export interface BenchmarkQuestion {
 
 export interface BenchmarkCaseResult {
   id: string;
-  hitAt1: boolean;
-  hitAt5: boolean;
-  reciprocalRank: number;
+  symbolHitAt1: boolean;
+  symbolHitAt5: boolean;
+  symbolReciprocalRank: number;
+  fileHitAt1: boolean;
+  fileHitAt5: boolean;
+  fileReciprocalRank: number;
   partialFileHit: boolean;
   latencyMs: number;
   firstMatch?: QueryMatch;
@@ -100,9 +103,12 @@ export interface BenchmarkCaseResult {
 
 export interface BenchmarkResult {
   questions: number;
-  hitAt1: number;
-  hitAt5: number;
-  mrr: number;
+  symbolHitAt1: number;
+  symbolHitAt5: number;
+  symbolMrr: number;
+  fileHitAt1: number;
+  fileHitAt5: number;
+  fileMrr: number;
   partialFileHits: number;
   avgLatencyMs: number;
   cases: BenchmarkCaseResult[];

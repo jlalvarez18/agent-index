@@ -52,24 +52,33 @@ describe("runBenchmark", () => {
     const result = await runBenchmark(benchmarkPath, { target: root });
 
     expect(result.questions).toBe(2);
-    expect(result.hitAt1).toBe(1);
-    expect(result.hitAt5).toBe(1);
-    expect(result.mrr).toBe(1);
+    expect(result.symbolHitAt1).toBe(0.5);
+    expect(result.symbolHitAt5).toBe(0.5);
+    expect(result.symbolMrr).toBe(0.5);
+    expect(result.fileHitAt1).toBe(1);
+    expect(result.fileHitAt5).toBe(1);
+    expect(result.fileMrr).toBe(1);
     expect(result.partialFileHits).toBe(0.5);
     expect(result.avgLatencyMs).toBeGreaterThanOrEqual(0);
     expect(result.cases).toHaveLength(2);
     expect(result.cases[0]).toMatchObject({
       id: "semantic-cache",
-      hitAt1: true,
-      hitAt5: true,
-      reciprocalRank: 1,
+      symbolHitAt1: true,
+      symbolHitAt5: true,
+      symbolReciprocalRank: 1,
+      fileHitAt1: true,
+      fileHitAt5: true,
+      fileReciprocalRank: 1,
       partialFileHit: false
     });
     expect(result.cases[1]).toMatchObject({
       id: "file-only",
-      hitAt1: true,
-      hitAt5: true,
-      reciprocalRank: 1,
+      symbolHitAt1: false,
+      symbolHitAt5: false,
+      symbolReciprocalRank: 0,
+      fileHitAt1: true,
+      fileHitAt5: true,
+      fileReciprocalRank: 1,
       partialFileHit: true
     });
   });

@@ -47,10 +47,11 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .argument("<benchmark-json>", "golden benchmark file")
     .requiredOption("--target <target>", "target repository or directory")
     .option("--mode <mode>", "benchmark mode: symbol, fts, or hybrid", "symbol")
-    .action(async (benchmarkJson: string, options: { target: string; mode: string }) => {
+    .option("--json", "write full benchmark result as JSON")
+    .action(async (benchmarkJson: string, options: { target: string; mode: string; json?: boolean }) => {
       const mode = parseMode(options.mode);
       const result = await runBenchmark(benchmarkJson, { target: options.target, mode });
-      io.write(formatBenchmark(result));
+      io.write(options.json ? JSON.stringify(result, null, 2) : formatBenchmark(result));
     });
 
   await program.parseAsync(argv, { from: "user" });

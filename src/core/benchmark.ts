@@ -55,6 +55,11 @@ function scoreCase(question: BenchmarkQuestion, matches: QueryMatch[], latencyMs
 
   return {
     id: question.id,
+    question: question.question,
+    expectedSymbols: question.expected.symbols,
+    expectedFiles: question.expected.files,
+    symbolRank: symbolRank ?? null,
+    fileRank: fileRank ?? null,
     symbolHitAt1: symbolRank === 1,
     symbolHitAt5: symbolRank !== undefined && symbolRank <= 5,
     symbolReciprocalRank: symbolRank === undefined ? 0 : 1 / symbolRank,
@@ -63,7 +68,11 @@ function scoreCase(question: BenchmarkQuestion, matches: QueryMatch[], latencyMs
     fileReciprocalRank: fileRank === undefined ? 0 : 1 / fileRank,
     partialFileHit: symbolRank === undefined && fileRank !== undefined && fileRank <= 5,
     latencyMs,
-    firstMatch: matches[0]
+    firstMatch: matches[0],
+    topMatches: matches.map((match, index) => ({
+      ...match,
+      rank: index + 1
+    }))
   };
 }
 

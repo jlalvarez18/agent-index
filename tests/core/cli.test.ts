@@ -72,6 +72,31 @@ describe("runCli", () => {
     expect(output[1]).toContain("Mode: hybrid");
   });
 
+  test("supports JSON benchmark output with per-question details", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["benchmark", benchmarkPath, "--target", root, "--mode", "hybrid", "--json"], {
+      write: (line) => output.push(line)
+    });
+
+    const result = JSON.parse(output[1]);
+    expect(result.mode).toBe("hybrid");
+    expect(result.cases[0]).toMatchObject({
+      id: "semantic-cache",
+      symbolRank: 1,
+      fileRank: 1,
+      topMatches: expect.arrayContaining([
+        expect.objectContaining({
+          rank: 1,
+          symbol: "load_value",
+          file: "pkg/cache.py"
+        })
+      ])
+    });
+  });
+
   test("supports source-only indexing that skips tests and tools", async () => {
     const { root } = await fixtureProject();
     await mkdir(path.join(root, "tests"), { recursive: true });

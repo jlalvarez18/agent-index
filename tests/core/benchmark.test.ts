@@ -64,16 +64,30 @@ describe("runBenchmark", () => {
     expect(result.cases).toHaveLength(2);
     expect(result.cases[0]).toMatchObject({
       id: "semantic-cache",
+      question: "where is semantic cache loaded?",
+      expectedSymbols: ["load_value"],
+      expectedFiles: ["pkg/cache.py"],
+      symbolRank: 1,
+      fileRank: 1,
       symbolHitAt1: true,
       symbolHitAt5: true,
       symbolReciprocalRank: 1,
       fileHitAt1: true,
       fileHitAt5: true,
       fileReciprocalRank: 1,
-      partialFileHit: false
+      partialFileHit: false,
+      topMatches: expect.arrayContaining([
+        expect.objectContaining({
+          symbol: "load_value",
+          file: "pkg/cache.py",
+          rank: 1
+        })
+      ])
     });
     expect(result.cases[1]).toMatchObject({
       id: "file-only",
+      symbolRank: null,
+      fileRank: 1,
       symbolHitAt1: false,
       symbolHitAt5: false,
       symbolReciprocalRank: 0,

@@ -93,6 +93,11 @@ export interface BenchmarkQuestion {
 
 export interface BenchmarkCaseResult {
   id: string;
+  question: string;
+  expectedSymbols: string[];
+  expectedFiles: string[];
+  symbolRank: number | null;
+  fileRank: number | null;
   symbolHitAt1: boolean;
   symbolHitAt5: boolean;
   symbolReciprocalRank: number;
@@ -102,6 +107,11 @@ export interface BenchmarkCaseResult {
   partialFileHit: boolean;
   latencyMs: number;
   firstMatch?: QueryMatch;
+  topMatches: BenchmarkTopMatch[];
+}
+
+export interface BenchmarkTopMatch extends QueryMatch {
+  rank: number;
 }
 
 export interface BenchmarkResult {

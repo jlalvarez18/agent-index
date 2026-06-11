@@ -28,6 +28,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Splitting benchmark metrics showed the sharper truth: source-only file Hit@5 is 0.50, but exact symbol Hit@5 is only 0.20. The index finds neighborhoods better than exact functions right now.
 - The plain FTS baseline beat current symbol ranking on Symbol Hit@5, 0.40 vs 0.20. Symbol boosts improved Symbol Hit@1 and File MRR slightly, but they also pushed valid FTS candidates down.
 - Hybrid ranking fixed that specific regression by protecting the FTS top five before reranking. It kept Symbol Hit@5 at 0.40 while improving Symbol Hit@1 from FTS 0.00 to Hybrid 0.10.
+- Adding JSON benchmark details made the remaining misses concrete: broad questions often land in topical support modules, while some right-file hits still miss the exact expected function.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas
@@ -45,3 +46,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - How large can the SQLite-only approach get before query latency or index time becomes a problem?
 - Should the default scanner include tests, or should benchmark/query modes support source-only filtering?
 - Which hybrid ranking signals can improve Symbol Hit@1 without reducing protected FTS top-five recall?
+- Should source-only mode exclude fixture/sample corpora such as `worked/` in addition to `tests/` and `tools/`?

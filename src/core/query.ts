@@ -1,11 +1,12 @@
 import Database from "better-sqlite3";
 import path from "node:path";
-import type { QueryMatch, QueryNeighbor, QueryResponse, SymbolKind } from "./schema.js";
+import type { QueryMatch, QueryMode, QueryNeighbor, QueryResponse, SymbolKind } from "./schema.js";
 
 export interface QueryOptions {
   target: string;
   indexPath?: string;
   limit?: number;
+  mode?: QueryMode;
 }
 
 interface CandidateRow {
@@ -26,13 +27,17 @@ interface CandidateRow {
 export async function queryIndex(question: string, options: QueryOptions): Promise<QueryResponse> {
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
+  const mode = options.mode ?? "symbol";
   try {
     const rows = searchCandidates(db, question);
-    const matches = rows
-      .map((row) => toMatch(db, row, question))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, options.limit ?? 5);
-    return { query: question, matches };
+    const matches =
+      mode === "fts"
+        ? rows.map(toPlainFtsMatch).slice(0, options.limit ?? 5)
+        : rows
+            .map((row) => toMatch(db, row, question))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, options.limit ?? 5);
+    return { query: question, mode, matches };
   } finally {
     db.close();
   }
@@ -114,6 +119,18 @@ function toMatch(db: Database.Database, row: CandidateRow, question: string): Qu
     score: Number(score.toFixed(3)),
     why,
     neighbors
+  };
+}
+
+function toPlainFtsMatch(row: CandidateRow): QueryMatch {
+  return {
+    symbol: row.qualified_name,
+    kind: row.kind,
+    file: row.file_path,
+    lines: [row.symbol_start_line, row.symbol_end_line],
+    score: Number((-row.rank).toFixed(3)),
+    why: ["plain FTS match"],
+    neighbors: []
   };
 }
 

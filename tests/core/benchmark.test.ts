@@ -51,6 +51,7 @@ describe("runBenchmark", () => {
 
     const result = await runBenchmark(benchmarkPath, { target: root });
 
+    expect(result.mode).toBe("symbol");
     expect(result.questions).toBe(2);
     expect(result.symbolHitAt1).toBe(0.5);
     expect(result.symbolHitAt5).toBe(0.5);
@@ -81,5 +82,15 @@ describe("runBenchmark", () => {
       fileReciprocalRank: 1,
       partialFileHit: true
     });
+  });
+
+  test("can run the plain FTS benchmark mode", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+
+    const result = await runBenchmark(benchmarkPath, { target: root, mode: "fts" });
+
+    expect(result.mode).toBe("fts");
+    expect(result.questions).toBe(2);
+    expect(result.cases[0].firstMatch?.why).toEqual(["plain FTS match"]);
   });
 });

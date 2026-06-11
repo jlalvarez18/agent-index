@@ -20,6 +20,12 @@ Agents do not only need more text search. They need search results tied to code 
 8. What did not: unresolved call names, lexical-only phrasing limits, no incremental updates.
 9. Next steps: compare against plain FTS, add embeddings, add MCP, add incremental indexing.
 
+## Current Baseline Comparison
+
+- Symbol mode: Symbol Hit@1 0.10, Symbol Hit@5 0.20, File Hit@5 0.50, Avg 47ms.
+- Plain FTS mode: Symbol Hit@1 0.00, Symbol Hit@5 0.40, File Hit@5 0.50, Avg 6ms.
+- Early conclusion: structure is not automatically better. The first ranker is over-weighting symbol/file/module signals and should be made more conservative.
+
 ## Evidence To Include Later
 
 - One screenshot or terminal block for `agent-index query`.

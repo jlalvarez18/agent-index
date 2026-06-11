@@ -1,25 +1,28 @@
 import { readFile } from "node:fs/promises";
-import type { BenchmarkCaseResult, BenchmarkQuestion, BenchmarkResult, QueryMatch } from "./schema.js";
+import type { BenchmarkCaseResult, BenchmarkQuestion, BenchmarkResult, QueryMatch, QueryMode } from "./schema.js";
 import { queryIndex } from "./query.js";
 
 export interface BenchmarkOptions {
   target: string;
   indexPath?: string;
   includeSupportCode?: boolean;
+  mode?: QueryMode;
 }
 
 export async function runBenchmark(benchmarkPath: string, options: BenchmarkOptions): Promise<BenchmarkResult> {
   const questions = JSON.parse(await readFile(benchmarkPath, "utf8")) as BenchmarkQuestion[];
   const cases: BenchmarkCaseResult[] = [];
+  const mode = options.mode ?? "symbol";
 
   for (const question of questions) {
     const started = performance.now();
-    const response = await queryIndex(question.question, { ...options, limit: 5 });
+    const response = await queryIndex(question.question, { ...options, mode, limit: 5 });
     const latencyMs = performance.now() - started;
     cases.push(scoreCase(question, response.matches, latencyMs));
   }
 
   return {
+    mode,
     questions: questions.length,
     symbolHitAt1: ratio(cases.filter((result) => result.symbolHitAt1).length, questions.length),
     symbolHitAt5: ratio(cases.filter((result) => result.symbolHitAt5).length, questions.length),

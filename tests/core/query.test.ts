@@ -47,4 +47,15 @@ describe("queryIndex", () => {
       ])
     );
   });
+
+  test("can return plain FTS results without symbol boosts or graph expansion", async () => {
+    const root = await fixtureProject();
+    await indexTarget(root);
+
+    const result = await queryIndex("where is semantic cache loaded?", { target: root, limit: 5, mode: "fts" });
+
+    expect(result.mode).toBe("fts");
+    expect(result.matches[0].why).toEqual(["plain FTS match"]);
+    expect(result.matches[0].neighbors).toEqual([]);
+  });
 });

@@ -92,6 +92,23 @@ Avg latency: 45ms
 
 This is the most honest metric shape so far. The prototype often lands in the right file, but it is still weak at ranking the exact expected symbol.
 
+Plain FTS baseline:
+
+```text
+Mode: fts
+Questions: 10
+Symbol Hit@1: 0.00
+Symbol Hit@5: 0.40
+Symbol MRR: 0.14
+File Hit@1: 0.10
+File Hit@5: 0.50
+File MRR: 0.25
+Partial file hits: 0.10
+Avg latency: 6ms
+```
+
+Symbol-first ranking is not yet a clear win. It improves Symbol Hit@1 from 0.00 to 0.10 and File MRR from 0.25 to 0.29, but it reduces Symbol Hit@5 from 0.40 to 0.20 and is slower because it expands graph neighbors. The ranking boosts are helping a few first-place results while pushing some valid expected symbols out of the top five.
+
 ## Qualitative Examples
 
 Strong partial success:
@@ -129,6 +146,6 @@ Truth-set corrections:
 ## Next Benchmark Improvements
 
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
-- Use split symbol/file scoring for all future benchmark comparisons.
-- Add a plain FTS baseline so the symbol-first approach can be compared against something concrete.
-- Improve ranking so exact symbol intent beats broad source-text and module-level matches.
+- Keep comparing every ranking change against `--mode fts`.
+- Improve ranking so symbol/file boosts rerank FTS candidates without pushing valid FTS symbol hits out of the top five.
+- Consider reciprocal rank fusion between plain FTS order and symbol-first boost order instead of replacing FTS order with additive boosts.

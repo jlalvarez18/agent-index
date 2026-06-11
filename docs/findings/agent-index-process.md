@@ -26,6 +26,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Source-only indexing improved Graphify Hit@5 from 0.20 to 0.30 and average latency from 65ms to 48ms by reducing the corpus from 142 Python files to 51.
 - Auditing the golden truth set against real Graphify v8 symbols improved source-only Hit@5 from 0.30 to 0.50. Several initial benchmark expectations were plausible guesses but not real v8 symbol names.
 - Splitting benchmark metrics showed the sharper truth: source-only file Hit@5 is 0.50, but exact symbol Hit@5 is only 0.20. The index finds neighborhoods better than exact functions right now.
+- The plain FTS baseline beat current symbol ranking on Symbol Hit@5, 0.40 vs 0.20. Symbol boosts improved Symbol Hit@1 and File MRR slightly, but they also pushed valid FTS candidates down.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas
@@ -42,4 +43,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Does normalized lexical search cover enough natural-language phrasing before embeddings are added?
 - How large can the SQLite-only approach get before query latency or index time becomes a problem?
 - Should the default scanner include tests, or should benchmark/query modes support source-only filtering?
-- Which ranking changes move symbol Hit@5 without reducing file Hit@5?
+- Can symbol-first ranking rerank plain FTS conservatively, preserving FTS top-five recall while improving Hit@1?

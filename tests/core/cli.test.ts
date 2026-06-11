@@ -42,8 +42,22 @@ describe("runCli", () => {
     const queryJson = JSON.parse(output[1]);
     expect(queryJson.matches[0].symbol).toBe("load_value");
     expect(output[2]).toContain("Questions: 1");
+    expect(output[2]).toContain("Mode: symbol");
     expect(output[2]).toContain("Symbol Hit@5: 1.00");
     expect(output[2]).toContain("File Hit@5: 1.00");
+  });
+
+  test("supports plain FTS benchmark mode", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["benchmark", benchmarkPath, "--target", root, "--mode", "fts"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Mode: fts");
+    expect(output[1]).toContain("Symbol Hit@5:");
   });
 
   test("supports source-only indexing that skips tests and tools", async () => {

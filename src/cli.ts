@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { runBenchmark } from "./core/benchmark.js";
 import { indexTarget } from "./core/indexer.js";
 import { queryIndex } from "./core/query.js";
+import type { QueryMode } from "./core/schema.js";
 
 export interface CliIO {
   write: (line: string) => void;
@@ -45,8 +46,10 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .command("benchmark")
     .argument("<benchmark-json>", "golden benchmark file")
     .requiredOption("--target <target>", "target repository or directory")
-    .action(async (benchmarkJson: string, options: { target: string }) => {
-      const result = await runBenchmark(benchmarkJson, { target: options.target });
+    .option("--mode <mode>", "benchmark mode: symbol or fts", "symbol")
+    .action(async (benchmarkJson: string, options: { target: string; mode: string }) => {
+      const mode = parseMode(options.mode);
+      const result = await runBenchmark(benchmarkJson, { target: options.target, mode });
       io.write(formatBenchmark(result));
     });
 
@@ -55,6 +58,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
 
 function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>): string {
   return [
+    `Mode: ${result.mode}`,
     `Questions: ${result.questions}`,
     `Symbol Hit@1: ${result.symbolHitAt1.toFixed(2)}`,
     `Symbol Hit@5: ${result.symbolHitAt5.toFixed(2)}`,
@@ -65,6 +69,13 @@ function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>): stri
     `Partial file hits: ${result.partialFileHits.toFixed(2)}`,
     `Avg latency: ${Math.round(result.avgLatencyMs)}ms`
   ].join("\n");
+}
+
+function parseMode(mode: string): QueryMode {
+  if (mode === "symbol" || mode === "fts") {
+    return mode;
+  }
+  throw new Error(`Invalid benchmark mode: ${mode}. Expected "symbol" or "fts".`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {

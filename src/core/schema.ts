@@ -76,8 +76,11 @@ export interface QueryMatch {
 
 export interface QueryResponse {
   query: string;
+  mode: QueryMode;
   matches: QueryMatch[];
 }
+
+export type QueryMode = "symbol" | "fts";
 
 export interface BenchmarkQuestion {
   id: string;
@@ -102,6 +105,7 @@ export interface BenchmarkCaseResult {
 }
 
 export interface BenchmarkResult {
+  mode: QueryMode;
   questions: number;
   symbolHitAt1: number;
   symbolHitAt5: number;

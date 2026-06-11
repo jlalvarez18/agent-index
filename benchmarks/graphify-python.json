@@ -1,0 +1,82 @@
+[
+  {
+    "id": "semantic-cache",
+    "question": "where is semantic cache handled?",
+    "expected": {
+      "files": ["graphify/cache.py"],
+      "symbols": ["check_semantic_cache"]
+    }
+  },
+  {
+    "id": "main-entrypoint",
+    "question": "where is the command line entrypoint?",
+    "expected": {
+      "files": ["graphify/__main__.py"],
+      "symbols": ["main"]
+    }
+  },
+  {
+    "id": "extract-code",
+    "question": "where does code extraction happen?",
+    "expected": {
+      "files": ["graphify/extractors/code.py"],
+      "symbols": ["extract_code"]
+    }
+  },
+  {
+    "id": "build-graph",
+    "question": "where is the graph built from extracted nodes and edges?",
+    "expected": {
+      "files": ["graphify/graph.py"],
+      "symbols": ["build_graph"]
+    }
+  },
+  {
+    "id": "incremental-cache",
+    "question": "where does incremental indexing decide what changed?",
+    "expected": {
+      "files": ["graphify/cache.py"],
+      "symbols": ["load_manifest"]
+    }
+  },
+  {
+    "id": "query-seeds",
+    "question": "where are query seed nodes selected?",
+    "expected": {
+      "files": ["graphify/query.py"],
+      "symbols": ["find_seed_nodes"]
+    }
+  },
+  {
+    "id": "graph-export",
+    "question": "where is graph json exported?",
+    "expected": {
+      "files": ["graphify/export.py"],
+      "symbols": ["export_graph_json"]
+    }
+  },
+  {
+    "id": "mcp-server",
+    "question": "where is the MCP server implemented?",
+    "expected": {
+      "files": ["graphify/mcp.py"],
+      "symbols": ["serve"]
+    }
+  },
+  {
+    "id": "report-generation",
+    "question": "where are analysis reports generated?",
+    "expected": {
+      "files": ["graphify/report.py"],
+      "symbols": ["generate_report"]
+    }
+  },
+  {
+    "id": "community-detection",
+    "question": "where does community detection run?",
+    "expected": {
+      "files": ["graphify/cluster.py"],
+      "symbols": ["detect_communities"]
+    }
+  }
+]

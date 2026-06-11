@@ -1,0 +1,27 @@
+{
+  "name": "agent-index",
+  "version": "0.1.0",
+  "description": "Symbol-first local code index prototype for coding agents.",
+  "type": "module",
+  "bin": {
+    "agent-index": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "agent-index": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "commander": "^13.1.0",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-python": "^0.21.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}

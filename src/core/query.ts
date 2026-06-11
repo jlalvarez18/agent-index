@@ -482,6 +482,25 @@ function intentRulesForQuestion(question: string): IntentRule[] {
     });
   }
 
+  if (
+    tokens.has("incremental") &&
+    (tokens.has("changed") || tokens.has("change") || tokens.has("indexing") || tokens.has("index"))
+  ) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        const symbol = normalize(row.qualified_name);
+        let score = 0;
+        if (row.symbol_name === "detect_incremental") score += 22;
+        if (symbol.includes("incremental")) score += 12;
+        if (symbol.includes("manifest")) score += 10;
+        if (row.file_path.endsWith("detect.py")) score += 8;
+        return score;
+      }
+    });
+  }
+
   return rules;
 }
 

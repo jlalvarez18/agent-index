@@ -283,6 +283,40 @@ community-detection   symbolRank=1     fileRank=1     top=cluster               
 
 The remaining exact miss is `incremental-cache`, where `watch` and rebuild orchestration still outrank the expected incremental manifest/cache symbols. This is a different problem from the earlier broad query misses: the index is in the right area, but needs better task-specific ordering for state/cache maintenance symbols.
 
+Hybrid with incremental change-detection intent:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+Symbol MRR: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+File MRR: 1.00
+Partial file hits: 0.00
+Avg latency: 53ms
+```
+
+The last miss was `incremental-cache`. Inspection showed the benchmark expectation was fair: `watch()` observes filesystem events and triggers rebuilds, but `detect_incremental()` is where Graphify loads the manifest and decides which files changed. The ranking fix adds a narrow intent rule for queries that combine `incremental` with change/indexing terms, boosting `detect_incremental` and manifest symbols over watcher orchestration.
+
+Final Graphify hybrid detail:
+
+```text
+semantic-cache        symbolRank=1     fileRank=1     top=save_semantic_cache      file=graphify/cache.py
+main-entrypoint       symbolRank=1     fileRank=1     top=main                     file=graphify/__main__.py
+extract-code          symbolRank=1     fileRank=1     top=extract_python           file=graphify/extract.py
+build-graph           symbolRank=1     fileRank=1     top=build                    file=graphify/build.py
+incremental-cache     symbolRank=1     fileRank=1     top=detect_incremental       file=graphify/detect.py
+query-seeds           symbolRank=1     fileRank=1     top=_pick_seeds              file=graphify/serve.py
+graph-export          symbolRank=1     fileRank=1     top=to_json                  file=graphify/export.py
+mcp-server            symbolRank=1     fileRank=1     top=serve                    file=graphify/serve.py
+report-generation     symbolRank=1     fileRank=1     top=generate                 file=graphify/report.py
+community-detection   symbolRank=1     fileRank=1     top=cluster                  file=graphify/cluster.py
+```
+
+This saturates the current 10-question Graphify benchmark. Further Graphify-only ranking work is no longer informative; the next useful evidence should come from another repository or a larger golden set.
+
 ## Qualitative Examples
 
 Strong partial success:
@@ -329,6 +363,14 @@ Core-symbol ordering success:
 - Expected result: `cluster` or `_partition` in `graphify/cluster.py`
 - Finding: once the right file is found, the file-stem function is often the better agent starting point than a nearby helper with more matching words.
 
+Incremental change-detection success:
+
+- Query: `where does incremental indexing decide what changed?`
+- Top result before incremental intent: `watch` in `graphify/watch.py`
+- Top result after incremental intent: `detect_incremental` in `graphify/detect.py`
+- Expected result: `detect_incremental`, `load_manifest`, or `save_manifest` in `graphify/detect.py`
+- Finding: event orchestration and change-decision logic are easy to conflate lexically. The query needs enough intent to prefer the function that performs the manifest comparison.
+
 Truth-set corrections:
 
 - `extract-code`: `graphify/extract.py` with `extract`, `_extract_single_file`, or `extract_python`
@@ -345,6 +387,7 @@ Truth-set corrections:
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
 - Treat `--mode hybrid` as the current best prototype ranking mode.
 - Keep comparing every ranking change against both `--mode fts` and `--mode hybrid`.
-- Next ranking work should focus on the remaining `incremental-cache` miss and decide whether query-intent rules for state/cache maintenance generalize beyond this corpus.
+- Do not keep tuning against the current Graphify set; it is saturated.
+- Next benchmark work should add a second repository or expand the golden set before more ranking changes.
 - Use `--json` detail output before every ranking change to verify which questions moved and why.
 - Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are exact-symbol ordering problems.

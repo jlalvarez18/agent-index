@@ -36,6 +36,8 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - The remaining Graphify misses are no longer file-retrieval misses. They are exact-symbol ordering misses inside the right file or immediate neighborhood.
 - Core-symbol ordering improved hybrid to Symbol Hit@1 0.90 / Symbol Hit@5 1.00 by preferring file-stem function matches and demoting explanatory helper names. A first version was too broad and boosted classes, so the rule is now limited to function-like symbols.
 - The only remaining Graphify miss is `incremental-cache`, where orchestration code in `watch.py` outranks the expected manifest/cache symbols.
+- Inspecting the incremental-cache miss confirmed the golden label: `watch()` orchestrates file events, while `detect_incremental()` decides what changed by comparing the manifest. Adding a narrow incremental change-detection intent rule saturated the current Graphify benchmark at Symbol Hit@1 1.00 / Symbol Hit@5 1.00.
+- The current Graphify set is no longer useful for additional ranking optimization by itself. The next evidence should come from another repository or a larger golden set.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas

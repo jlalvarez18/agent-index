@@ -232,6 +232,34 @@ def _split_community(graph):
     await expectTopHybridSymbol(root, "where does code extraction happen?", "extract_python");
     await expectTopHybridSymbol(root, "where does community detection run?", "cluster");
   });
+
+  test("hybrid mode prefers incremental change detection over watcher orchestration", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-incremental-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "watch.py"),
+      `def watch():
+    incremental_indexing_decide_changed = "orchestrates incremental indexing when files changed"
+    return incremental_indexing_decide_changed
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "detect.py"),
+      `def detect_incremental(root):
+    manifest = load_manifest(root)
+    return manifest
+
+def load_manifest(root):
+    return {}
+
+def save_manifest(files):
+    return None
+`
+    );
+    await indexTarget(root);
+
+    await expectTopHybridSymbol(root, "where does incremental indexing decide what changed?", "detect_incremental");
+  });
 });
 
 async function expectTopHybridSymbol(root: string, question: string, symbol: string): Promise<void> {

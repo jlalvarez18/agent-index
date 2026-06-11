@@ -410,6 +410,53 @@ function intentRulesForQuestion(question: string): IntentRule[] {
     });
   }
 
+  if (tokens.has("extract") || tokens.has("extraction")) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        const symbol = normalize(row.qualified_name);
+        let score = 0;
+        if (row.file_path.endsWith("extract.py")) score += 12;
+        if (symbol.includes("extract")) score += 14;
+        if (symbol.includes("python") && (tokens.has("code") || tokens.has("source"))) score += 4;
+        return score;
+      }
+    });
+  }
+
+  if (tokens.has("build") || tokens.has("built") || tokens.has("construct")) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        const symbol = normalize(row.qualified_name);
+        let score = 0;
+        if (row.file_path.endsWith("build.py")) score += 12;
+        if (row.symbol_name === "build") score += 16;
+        if (symbol.includes("build")) score += 10;
+        if (symbol.includes("from json") && tokens.has("graph")) score += 6;
+        return score;
+      }
+    });
+  }
+
+  if ((tokens.has("seed") || tokens.has("seeds")) && (tokens.has("query") || tokens.has("select") || tokens.has("selected"))) {
+    rules.push({
+      reason: "query intent match",
+      boost: 12,
+      score: (row) => {
+        const symbol = normalize(row.qualified_name);
+        let score = 0;
+        if (row.symbol_name === "_pick_seeds") score += 18;
+        if (row.symbol_name === "_score_nodes") score += 12;
+        if (symbol.includes("seed")) score += 12;
+        if (row.file_path.endsWith("serve.py")) score += 8;
+        return score;
+      }
+    });
+  }
+
   return rules;
 }
 

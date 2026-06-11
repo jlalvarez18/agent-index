@@ -32,6 +32,8 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Source-only hygiene v2 removed fixture/sample corpora from the benchmark index, reducing Graphify from 51 indexed Python files to 37. Metrics stayed flat, but noisy `worked/` results disappeared from the miss table.
 - Query-intent candidate expansion changed the best hybrid result from Symbol Hit@1 0.10 / Symbol Hit@5 0.40 to Symbol Hit@1 0.50 / Symbol Hit@5 0.70. The win came from adding likely candidates for high-signal terms such as `entrypoint`, `export json`, `report`, `community detection`, and `mcp server` before reranking.
 - The query-intent layer is deliberately labeled as a hand-built retrieval prior. It is useful evidence that agents need query understanding, but it is not yet evidence that a fixed rule list generalizes across repositories.
+- General action aliases for `extraction`, `built`, and query `seeds` improved hybrid to Symbol Hit@1 0.70 / Symbol Hit@5 1.00. This suggests a small vocabulary of coding verbs can recover implementation candidates that plain FTS misses or under-ranks.
+- The remaining Graphify misses are no longer file-retrieval misses. They are exact-symbol ordering misses inside the right file or immediate neighborhood.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas

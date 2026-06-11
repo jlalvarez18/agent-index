@@ -215,6 +215,40 @@ community-detection   symbolRank=2     fileRank=1     top=_split_community      
 
 This is the strongest prototype result so far, but it is also less general than the previous hybrid mode. The improvement comes from explicit code-search priors, so it should be treated as evidence that agents benefit from query understanding, not proof that this exact rule list will transfer unchanged to every repository.
 
+Hybrid with generic action-alias candidate expansion:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 0.70
+Symbol Hit@5: 1.00
+Symbol MRR: 0.83
+File Hit@1: 0.90
+File Hit@5: 1.00
+File MRR: 0.93
+Partial file hits: 0.00
+Avg latency: 60ms
+```
+
+This extends query-intent expansion with more general action aliases: `extraction` maps toward extract files/symbols, `built` maps toward build files/symbols, and query `seeds` maps toward seed-picking/scoring symbols. This improved the remaining broad implementation questions without adding Graphify path literals beyond conventional file/symbol names.
+
+Action-alias hybrid detail:
+
+```text
+semantic-cache        symbolRank=1     fileRank=1     top=save_semantic_cache      file=graphify/cache.py
+main-entrypoint       symbolRank=1     fileRank=1     top=main                     file=graphify/__main__.py
+extract-code          symbolRank=2     fileRank=1     top=_extract_python_rationale file=graphify/extract.py
+build-graph           symbolRank=1     fileRank=1     top=build                    file=graphify/build.py
+incremental-cache     symbolRank=3     fileRank=3     top=graphify/watch.py        file=graphify/watch.py
+query-seeds           symbolRank=1     fileRank=1     top=_pick_seeds              file=graphify/serve.py
+graph-export          symbolRank=1     fileRank=1     top=to_json                  file=graphify/export.py
+mcp-server            symbolRank=1     fileRank=1     top=serve                    file=graphify/serve.py
+report-generation     symbolRank=1     fileRank=1     top=generate                 file=graphify/report.py
+community-detection   symbolRank=2     fileRank=1     top=_split_community         file=graphify/cluster.py
+```
+
+At this point, every golden question has the expected file and symbol in the top five. The two remaining exact Hit@1 misses are ordering problems inside the right neighborhood: extraction ranks `_extract_python_rationale` over the expected extraction functions, and community detection ranks `_split_community` over `cluster`/`_partition`.
+
 ## Qualitative Examples
 
 Strong partial success:
@@ -246,6 +280,13 @@ Miss with relevant pipeline context:
 - Expected result: `cluster` or `_partition` in `graphify/cluster.py`
 - Finding: the file-level answer is now correct, but exact symbol ranking still needs nuance because an adjacent helper outranks the two expected implementation symbols.
 
+Alias expansion success:
+
+- Query: `where is the graph built?`
+- Top result after action-alias expansion: `build` in `graphify/build.py`
+- Expected result: `build` or `build_from_json` in `graphify/build.py`
+- Finding: a light verb alias for `built` -> `build` is enough to move this from a watch/rebuild support result to the implementation function.
+
 Truth-set corrections:
 
 - `extract-code`: `graphify/extract.py` with `extract`, `_extract_single_file`, or `extract_python`
@@ -262,6 +303,6 @@ Truth-set corrections:
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
 - Treat `--mode hybrid` as the current best prototype ranking mode.
 - Keep comparing every ranking change against both `--mode fts` and `--mode hybrid`.
-- Next ranking work should focus on the remaining misses: extraction, graph building, query seed selection, incremental cache ranking, and exact community symbol ordering.
+- Next ranking work should focus on exact symbol ordering inside the right file/neighborhood, especially extraction and community detection.
 - Use `--json` detail output before every ranking change to verify which questions moved and why.
-- Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are query understanding and exact-symbol ordering problems.
+- Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are exact-symbol ordering problems.

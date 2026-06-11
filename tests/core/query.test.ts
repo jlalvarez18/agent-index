@@ -163,6 +163,46 @@ def mcp_server_notes():
     await expectTopHybridSymbol(root, "where is community detection?", "cluster_communities");
     await expectTopHybridSymbol(root, "where is mcp server?", "serve");
   });
+
+  test("hybrid mode expands generic action aliases for remaining implementation queries", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-action-aliases-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "extract.py"),
+      `def extract_python(source):
+    return source
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "build.py"),
+      `def build(graph_data):
+    return graph_data
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "serve.py"),
+      `def _pick_seeds(graph):
+    return list(graph)[:3]
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "notes.py"),
+      `def code_extraction_notes():
+    return "code extraction discussion"
+
+def graph_built_notes():
+    return "graph built discussion"
+
+def query_seed_selection_notes():
+    return "query seed selection discussion"
+`
+    );
+    await indexTarget(root);
+
+    await expectTopHybridSymbol(root, "where does code extraction happen?", "extract_python");
+    await expectTopHybridSymbol(root, "where is the graph built?", "build");
+    await expectTopHybridSymbol(root, "where are query seeds selected?", "_pick_seeds");
+  });
 });
 
 async function expectTopHybridSymbol(root: string, question: string, symbol: string): Promise<void> {

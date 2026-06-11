@@ -8,6 +8,7 @@ import type { CodeEdge, CodeSymbol, ExtractionResult, IndexStats } from "./schem
 
 export interface IndexOptions {
   indexPath?: string;
+  includeSupportCode?: boolean;
 }
 
 export async function indexTarget(target: string, options: IndexOptions = {}): Promise<IndexStats> {
@@ -20,7 +21,7 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
   const db = new Database(indexPath);
   try {
     createSchema(db);
-    const files = await scanPythonFiles(root);
+    const files = await scanPythonFiles(root, { includeSupportCode: options.includeSupportCode });
     const extractions = files.map(extractPython);
     const stats = writeExtractions(db, extractions);
     return { ...stats, indexPath };

@@ -20,8 +20,9 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
   program
     .command("index")
     .argument("<target>", "target repository or directory")
-    .action(async (target: string) => {
-      const stats = await indexTarget(target);
+    .option("--source-only", "skip tests and tools while indexing")
+    .action(async (target: string, options: { sourceOnly?: boolean }) => {
+      const stats = await indexTarget(target, { includeSupportCode: !options.sourceOnly });
       io.write(
         `Indexed ${stats.files} files, ${stats.symbols} symbols, ${stats.chunks} chunks, ${stats.edges} edges at ${stats.indexPath}`
       );

@@ -5,6 +5,7 @@ import { queryIndex } from "./query.js";
 export interface BenchmarkOptions {
   target: string;
   indexPath?: string;
+  includeSupportCode?: boolean;
 }
 
 export async function runBenchmark(benchmarkPath: string, options: BenchmarkOptions): Promise<BenchmarkResult> {

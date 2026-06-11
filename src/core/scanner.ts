@@ -13,16 +13,24 @@ const IGNORED_DIRS = new Set([
   "__pycache__"
 ]);
 
-export async function scanPythonFiles(target: string): Promise<SourceFile[]> {
+const SUPPORT_CODE_DIRS = new Set(["tests", "test", "tools"]);
+
+export interface ScanOptions {
+  includeSupportCode?: boolean;
+}
+
+export async function scanPythonFiles(target: string, options: ScanOptions = {}): Promise<SourceFile[]> {
   const root = path.resolve(target);
   const files: SourceFile[] = [];
+  const includeSupportCode = options.includeSupportCode ?? true;
 
   async function visit(directory: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true });
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
+        const isSupportDir = SUPPORT_CODE_DIRS.has(entry.name);
+        if (!IGNORED_DIRS.has(entry.name) && (includeSupportCode || !isSupportDir)) {
           await visit(path.join(directory, entry.name));
         }
         continue;

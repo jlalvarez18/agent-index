@@ -44,4 +44,17 @@ describe("runCli", () => {
     expect(output[2]).toContain("Questions: 1");
     expect(output[2]).toContain("Hit@5: 1.00");
   });
+
+  test("supports source-only indexing that skips tests and tools", async () => {
+    const { root } = await fixtureProject();
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await mkdir(path.join(root, "tools"), { recursive: true });
+    await writeFile(path.join(root, "tests", "test_noise.py"), "def noisy_test_symbol():\n    return 1\n");
+    await writeFile(path.join(root, "tools", "helper.py"), "def noisy_tool_symbol():\n    return 1\n");
+    const output: string[] = [];
+
+    await runCli(["index", root, "--source-only"], { write: (line) => output.push(line) });
+
+    expect(output[0]).toContain("Indexed 1 files");
+  });
 });

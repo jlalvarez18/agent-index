@@ -9,7 +9,7 @@ The benchmark was run against the local Graphify checkout at `/Users/juan/Repos/
 Command once the corpus exists:
 
 ```bash
-npm run agent-index -- index /Users/juan/Repos/graphify
+npm run agent-index -- index /Users/juan/Repos/graphify --source-only
 npm run agent-index -- benchmark ./benchmarks/graphify-python.json --target /Users/juan/Repos/graphify
 ```
 
@@ -29,13 +29,13 @@ The seed set contains 10 questions covering cache behavior, CLI entrypoint, code
 
 Run date: 2026-06-11
 
-Index summary:
+All-files index summary:
 
 ```text
 Indexed 142 files, 3081 symbols, 3081 chunks, 15924 edges at /Users/juan/Repos/graphify/.codeindex/index.sqlite
 ```
 
-Benchmark summary:
+All-files benchmark summary:
 
 ```text
 Questions: 10
@@ -45,6 +45,25 @@ MRR: 0.15
 Partial file hits: 0.10
 Avg latency: 65ms
 ```
+
+Source-only index summary:
+
+```text
+Indexed 51 files, 978 symbols, 978 chunks, 7014 edges at /Users/juan/Repos/graphify/.codeindex/index.sqlite
+```
+
+Source-only benchmark summary:
+
+```text
+Questions: 10
+Hit@1: 0.20
+Hit@5: 0.30
+MRR: 0.22
+Partial file hits: 0.20
+Avg latency: 48ms
+```
+
+Source-only filtering improved every metric in this first run, but the absolute score is still low. The next bottleneck is likely the benchmark seed quality plus ranking, not just corpus noise.
 
 ## Qualitative Examples
 
@@ -71,7 +90,7 @@ Miss with relevant pipeline context:
 
 ## Next Benchmark Improvements
 
-- Add scanner options or defaults to exclude `tests/`, `tools/`, and generated output when benchmarking product code.
+- Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
 - Revisit golden expected symbols against the actual `v8` source; several seed names were plausible placeholders before the corpus was available.
 - Add a plain FTS baseline so the symbol-first approach can be compared against something concrete.
 - Improve ranking so exact symbol intent beats broad source-text matches.

@@ -35,4 +35,19 @@ describe("scanPythonFiles", () => {
       }
     ]);
   });
+
+  test("can skip tests and tools for source-only benchmark indexing", async () => {
+    const root = await fixtureDir();
+    await mkdir(path.join(root, "graphify"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await mkdir(path.join(root, "tools", "skillgen"), { recursive: true });
+
+    await writeFile(path.join(root, "graphify", "cache.py"), "def product():\n    return 1\n");
+    await writeFile(path.join(root, "tests", "test_cache.py"), "def test_product():\n    return 1\n");
+    await writeFile(path.join(root, "tools", "skillgen", "gen.py"), "def helper():\n    return 1\n");
+
+    const files = await scanPythonFiles(root, { includeSupportCode: false });
+
+    expect(files.map((file) => file.relativePath)).toEqual(["graphify/cache.py"]);
+  });
 });

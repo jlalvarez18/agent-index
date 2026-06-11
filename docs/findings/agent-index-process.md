@@ -23,6 +23,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - One-hop graph expansion is useful as supporting context, but it should not flood the result. In v1 it is a flashlight around the match, not the whole map.
 - Tree-sitter's Node binding can reject large Python source strings with `Invalid argument`. Feeding the parser through its callback API avoids that native string-argument failure.
 - Running against Graphify showed a major benchmark hygiene issue: indexing `tests/` and `tools/` lets helper code outrank product code for broad natural-language questions.
+- Source-only indexing improved Graphify Hit@5 from 0.20 to 0.30 and average latency from 65ms to 48ms by reducing the corpus from 142 Python files to 51.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas

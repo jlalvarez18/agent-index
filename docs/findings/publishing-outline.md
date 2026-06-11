@@ -15,7 +15,7 @@ Agents do not only need more text search. They need search results tied to code 
 3. Prototype: TypeScript CLI, Tree-sitter Python extraction, SQLite/FTS5, symbol-first ranking.
 4. Key lesson: normalize identifiers so natural-language questions can find `snake_case` and dotted paths.
 5. Benchmark: 10 Graphify questions, Hit@1, Hit@5, MRR, partial file hits, latency.
-6. Results: first Graphify run reached Hit@1 0.10, Hit@5 0.20, MRR 0.15, with tests/tools noise as the clearest failure mode.
+6. Results: first Graphify all-files run reached Hit@1 0.10, Hit@5 0.20, MRR 0.15; source-only filtering improved this to Hit@1 0.20, Hit@5 0.30, MRR 0.22.
 7. What worked: cited symbol results, simple local setup, one-hop graph context.
 8. What did not: unresolved call names, lexical-only phrasing limits, no incremental updates.
 9. Next steps: compare against plain FTS, add embeddings, add MCP, add incremental indexing.

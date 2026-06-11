@@ -109,6 +109,23 @@ Avg latency: 6ms
 
 Symbol-first ranking is not yet a clear win. It improves Symbol Hit@1 from 0.00 to 0.10 and File MRR from 0.25 to 0.29, but it reduces Symbol Hit@5 from 0.40 to 0.20 and is slower because it expands graph neighbors. The ranking boosts are helping a few first-place results while pushing some valid expected symbols out of the top five.
 
+Hybrid conservative rerank:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 0.10
+Symbol Hit@5: 0.40
+Symbol MRR: 0.19
+File Hit@1: 0.20
+File Hit@5: 0.50
+File MRR: 0.29
+Partial file hits: 0.10
+Avg latency: 43ms
+```
+
+Hybrid protects the plain FTS top-five candidate set, then reranks that protected set with symbol/file/edge signals. This preserved FTS Symbol Hit@5 at 0.40 while matching symbol mode's Symbol Hit@1 and File MRR. In practical terms, FTS remains the recall backbone and symbol context becomes a conservative ordering signal.
+
 ## Qualitative Examples
 
 Strong partial success:
@@ -146,6 +163,6 @@ Truth-set corrections:
 ## Next Benchmark Improvements
 
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
-- Keep comparing every ranking change against `--mode fts`.
-- Improve ranking so symbol/file boosts rerank FTS candidates without pushing valid FTS symbol hits out of the top five.
-- Consider reciprocal rank fusion between plain FTS order and symbol-first boost order instead of replacing FTS order with additive boosts.
+- Treat `--mode hybrid` as the current best prototype ranking mode.
+- Keep comparing every ranking change against both `--mode fts` and `--mode hybrid`.
+- Next ranking work should improve Hybrid Symbol Hit@1 without reducing Hybrid Symbol Hit@5.

@@ -24,7 +24,8 @@ Agents do not only need more text search. They need search results tied to code 
 
 - Symbol mode: Symbol Hit@1 0.10, Symbol Hit@5 0.20, File Hit@5 0.50, Avg 47ms.
 - Plain FTS mode: Symbol Hit@1 0.00, Symbol Hit@5 0.40, File Hit@5 0.50, Avg 6ms.
-- Early conclusion: structure is not automatically better. The first ranker is over-weighting symbol/file/module signals and should be made more conservative.
+- Hybrid mode: Symbol Hit@1 0.10, Symbol Hit@5 0.40, File Hit@5 0.50, Avg 43ms.
+- Early conclusion: structure is useful as a conservative reranker, not as a replacement for lexical recall.
 
 ## Evidence To Include Later
 

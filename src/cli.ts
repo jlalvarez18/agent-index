@@ -46,7 +46,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .command("benchmark")
     .argument("<benchmark-json>", "golden benchmark file")
     .requiredOption("--target <target>", "target repository or directory")
-    .option("--mode <mode>", "benchmark mode: symbol or fts", "symbol")
+    .option("--mode <mode>", "benchmark mode: symbol, fts, or hybrid", "symbol")
     .action(async (benchmarkJson: string, options: { target: string; mode: string }) => {
       const mode = parseMode(options.mode);
       const result = await runBenchmark(benchmarkJson, { target: options.target, mode });
@@ -72,10 +72,10 @@ function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>): stri
 }
 
 function parseMode(mode: string): QueryMode {
-  if (mode === "symbol" || mode === "fts") {
+  if (mode === "symbol" || mode === "fts" || mode === "hybrid") {
     return mode;
   }
-  throw new Error(`Invalid benchmark mode: ${mode}. Expected "symbol" or "fts".`);
+  throw new Error(`Invalid benchmark mode: ${mode}. Expected "symbol", "fts", or "hybrid".`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {

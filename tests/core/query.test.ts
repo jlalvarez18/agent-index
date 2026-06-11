@@ -58,4 +58,19 @@ describe("queryIndex", () => {
     expect(result.matches[0].why).toEqual(["plain FTS match"]);
     expect(result.matches[0].neighbors).toEqual([]);
   });
+
+  test("hybrid mode preserves the FTS top-five set while adding graph context", async () => {
+    const root = await fixtureProject();
+    await indexTarget(root);
+
+    const fts = await queryIndex("where is semantic cache loaded?", { target: root, limit: 5, mode: "fts" });
+    const hybrid = await queryIndex("where is semantic cache loaded?", { target: root, limit: 5, mode: "hybrid" });
+
+    expect(hybrid.mode).toBe("hybrid");
+    expect(hybrid.matches.map((match) => match.symbol).sort()).toEqual(
+      fts.matches.map((match) => match.symbol).sort()
+    );
+    expect(hybrid.matches.some((match) => match.neighbors.length > 0)).toBe(true);
+    expect(hybrid.matches[0].why).toContain("matched source text");
+  });
 });

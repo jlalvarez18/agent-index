@@ -80,7 +80,7 @@ export interface QueryResponse {
   matches: QueryMatch[];
 }
 
-export type QueryMode = "symbol" | "fts";
+export type QueryMode = "symbol" | "fts" | "hybrid";
 
 export interface BenchmarkQuestion {
   id: string;

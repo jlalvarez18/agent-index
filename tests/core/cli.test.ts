@@ -60,6 +60,18 @@ describe("runCli", () => {
     expect(output[1]).toContain("Symbol Hit@5:");
   });
 
+  test("supports hybrid benchmark mode", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["benchmark", benchmarkPath, "--target", root, "--mode", "hybrid"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Mode: hybrid");
+  });
+
   test("supports source-only indexing that skips tests and tools", async () => {
     const { root } = await fixtureProject();
     await mkdir(path.join(root, "tests"), { recursive: true });

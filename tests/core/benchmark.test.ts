@@ -93,4 +93,13 @@ describe("runBenchmark", () => {
     expect(result.questions).toBe(2);
     expect(result.cases[0].firstMatch?.why).toEqual(["plain FTS match"]);
   });
+
+  test("can run the hybrid benchmark mode", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+
+    const result = await runBenchmark(benchmarkPath, { target: root, mode: "hybrid" });
+
+    expect(result.mode).toBe("hybrid");
+    expect(result.questions).toBe(2);
+  });
 });

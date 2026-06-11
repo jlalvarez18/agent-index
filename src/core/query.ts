@@ -30,17 +30,41 @@ export async function queryIndex(question: string, options: QueryOptions): Promi
   const mode = options.mode ?? "symbol";
   try {
     const rows = searchCandidates(db, question);
-    const matches =
-      mode === "fts"
-        ? rows.map(toPlainFtsMatch).slice(0, options.limit ?? 5)
-        : rows
-            .map((row) => toMatch(db, row, question))
-            .sort((a, b) => b.score - a.score)
-            .slice(0, options.limit ?? 5);
+    const matches = rankRows(db, rows, question, mode, options.limit ?? 5);
     return { query: question, mode, matches };
   } finally {
     db.close();
   }
+}
+
+function rankRows(
+  db: Database.Database,
+  rows: CandidateRow[],
+  question: string,
+  mode: QueryMode,
+  limit: number
+): QueryMatch[] {
+  if (mode === "fts") {
+    return rows.map(toPlainFtsMatch).slice(0, limit);
+  }
+
+  if (mode === "hybrid") {
+    const protectedCount = Math.min(5, limit, rows.length);
+    const protectedMatches = rows
+      .slice(0, protectedCount)
+      .map((row) => toMatch(db, row, question))
+      .sort((a, b) => b.score - a.score);
+    const remaining = rows
+      .slice(protectedCount)
+      .map((row) => toMatch(db, row, question))
+      .sort((a, b) => b.score - a.score);
+    return [...protectedMatches, ...remaining].slice(0, limit);
+  }
+
+  return rows
+    .map((row) => toMatch(db, row, question))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 }
 
 function searchCandidates(db: Database.Database, question: string): CandidateRow[] {

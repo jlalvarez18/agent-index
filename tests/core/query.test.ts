@@ -203,6 +203,35 @@ def query_seed_selection_notes():
     await expectTopHybridSymbol(root, "where is the graph built?", "build");
     await expectTopHybridSymbol(root, "where are query seeds selected?", "_pick_seeds");
   });
+
+  test("hybrid mode prefers core implementation symbols over nearby helpers", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-core-symbols-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "extract.py"),
+      `def extract_python(source):
+    return source
+
+def _extract_python_rationale(source):
+    code_extraction_rationale = "why extraction works"
+    return code_extraction_rationale
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "cluster.py"),
+      `def cluster(graph):
+    return _split_community(graph)
+
+def _split_community(graph):
+    community_detection_split = graph
+    return community_detection_split
+`
+    );
+    await indexTarget(root);
+
+    await expectTopHybridSymbol(root, "where does code extraction happen?", "extract_python");
+    await expectTopHybridSymbol(root, "where does community detection run?", "cluster");
+  });
 });
 
 async function expectTopHybridSymbol(root: string, question: string, symbol: string): Promise<void> {

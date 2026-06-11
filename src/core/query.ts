@@ -222,6 +222,12 @@ function toMatch(db: Database.Database, row: CandidateRow, question: string): Qu
     }
   }
 
+  const coreAdjustment = coreSymbolAdjustment(row);
+  score += coreAdjustment.score;
+  if (coreAdjustment.score > 0) {
+    addWhy(why, coreAdjustment.reason);
+  }
+
   const neighbors = expandNeighbors(db, row.symbol_id);
   if (neighbors.length > 0) {
     score += 0.5;
@@ -323,6 +329,25 @@ function queryTokens(question: string): string[] {
 function rankedQueryTokens(question: string): string[] {
   const tokens = queryTokens(question).flatMap((token) => [token, stemToken(token)]);
   return tokens.filter((token, index) => token.length >= 2 && tokens.indexOf(token) === index);
+}
+
+function coreSymbolAdjustment(row: CandidateRow): { score: number; reason: string } {
+  let score = 0;
+  const fileStem = normalize(path.basename(row.file_path, ".py"));
+  const symbolName = normalize(row.symbol_name.replace(/^_+/, ""));
+  const symbolTokens = new Set(symbolName.split(/\s+/).filter(Boolean));
+
+  if (fileStem && symbolName === fileStem && (row.kind === "function" || row.kind === "method")) {
+    score += 6;
+  }
+
+  for (const supportToken of ["rationale", "note", "notes", "doc", "docs", "describe", "description", "explain"]) {
+    if (symbolTokens.has(supportToken)) {
+      score -= 8;
+    }
+  }
+
+  return { score, reason: "core symbol match" };
 }
 
 function intentRulesForQuestion(question: string): IntentRule[] {

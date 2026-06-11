@@ -15,7 +15,7 @@ Agents do not only need more text search. They need search results tied to code 
 3. Prototype: TypeScript CLI, Tree-sitter Python extraction, SQLite/FTS5, symbol-first ranking.
 4. Key lesson: normalize identifiers so natural-language questions can find `snake_case` and dotted paths.
 5. Benchmark: 10 Graphify questions, Hit@1, Hit@5, MRR, partial file hits, latency.
-6. Results: first Graphify all-files run reached blended Hit@5 0.20; source-only filtering improved blended Hit@5 to 0.30; truth-set auditing improved blended Hit@5 to 0.50; split scoring revealed exact Symbol Hit@5 was only 0.20 while File Hit@5 was 0.50; conservative hybrid plus query-intent candidate expansion later reached Symbol Hit@1 0.50 and Symbol Hit@5 0.70; generic action aliases reached Symbol Hit@1 0.70 and Symbol Hit@5 1.00.
+6. Results: first Graphify all-files run reached blended Hit@5 0.20; source-only filtering improved blended Hit@5 to 0.30; truth-set auditing improved blended Hit@5 to 0.50; split scoring revealed exact Symbol Hit@5 was only 0.20 while File Hit@5 was 0.50; conservative hybrid plus query-intent candidate expansion later reached Symbol Hit@1 0.50 and Symbol Hit@5 0.70; generic action aliases reached Symbol Hit@1 0.70 and Symbol Hit@5 1.00; core-symbol ordering reached Symbol Hit@1 0.90.
 7. What worked: cited symbol results, simple local setup, one-hop graph context.
 8. What did not: unresolved call names, lexical-only phrasing limits, no incremental updates.
 9. Next steps: compare against plain FTS, add embeddings, add MCP, add incremental indexing.
@@ -27,8 +27,9 @@ Agents do not only need more text search. They need search results tied to code 
 - Hybrid mode: Symbol Hit@1 0.10, Symbol Hit@5 0.40, File Hit@5 0.50, Avg 43ms.
 - Hybrid plus query-intent expansion: Symbol Hit@1 0.50, Symbol Hit@5 0.70, File Hit@5 0.70, Avg 56ms.
 - Hybrid plus action aliases: Symbol Hit@1 0.70, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 60ms.
+- Hybrid plus core-symbol ordering: Symbol Hit@1 0.90, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 61ms.
 - Early conclusion: structure is useful as a conservative reranker, and query understanding is needed when the right symbol is not present in the FTS candidate set.
-- Detailed benchmark JSON shows the current misses are exact-symbol ordering misses inside the right file, not parser/indexing failures.
+- Detailed benchmark JSON shows the current miss is the incremental-cache question, where orchestration code outranks cache/manifest maintenance symbols.
 - Source-only hygiene v2 removed fixture/sample corpora; remaining misses are now cleaner evidence for ranking/query-intent work.
 - The write-up should be explicit that the latest jump comes from a small hand-built intent layer, not from a general semantic model.
 

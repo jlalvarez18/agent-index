@@ -249,6 +249,40 @@ community-detection   symbolRank=2     fileRank=1     top=_split_community      
 
 At this point, every golden question has the expected file and symbol in the top five. The two remaining exact Hit@1 misses are ordering problems inside the right neighborhood: extraction ranks `_extract_python_rationale` over the expected extraction functions, and community detection ranks `_split_community` over `cluster`/`_partition`.
 
+Hybrid with core-symbol ordering:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 0.90
+Symbol Hit@5: 1.00
+Symbol MRR: 0.93
+File Hit@1: 0.90
+File Hit@5: 1.00
+File MRR: 0.93
+Partial file hits: 0.00
+Avg latency: 61ms
+```
+
+This adds a small intra-file ordering rule: prefer function/method symbols that match the file stem, and demote explanatory helper names like `rationale`, `notes`, or `describe`. The rule is intentionally narrow; an earlier broad version boosted classes such as `Cache` over more specific functions and had to be restricted to function-like symbols.
+
+Core-symbol hybrid detail:
+
+```text
+semantic-cache        symbolRank=1     fileRank=1     top=save_semantic_cache      file=graphify/cache.py
+main-entrypoint       symbolRank=1     fileRank=1     top=main                     file=graphify/__main__.py
+extract-code          symbolRank=1     fileRank=1     top=extract_python           file=graphify/extract.py
+build-graph           symbolRank=1     fileRank=1     top=build                    file=graphify/build.py
+incremental-cache     symbolRank=3     fileRank=3     top=watch                    file=graphify/watch.py
+query-seeds           symbolRank=1     fileRank=1     top=_pick_seeds              file=graphify/serve.py
+graph-export          symbolRank=1     fileRank=1     top=to_json                  file=graphify/export.py
+mcp-server            symbolRank=1     fileRank=1     top=serve                    file=graphify/serve.py
+report-generation     symbolRank=1     fileRank=1     top=generate                 file=graphify/report.py
+community-detection   symbolRank=1     fileRank=1     top=cluster                  file=graphify/cluster.py
+```
+
+The remaining exact miss is `incremental-cache`, where `watch` and rebuild orchestration still outrank the expected incremental manifest/cache symbols. This is a different problem from the earlier broad query misses: the index is in the right area, but needs better task-specific ordering for state/cache maintenance symbols.
+
 ## Qualitative Examples
 
 Strong partial success:
@@ -287,6 +321,14 @@ Alias expansion success:
 - Expected result: `build` or `build_from_json` in `graphify/build.py`
 - Finding: a light verb alias for `built` -> `build` is enough to move this from a watch/rebuild support result to the implementation function.
 
+Core-symbol ordering success:
+
+- Query: `where does community detection run?`
+- Top result before core-symbol ordering: `_split_community` in `graphify/cluster.py`
+- Top result after core-symbol ordering: `cluster` in `graphify/cluster.py`
+- Expected result: `cluster` or `_partition` in `graphify/cluster.py`
+- Finding: once the right file is found, the file-stem function is often the better agent starting point than a nearby helper with more matching words.
+
 Truth-set corrections:
 
 - `extract-code`: `graphify/extract.py` with `extract`, `_extract_single_file`, or `extract_python`
@@ -303,6 +345,6 @@ Truth-set corrections:
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
 - Treat `--mode hybrid` as the current best prototype ranking mode.
 - Keep comparing every ranking change against both `--mode fts` and `--mode hybrid`.
-- Next ranking work should focus on exact symbol ordering inside the right file/neighborhood, especially extraction and community detection.
+- Next ranking work should focus on the remaining `incremental-cache` miss and decide whether query-intent rules for state/cache maintenance generalize beyond this corpus.
 - Use `--json` detail output before every ranking change to verify which questions moved and why.
 - Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are exact-symbol ordering problems.

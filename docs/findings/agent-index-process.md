@@ -34,6 +34,8 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - The query-intent layer is deliberately labeled as a hand-built retrieval prior. It is useful evidence that agents need query understanding, but it is not yet evidence that a fixed rule list generalizes across repositories.
 - General action aliases for `extraction`, `built`, and query `seeds` improved hybrid to Symbol Hit@1 0.70 / Symbol Hit@5 1.00. This suggests a small vocabulary of coding verbs can recover implementation candidates that plain FTS misses or under-ranks.
 - The remaining Graphify misses are no longer file-retrieval misses. They are exact-symbol ordering misses inside the right file or immediate neighborhood.
+- Core-symbol ordering improved hybrid to Symbol Hit@1 0.90 / Symbol Hit@5 1.00 by preferring file-stem function matches and demoting explanatory helper names. A first version was too broad and boosted classes, so the rule is now limited to function-like symbols.
+- The only remaining Graphify miss is `incremental-cache`, where orchestration code in `watch.py` outranks the expected manifest/cache symbols.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas

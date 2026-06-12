@@ -43,7 +43,11 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Inspecting the HTTPX index showed `main` was absent from `httpx/_main.py`, not merely under-ranked. Tree-sitter wraps decorated functions and methods in `decorated_definition`; adding extraction for that wrapper increased HTTPX source-only coverage from 466 to 544 symbols and moved symbol-mode Hit@5 from 0.85 to 0.92.
 - Adding exact dotted API reference candidates and method owner/name ranking moved HTTPX symbol mode to Symbol Hit@1 0.69 / Hit@5 1.00 while preserving Graphify hybrid at 1.00. The remaining cross-corpus question is hybrid strategy, not symbol-mode recall.
 - Replacing hard hybrid FTS protection with a soft lexical boost for FTS top-five functions/methods moved HTTPX hybrid to Symbol Hit@1 0.77 / Hit@5 1.00 while preserving Graphify hybrid at 1.00. This suggests FTS should stay influential, but not act as a hard gate.
+- Click is now the third corpus. Its source-only index at `8a1b1a3` has 18 files, 609 symbols, and 2379 edges. The audited 14-question benchmark gives hybrid Symbol Hit@1 0.36 / Hit@5 0.79 and File Hit@5 1.00.
+- Click makes the current claim more precise: hybrid is the strongest current mode across the three corpora, but the remaining problem is often choosing the exact method after the right file or class neighborhood is already found.
+- Click also exposed an over-broad intent rule. The entrypoint prior helps `Command.main`, but terms like "command line values" can wrongly pull `Command.main` above option parsing methods.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
+- In the current sandbox, running `tsx` through the CLI may fail with `listen EPERM` on a temp IPC pipe. The same command works when run outside the sandbox.
 
 ## Rejected Ideas
 
@@ -62,4 +66,5 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Which top-one ranking signals can improve remaining HTTPX hybrid misses without turning the benchmark into a rule-list for specific questions?
 - Can query-intent terms like "entrypoint", "export", and "report" be mapped to likely file/symbol patterns without overfitting to Graphify?
 - Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?
-- Does the soft hybrid strategy hold on a third corpus, or is it tuned to the Graphify/HTTPX pair?
+- How should the ranker distinguish "command entrypoint" from ordinary "command line value" phrasing?
+- Can container-vs-method ordering improve Click without regressing Graphify or HTTPX?

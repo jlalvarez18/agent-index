@@ -1,0 +1,114 @@
+[
+  {
+    "id": "command-decorator",
+    "question": "where does Click turn a decorated function into a command?",
+    "expected": {
+      "files": ["src/click/decorators.py"],
+      "symbols": ["command"]
+    }
+  },
+  {
+    "id": "group-decorator",
+    "question": "where does Click create a group decorator from a function?",
+    "expected": {
+      "files": ["src/click/decorators.py"],
+      "symbols": ["group"]
+    }
+  },
+  {
+    "id": "option-decorator",
+    "question": "where are option decorators attached to commands?",
+    "expected": {
+      "files": ["src/click/decorators.py"],
+      "symbols": ["option", "_param_memo"]
+    }
+  },
+  {
+    "id": "context-callback-invoke",
+    "question": "where does a context invoke a callback with parameters?",
+    "expected": {
+      "files": ["src/click/core.py"],
+      "symbols": ["Context.invoke"]
+    }
+  },
+  {
+    "id": "command-main",
+    "question": "where is the main command invocation entrypoint implemented?",
+    "expected": {
+      "files": ["src/click/core.py"],
+      "symbols": ["Command.main"]
+    }
+  },
+  {
+    "id": "group-subcommand-dispatch",
+    "question": "where does a group resolve and invoke subcommands?",
+    "expected": {
+      "files": ["src/click/core.py"],
+      "symbols": ["Group.resolve_command", "Group.invoke"]
+    }
+  },
+  {
+    "id": "option-value-source",
+    "question": "where does an option consume command line values, defaults, prompts, and environment variables?",
+    "expected": {
+      "files": ["src/click/core.py"],
+      "symbols": ["Option.consume_value", "Option.value_from_envvar", "Option.prompt_for_value"]
+    }
+  },
+  {
+    "id": "choice-type-conversion",
+    "question": "where are choice parameter values normalized and converted?",
+    "expected": {
+      "files": ["src/click/types.py"],
+      "symbols": ["Choice.convert", "Choice.normalize_choice"]
+    }
+  },
+  {
+    "id": "path-type-validation",
+    "question": "where does Click validate path parameter existence and permissions?",
+    "expected": {
+      "files": ["src/click/types.py"],
+      "symbols": ["Path.convert"]
+    }
+  },
+  {
+    "id": "echo-output",
+    "question": "where does Click echo output with newline, color stripping, bytes, and flush handling?",
+    "expected": {
+      "files": ["src/click/utils.py"],
+      "symbols": ["echo"]
+    }
+  },
+  {
+    "id": "terminal-prompt",
+    "question": "where does Click prompt users for input and confirmation?",
+    "expected": {
+      "files": ["src/click/termui.py"],
+      "symbols": ["prompt", "confirm"]
+    }
+  },
+  {
+    "id": "shell-completion",
+    "question": "where is shell completion dispatch implemented?",
+    "expected": {
+      "files": ["src/click/shell_completion.py", "src/click/core.py"],
+      "symbols": ["shell_complete", "Command._main_shell_completion", "ShellComplete.complete"]
+    }
+  },
+  {
+    "id": "cli-runner-invoke",
+    "question": "where does the test CliRunner invoke a command in isolation?",
+    "expected": {
+      "files": ["src/click/testing.py"],
+      "symbols": ["CliRunner.invoke", "CliRunner.isolation"]
+    }
+  },
+  {
+    "id": "usage-formatting",
+    "question": "where does Click format the usage line in help output?",
+    "expected": {
+      "files": ["src/click/formatting.py", "src/click/core.py"],
+      "symbols": ["HelpFormatter.write_usage", "Command.format_usage"]
+    }
+  }
+]

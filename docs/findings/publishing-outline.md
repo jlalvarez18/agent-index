@@ -19,6 +19,7 @@ Agents do not only need more text search. They need search results tied to code 
 7. What worked: cited symbol results, simple local setup, one-hop graph context.
 8. What did not: unresolved call names, lexical-only phrasing limits, no incremental updates.
 9. Next steps: compare against plain FTS, add embeddings, add MCP, add incremental indexing.
+10. Cross-corpus check: HTTPX breaks the Graphify-perfect story because symbol mode currently beats hybrid on exact symbols.
 
 ## Current Baseline Comparison
 
@@ -29,8 +30,10 @@ Agents do not only need more text search. They need search results tied to code 
 - Hybrid plus action aliases: Symbol Hit@1 0.70, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 60ms.
 - Hybrid plus core-symbol ordering: Symbol Hit@1 0.90, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 61ms.
 - Hybrid plus incremental change-detection intent: Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 53ms.
+- HTTPX symbol mode baseline: Symbol Hit@1 0.42, Symbol Hit@5 0.83, File Hit@5 0.92, Avg 15ms.
+- HTTPX hybrid mode baseline: Symbol Hit@1 0.25, Symbol Hit@5 0.42, File Hit@5 0.83, Avg 11ms.
 - Early conclusion: structure is useful as a conservative reranker, and query understanding is needed when the right symbol is not present in the FTS candidate set.
-- Detailed benchmark JSON now saturates the current Graphify set, so the next honest comparison needs another corpus or more golden questions.
+- Detailed benchmark JSON saturates the current Graphify set, but the first HTTPX run shows cross-corpus behavior is not solved.
 - Source-only hygiene v2 removed fixture/sample corpora; remaining misses are now cleaner evidence for ranking/query-intent work.
 - The write-up should be explicit that the latest jump comes from a small hand-built intent layer, not from a general semantic model.
 - The write-up should frame the 1.00 score as "benchmark exhausted" rather than proof of general retrieval quality.
@@ -41,5 +44,6 @@ Agents do not only need more text search. They need search results tied to code 
 - Benchmark summary table.
 - Three qualitative query examples from `docs/findings/graphify-benchmark-results.md`.
 - Experiment progression table from `docs/findings/experiment-log.md`.
+- HTTPX baseline notes from `docs/findings/httpx-benchmark-results.md`.
 - A short comparison table: plain FTS vs symbol-first FTS plus graph expansion.
 - One caveat box: "query-intent rules helped Graphify, but the saturated score needs cross-repo validation."

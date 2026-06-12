@@ -1,0 +1,98 @@
+[
+  {
+    "id": "cli-entrypoint",
+    "question": "where is the httpx command line client entrypoint?",
+    "expected": {
+      "files": ["httpx/_main.py"],
+      "symbols": ["main"]
+    }
+  },
+  {
+    "id": "top-level-request-api",
+    "question": "where does the top-level httpx request API send a request?",
+    "expected": {
+      "files": ["httpx/_api.py"],
+      "symbols": ["request"]
+    }
+  },
+  {
+    "id": "sync-client-send",
+    "question": "where does the synchronous client send requests?",
+    "expected": {
+      "files": ["httpx/_client.py"],
+      "symbols": ["Client.send", "Client.request", "Client._send_single_request"]
+    }
+  },
+  {
+    "id": "async-client-send",
+    "question": "where does the async client send requests?",
+    "expected": {
+      "files": ["httpx/_client.py"],
+      "symbols": ["AsyncClient.send", "AsyncClient.request", "AsyncClient._send_single_request"]
+    }
+  },
+  {
+    "id": "redirect-handling",
+    "question": "where are redirects followed and redirect requests built?",
+    "expected": {
+      "files": ["httpx/_client.py"],
+      "symbols": ["Client._send_handling_redirects", "AsyncClient._send_handling_redirects", "BaseClient._build_redirect_request"]
+    }
+  },
+  {
+    "id": "basic-auth",
+    "question": "where is basic authentication applied to request headers?",
+    "expected": {
+      "files": ["httpx/_auth.py"],
+      "symbols": ["BasicAuth", "BasicAuth.auth_flow", "BasicAuth._build_auth_header"]
+    }
+  },
+  {
+    "id": "timeout-config",
+    "question": "where is timeout configuration represented?",
+    "expected": {
+      "files": ["httpx/_config.py"],
+      "symbols": ["Timeout"]
+    }
+  },
+  {
+    "id": "proxy-routing",
+    "question": "where are proxies configured and selected for requests?",
+    "expected": {
+      "files": ["httpx/_client.py", "httpx/_config.py", "httpx/_utils.py"],
+      "symbols": ["BaseClient._get_proxy_map", "Client._transport_for_url", "AsyncClient._transport_for_url", "Proxy", "get_environment_proxies"]
+    }
+  },
+  {
+    "id": "asgi-transport",
+    "question": "where does HTTPX send requests directly to an ASGI app?",
+    "expected": {
+      "files": ["httpx/_transports/asgi.py"],
+      "symbols": ["ASGITransport", "ASGITransport.handle_async_request"]
+    }
+  },
+  {
+    "id": "wsgi-transport",
+    "question": "where does HTTPX send requests directly to a WSGI app?",
+    "expected": {
+      "files": ["httpx/_transports/wsgi.py"],
+      "symbols": ["WSGITransport", "WSGITransport.handle_request"]
+    }
+  },
+  {
+    "id": "response-json-status",
+    "question": "where does a response parse JSON and raise for bad status?",
+    "expected": {
+      "files": ["httpx/_models.py"],
+      "symbols": ["Response.json", "Response.raise_for_status"]
+    }
+  },
+  {
+    "id": "multipart-encoding",
+    "question": "where is multipart form data encoded?",
+    "expected": {
+      "files": ["httpx/_multipart.py", "httpx/_content.py"],
+      "symbols": ["MultipartStream", "FileField", "DataField", "encode_multipart_data"]
+    }
+  }
+]

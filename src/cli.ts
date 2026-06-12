@@ -38,10 +38,13 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .argument("<question>", "natural-language code question")
     .requiredOption("--target <target>", "target repository or directory")
     .option("--limit <limit>", "maximum result count", "5")
-    .action(async (question: string, options: { target: string; limit: string }) => {
+    .option("--mode <mode>", "query mode: symbol, fts, or hybrid", "symbol")
+    .action(async (question: string, options: { target: string; limit: string; mode: string }) => {
+      const mode = parseMode(options.mode);
       const response = await queryIndex(question, {
         target: options.target,
-        limit: Number.parseInt(options.limit, 10)
+        limit: Number.parseInt(options.limit, 10),
+        mode
       });
       io.write(JSON.stringify(response, null, 2));
     });
@@ -87,7 +90,7 @@ function parseMode(mode: string): QueryMode {
   if (mode === "symbol" || mode === "fts" || mode === "hybrid") {
     return mode;
   }
-  throw new Error(`Invalid benchmark mode: ${mode}. Expected "symbol", "fts", or "hybrid".`);
+  throw new Error(`Invalid mode: ${mode}. Expected "symbol", "fts", or "hybrid".`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {

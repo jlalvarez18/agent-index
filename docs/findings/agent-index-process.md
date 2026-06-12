@@ -60,6 +60,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - A readiness audit found two package-surface bugs after the ranking work: help output printed but exited as a Commander exception, and the package bin pointed at `dist/cli.js` while the build emitted `dist/src/cli.js`. Both are now covered by regression tests because they affect whether a local user can actually run the tool.
 - The build now cleans `dist/` before compiling. Without that, the old layout left stale `dist/src` and `dist/tests` files behind even after the bin path was fixed.
 - A first README now documents install/build, indexing, querying, benchmarking, current metrics, and limits. That gives the prototype a usable front door instead of relying on conversation history.
+- The interactive `query` command now supports the same `fts`, `symbol`, and `hybrid` modes as `benchmark`, defaulting to the previous symbol behavior. This makes qualitative inspection line up with measured benchmark modes.
 
 ## Rejected Ideas
 
@@ -81,5 +82,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Can container-vs-method ordering improve Click top-one precision without regressing Graphify or HTTPX?
 - Should intent rules be split into trigger detection and scoring explanations so broad phrases are easier to audit?
 - What broader exact-method ordering design would improve the remaining Click non-top-one rows, such as `Path.convert`, without over-boosting unrelated methods in compact modules?
-- Should query mode be exposed in the interactive `query` command so users can inspect the same `fts`, `symbol`, and `hybrid` behavior that benchmarks measure?
 - What package metadata and `npm pack` checks are enough before calling the prototype publishable, even if it stays pre-1.0?

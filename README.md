@@ -2,7 +2,7 @@
 
 `agent-index` is a TypeScript/Node prototype for local, symbol-first code search.
 
-The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, stored in a local SQLite/FTS5 index, queried with hybrid lexical plus symbol ranking, and evaluated with golden benchmark questions.
+The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, stored in a local SQLite/FTS5 index, queried with lexical, symbol, or hybrid ranking, and evaluated with golden benchmark questions.
 
 Think of it as a library catalog for code. Plain text search finds pages with matching words; `agent-index` tries to return the function, class, file, and nearby code relationships that make those pages useful to a coding agent.
 
@@ -66,6 +66,13 @@ npm run agent-index -- query "where is the command entrypoint handled?" --target
 ```
 
 The query command returns JSON with ranked matches, line ranges, scores, reasons, and nearby graph context.
+
+By default, `query` uses `symbol` mode. You can inspect the other ranking modes with:
+
+```bash
+npm run agent-index -- query "where is semantic cache loaded?" --target /path/to/python/repo --mode hybrid
+npm run agent-index -- query "where is semantic cache loaded?" --target /path/to/python/repo --mode fts
+```
 
 ## Benchmark
 

@@ -69,6 +69,20 @@ describe("runCli", () => {
     expect(output[1]).toContain("Symbol Hit@5:");
   });
 
+  test("supports query mode selection", async () => {
+    const { root } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["query", "where is semantic cache loaded?", "--target", root, "--mode", "fts"], {
+      write: (line) => output.push(line)
+    });
+
+    const queryJson = JSON.parse(output[1]);
+    expect(queryJson.mode).toBe("fts");
+    expect(queryJson.matches[0].symbol).toBe("load_value");
+  });
+
   test("supports hybrid benchmark mode", async () => {
     const { root, benchmarkPath } = await fixtureProject();
     const output: string[] = [];

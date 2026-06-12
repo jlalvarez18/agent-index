@@ -48,6 +48,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Click also exposed an over-broad intent rule. The entrypoint prior helps `Command.main`, but terms like "command line values" can wrongly pull `Command.main` above option parsing methods.
 - Narrowing the entrypoint trigger to explicit `entry point`, `entrypoint`, and `cli` terms moved Click hybrid Symbol Hit@5 from 0.79 to 0.86 while preserving Graphify and HTTPX. This is a useful example of pruning an intent rule instead of adding another special case.
 - Adding a small hybrid-only method specificity boost for results that already have `method owner/name match` moved Click hybrid Symbol Hit@1 from 0.36 to 0.50 while preserving Graphify and HTTPX. This improved exact-method ordering without adding another query-intent rule.
+- Auditing the Click `shell-completion` question showed a benchmark wording problem, not a ranking problem. Rewording it around source-vs-complete instruction handling moved Click hybrid Symbol Hit@5 from 0.86 to 0.93 without code changes.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 - In the current sandbox, running `tsx` through the CLI may fail with `listen EPERM` on a temp IPC pipe. The same command works when run outside the sandbox.
 

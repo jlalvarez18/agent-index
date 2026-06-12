@@ -89,7 +89,7 @@
   },
   {
     "id": "shell-completion",
-    "question": "where is shell completion dispatch implemented?",
+    "question": "where does Click decide between source and complete shell completion instructions?",
     "expected": {
       "files": ["src/click/shell_completion.py", "src/click/core.py"],
       "symbols": ["shell_complete", "Command._main_shell_completion", "ShellComplete.complete"]

@@ -83,8 +83,8 @@
     "id": "terminal-prompt",
     "question": "where does Click prompt users for input and confirmation?",
     "expected": {
-      "files": ["src/click/termui.py"],
-      "symbols": ["prompt", "confirm"]
+      "files": ["src/click/termui.py", "src/click/core.py"],
+      "symbols": ["prompt", "confirm", "Option.prompt_for_value"]
     }
   },
   {

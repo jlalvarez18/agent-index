@@ -250,6 +250,27 @@ Avg latency: 52ms
 
 This recovers HTTPX top-five symbol recall without giving up the Graphify hybrid result. Hybrid now beats symbol mode on HTTPX Symbol Hit@1, `0.77` vs `0.69`, while matching Symbol Hit@5 `1.00`.
 
+## Hybrid Exact-Object Ordering
+
+Run date: 2026-06-12
+
+The next readiness pass addressed broad container and generic-method ordering. The change added a small module-context penalty, a method owner/source signal, and narrower method lexical boosting. A first version regressed `multipart-encoding` by promoting `MultipartStream.__init__`; the final version requires full owner-token matches for owner/source boosts and excludes dunder methods from broad lexical lifting.
+
+Hybrid mode after this pass:
+
+```text
+Mode: hybrid
+Questions: 13
+Symbol Hit@1: 0.85
+Symbol Hit@5: 1.00
+Symbol MRR: 0.90
+File Hit@1: 0.92
+File Hit@5: 1.00
+File MRR: 0.96
+Partial file hits: 0.00
+Avg latency: 13ms
+```
+
 ## Per-Question Detail
 
 Latest symbol mode detail:
@@ -279,27 +300,28 @@ sync-client-send        symbolRank=1     fileRank=1     top=Client.send         
 async-client-send       symbolRank=1     fileRank=1     top=AsyncClient.send           file=httpx/_client.py
 redirect-handling       symbolRank=1     fileRank=1     top=BaseClient._build_redirect_request file=httpx/_client.py
 basic-auth              symbolRank=1     fileRank=1     top=BasicAuth                   file=httpx/_auth.py
-timeout-config          symbolRank=5     fileRank=4     top=request                    file=httpx/_api.py
+timeout-config          symbolRank=2     fileRank=2     top=request                    file=httpx/_api.py
 proxy-routing           symbolRank=1     fileRank=1     top=get_environment_proxies     file=httpx/_utils.py
 asgi-transport          symbolRank=1     fileRank=1     top=ASGITransport.handle_async_request file=httpx/_transports/asgi.py
-wsgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/wsgi.py   file=httpx/_transports/wsgi.py
+wsgi-transport          symbolRank=1     fileRank=1     top=WSGITransport              file=httpx/_transports/wsgi.py
 response-json           symbolRank=1     fileRank=1     top=Response.json              file=httpx/_models.py
 response-status-errors  symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
-multipart-encoding      symbolRank=5     fileRank=1     top=encode_request             file=httpx/_content.py
+multipart-encoding      symbolRank=4     fileRank=1     top=encode_request             file=httpx/_content.py
 ```
 
 ## Initial Findings
 
 - The second corpus immediately caught overconfidence from Graphify. A saturated Graphify score did not mean the hybrid ranking strategy was generally best.
-- Symbol mode is the best current HTTPX mode for exact symbols, while hybrid is competitive for file-level retrieval.
+- Hybrid is now the best current HTTPX mode for exact-symbol top-one while matching symbol mode on Symbol Hit@5.
 - Several misses are exact-symbol ordering problems rather than file-retrieval failures.
 - `cli-entrypoint` now hits `main` after decorated functions are extracted.
 - `top-level-request-api` now hits `request` after exact dotted API references are added as intent candidates.
 - `response-json` now hits `Response.json` in symbol mode after adding a method owner/name signal.
 - Soft lexical hybrid ranking recovers HTTPX Symbol Hit@5 `1.00` while keeping Graphify hybrid saturated.
+- Exact-object ordering moves HTTPX hybrid Symbol Hit@1 from `0.77` to `0.85` while preserving Symbol Hit@5 `1.00`.
 
 ## Next HTTPX Work
 
-- Investigate remaining hybrid top-one misses, especially `timeout-config`, `wsgi-transport`, and `multipart-encoding`.
+- Investigate remaining hybrid top-one misses, especially `timeout-config` and `multipart-encoding`.
 - Keep HTTPX results separate from Graphify results so cross-corpus changes stay visible.
 - Add a third corpus or larger HTTPX question set before adding more hand-built intent rules.

@@ -11,9 +11,9 @@ Last audit: 2026-06-12
 - Built CLI help: `node dist/cli.js --help` exits successfully.
 - `git diff --check`: passes.
 - `npm pack --dry-run`: passes and includes README, benchmark JSON, docs, built `dist` files, and package metadata.
-- Hybrid Graphify benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `56ms`.
-- Hybrid HTTPX benchmark: Symbol Hit@1 `0.77`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `13ms`.
-- Hybrid Click benchmark: Symbol Hit@1 `0.79`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `19ms`.
+- Hybrid Graphify benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `53ms`.
+- Hybrid HTTPX benchmark: Symbol Hit@1 `0.85`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `13ms`.
+- Hybrid Click benchmark: Symbol Hit@1 `0.86`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `18ms`.
 
 ## Resolved In Latest Audit
 
@@ -27,13 +27,14 @@ Last audit: 2026-06-12
 | Packaging/release hygiene | Package contents and runtime metadata were implicit. | Added `files`, `engines.node`, and conservative `UNLICENSED` metadata; verified package contents with `npm pack --dry-run`. The package includes docs so README links resolve. |
 | CLI/user experience | `index` reported counts but not whether support code was included or skipped. | The success line now includes `(mode: source-only)` or `(mode: all-files)`. |
 | Indexing robustness | CLI did not expose `--index-path` even though core APIs supported it. | `index`, `query`, and `benchmark` now accept `--index-path <path>`. |
+| Retrieval quality | Hybrid ranking still let broad modules or generic methods outrank concrete code objects in dense APIs. | Added a module-context penalty, method owner/source signal, dunder-method lexical exclusion, and method-specific lexical gating. HTTPX Hit@1 moved `0.77 -> 0.85`; Click Hit@1 moved `0.79 -> 0.86`; Hit@5 stayed `1.00`. |
 
 ## Open Backlog
 
 | Priority | Area | Gap | Why It Matters | Suggested Next Move |
 | --- | --- | --- | --- | --- |
 | High | Packaging/release hygiene | Public `license` and `repository` metadata still need owner decisions. | `UNLICENSED` is honest for local dogfood, but public publishing should not guess legal terms or remote URLs. | Choose a license and add repository metadata once the project has an intended public home. |
-| Medium | Retrieval quality | Exact top-one ordering remains imperfect on HTTPX and Click. | The prototype finds the right file/neighborhood, but a coding agent benefits from the exact method being first. | Design a broader exact-method ordering pass before adding more narrow intent rules. |
+| Medium | Retrieval quality | Exact top-one ordering remains imperfect on HTTPX and Click. | The prototype finds the right file/neighborhood, but decorator and representation questions still have plausible nearby distractors. | Consider one more general coding-domain prior, such as decorator-target phrasing or multi-token symbol coverage. |
 | Medium | Benchmark/test coverage | Benchmarks cover three good Python repos, but all golden sets are still small. | Small benchmarks are easy to overfit, even with source audits. | Add one larger framework or application corpus before claiming generality. |
 | Low | Documentation/publishing | Publishing outline has enough raw material but is not a polished article. | The process is publishable, but the narrative still needs editing. | Convert the outline into a draft after the package/readme surface stabilizes. |
 

@@ -99,6 +99,87 @@ describe("queryIndex", () => {
     expect(ranked.map((item) => item.symbol)).toEqual(["Option.consume_value", "Command"]);
   });
 
+  test("hybrid ranking prefers non-module symbols when a module is only broad context", () => {
+    const moduleContainer = match("pkg/types.py", "module", 15);
+    const specificClass = {
+      ...match("Path", "class", 13),
+      why: ["matched source text", "symbol name match", "file path match"]
+    };
+
+    const ranked = rankHybridMatches([hybridItem(moduleContainer, undefined), hybridItem(specificClass, undefined)], 2);
+
+    expect(ranked.map((item) => item.symbol)).toEqual(["Path", "pkg/types.py"]);
+  });
+
+  test("hybrid mode prefers owner-matched implementation methods over class containers", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-owner-implementation-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "types.py"),
+      `"""Path type validation for existence and permissions."""
+
+class Path:
+    """Path parameter type handles existence and permissions."""
+
+    def convert(self, value):
+        exists = value.exists()
+        readable = value.can_read()
+        writable = value.can_write()
+        permissions = (readable, writable)
+        return exists, permissions
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where does Path validate existence and permissions?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "Path.convert",
+      kind: "method",
+      file: "pkg/types.py"
+    });
+    expect(result.matches[0].why).toContain("method owner/source match");
+  });
+
+  test("hybrid mode does not boost methods for partial owner-token matches", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-partial-owner-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "multipart.py"),
+      `class MultipartStream:
+    """Multipart form data stream encoder."""
+
+    def __init__(self, data):
+        multipart_form_data_encoded = data
+        return None
+
+    def get_content_length(self):
+        multipart_form_data_length = 0
+        return multipart_form_data_length
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where is multipart form data encoded?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "MultipartStream",
+      kind: "class",
+      file: "pkg/multipart.py"
+    });
+    expect(result.matches.find((match) => match.symbol === "MultipartStream.__init__")?.why).not.toContain(
+      "method owner/source match"
+    );
+  });
+
   test("hybrid mode can add an entrypoint intent candidate outside plain FTS matches", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-entrypoint-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

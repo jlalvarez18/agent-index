@@ -199,7 +199,8 @@ export function rankHybridMatches(items: HybridRankInput[], limit: number): Quer
   return items
     .map((item) => ({
       ...item,
-      adjustedScore: item.match.score + hybridLexicalBoost(item) + hybridSpecificityBoost(item)
+      adjustedScore:
+        item.match.score + hybridLexicalBoost(item) + hybridSpecificityBoost(item) + hybridContainerAdjustment(item)
     }))
     .sort((a, b) => b.adjustedScore - a.adjustedScore || a.inputIndex - b.inputIndex)
     .slice(0, limit)
@@ -207,19 +208,45 @@ export function rankHybridMatches(items: HybridRankInput[], limit: number): Quer
 }
 
 function hybridLexicalBoost(item: HybridRankInput): number {
+  if (item.ftsPosition === undefined || item.ftsPosition > 5) {
+    return 0;
+  }
+
+  if (item.match.kind === "function") {
+    return 4;
+  }
+
   if (
-    item.ftsPosition !== undefined &&
-    item.ftsPosition <= 5 &&
-    (item.match.kind === "function" || item.match.kind === "method")
+    item.match.kind === "method" &&
+    !isDunderMethod(item.match) &&
+    (item.match.why.includes("method name match") ||
+      item.match.why.includes("method owner/name match") ||
+      item.match.why.includes("method owner/source match"))
   ) {
     return 4;
   }
+
   return 0;
+}
+
+function isDunderMethod(match: QueryMatch): boolean {
+  if (match.kind !== "method") {
+    return false;
+  }
+  const name = match.symbol.includes(".") ? match.symbol.slice(match.symbol.lastIndexOf(".") + 1) : match.symbol;
+  return name.startsWith("__") && name.endsWith("__");
 }
 
 function hybridSpecificityBoost(item: HybridRankInput): number {
   if (item.match.kind === "method" && item.match.why.includes("method owner/name match")) {
     return 2;
+  }
+  return 0;
+}
+
+function hybridContainerAdjustment(item: HybridRankInput): number {
+  if (item.match.kind === "module") {
+    return -3;
   }
   return 0;
 }
@@ -245,6 +272,9 @@ function toMatch(db: Database.Database, row: CandidateRow, question: string): Qu
     if (normalizedSymbol.includes(token)) {
       score += 2;
       addWhy(why, "symbol name match");
+    }
+    if (row.kind === "method" && normalize(row.symbol_name).includes(token)) {
+      addWhy(why, "method name match");
     }
     if (normalizedFile.includes(token)) {
       score += 1;
@@ -275,6 +305,12 @@ function toMatch(db: Database.Database, row: CandidateRow, question: string): Qu
   score += ownerNameAdjustment.score;
   if (ownerNameAdjustment.score > 0) {
     addWhy(why, ownerNameAdjustment.reason);
+  }
+
+  const ownerSourceAdjustment = methodOwnerSourceAdjustment(row, question, normalizedChunk);
+  score += ownerSourceAdjustment.score;
+  if (ownerSourceAdjustment.score > 0) {
+    addWhy(why, ownerSourceAdjustment.reason);
   }
 
   const neighbors = expandNeighbors(db, row.symbol_id);
@@ -448,6 +484,37 @@ function methodOwnerNameAdjustment(row: CandidateRow, question: string): { score
   }
 
   return { score: 0, reason: "method owner/name match" };
+}
+
+function methodOwnerSourceAdjustment(
+  row: CandidateRow,
+  question: string,
+  normalizedChunk: string
+): { score: number; reason: string } {
+  if (row.kind !== "method") {
+    return { score: 0, reason: "method owner/source match" };
+  }
+
+  const queryTokenSet = new Set(rankedQueryTokens(question));
+  const ownerName = row.qualified_name.includes(".") ? row.qualified_name.slice(0, row.qualified_name.lastIndexOf(".")) : "";
+  const ownerTokens = normalize(ownerName)
+    .split(/\s+/)
+    .filter(Boolean);
+  const ownerTokenSet = new Set(ownerTokens);
+
+  if (!ownerTokens.every((token) => queryTokenSet.has(token))) {
+    return { score: 0, reason: "method owner/source match" };
+  }
+
+  const behaviorMatches = [...queryTokenSet].filter(
+    (token) => !ownerTokenSet.has(token) && token.length >= 4 && normalizedChunk.includes(token)
+  );
+
+  if (behaviorMatches.length >= 2) {
+    return { score: 3, reason: "method owner/source match" };
+  }
+
+  return { score: 0, reason: "method owner/source match" };
 }
 
 function intentRulesForQuestion(question: string): IntentRule[] {

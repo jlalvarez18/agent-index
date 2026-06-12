@@ -313,6 +313,24 @@ function toMatch(db: Database.Database, row: CandidateRow, question: string): Qu
     addWhy(why, ownerSourceAdjustment.reason);
   }
 
+  const symbolCoverage = symbolTokenCoverageAdjustment(row, question);
+  score += symbolCoverage.score;
+  if (symbolCoverage.score > 0) {
+    addWhy(why, symbolCoverage.reason);
+  }
+
+  const decoratorTarget = decoratorTargetAdjustment(row, question);
+  score += decoratorTarget.score;
+  if (decoratorTarget.score > 0) {
+    addWhy(why, decoratorTarget.reason);
+  }
+
+  const representationClass = representationClassAdjustment(row, question);
+  score += representationClass.score;
+  if (representationClass.score > 0) {
+    addWhy(why, representationClass.reason);
+  }
+
   const neighbors = expandNeighbors(db, row.symbol_id);
   if (neighbors.length > 0) {
     score += 0.5;
@@ -495,6 +513,11 @@ function methodOwnerSourceAdjustment(
     return { score: 0, reason: "method owner/source match" };
   }
 
+  const decoratorTargetNames = decoratorTargets(question);
+  if (decoratorTargetNames.length > 0 && !symbolNameMatchesAny(row, decoratorTargetNames)) {
+    return { score: 0, reason: "method owner/source match" };
+  }
+
   const queryTokenSet = new Set(rankedQueryTokens(question));
   const ownerName = row.qualified_name.includes(".") ? row.qualified_name.slice(0, row.qualified_name.lastIndexOf(".")) : "";
   const ownerTokens = normalize(ownerName)
@@ -515,6 +538,66 @@ function methodOwnerSourceAdjustment(
   }
 
   return { score: 0, reason: "method owner/source match" };
+}
+
+function symbolNameMatchesAny(row: CandidateRow, targets: string[]): boolean {
+  const symbolTokens = normalize(row.symbol_name.replace(/^_+/, ""))
+    .split(/\s+/)
+    .filter(Boolean);
+  return (
+    symbolTokens.length === 1 &&
+    targets.some((target) => symbolTokens.some((symbolToken) => tokensLooselyMatch(symbolToken, target)))
+  );
+}
+
+function symbolTokenCoverageAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  const queryTokens = rankedQueryTokens(question);
+  const symbolTokens = normalize(row.symbol_name.replace(/^_+/, ""))
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (
+    symbolTokens.length >= 2 &&
+    symbolTokens.every((symbolToken) => queryTokens.some((queryToken) => tokensLooselyMatch(symbolToken, queryToken)))
+  ) {
+    return { score: 4, reason: "symbol token coverage match" };
+  }
+
+  return { score: 0, reason: "symbol token coverage match" };
+}
+
+function decoratorTargetAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  const targets = decoratorTargets(question);
+  if (targets.length === 0 || (row.kind !== "function" && row.kind !== "method")) {
+    return { score: 0, reason: "decorator target match" };
+  }
+
+  if (symbolNameMatchesAny(row, targets)) {
+    return { score: 8, reason: "decorator target match" };
+  }
+
+  return { score: 0, reason: "decorator target match" };
+}
+
+function representationClassAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  if (row.kind !== "class") {
+    return { score: 0, reason: "representation class match" };
+  }
+
+  const tokens = new Set(rankedQueryTokens(question));
+  if (!tokens.has("represented") && !tokens.has("representation") && !tokens.has("config") && !tokens.has("configuration")) {
+    return { score: 0, reason: "representation class match" };
+  }
+
+  const symbolTokens = normalize(row.symbol_name)
+    .split(/\s+/)
+    .filter(Boolean);
+  if (symbolTokens.length > 0 && symbolTokens.every((token) => tokens.has(token))) {
+    const fileScore = normalize(row.file_path).includes("config") ? 4 : 0;
+    return { score: 8 + fileScore, reason: "representation class match" };
+  }
+
+  return { score: 0, reason: "representation class match" };
 }
 
 function intentRulesForQuestion(question: string): IntentRule[] {
@@ -685,6 +768,17 @@ function intentRulesForQuestion(question: string): IntentRule[] {
   }
 
   return rules;
+}
+
+function decoratorTargets(question: string): string[] {
+  const targets: string[] = [];
+  for (const match of normalize(question).matchAll(/\b([a-z0-9]+)\s+decorators?\b/g)) {
+    const target = match[1];
+    if (target && !targets.includes(target)) {
+      targets.push(target);
+    }
+  }
+  return targets;
 }
 
 function isEntrypointQuestion(normalizedQuestion: string, tokens: Set<string>): boolean {

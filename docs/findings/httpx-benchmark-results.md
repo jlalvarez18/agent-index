@@ -271,6 +271,27 @@ Partial file hits: 0.00
 Avg latency: 13ms
 ```
 
+## Guarded Coding-Domain Signals
+
+Run date: 2026-06-12
+
+The remaining HTTPX misses mapped to general coding-query phrasing. `timeout-config` asks where a configuration object is represented, while `multipart-encoding` names a multi-token implementation symbol. Adding representation-class and symbol-token coverage signals saturated the current HTTPX benchmark.
+
+Hybrid mode after this pass:
+
+```text
+Mode: hybrid
+Questions: 13
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+Symbol MRR: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+File MRR: 1.00
+Partial file hits: 0.00
+Avg latency: 13ms
+```
+
 ## Per-Question Detail
 
 Latest symbol mode detail:
@@ -300,13 +321,13 @@ sync-client-send        symbolRank=1     fileRank=1     top=Client.send         
 async-client-send       symbolRank=1     fileRank=1     top=AsyncClient.send           file=httpx/_client.py
 redirect-handling       symbolRank=1     fileRank=1     top=BaseClient._build_redirect_request file=httpx/_client.py
 basic-auth              symbolRank=1     fileRank=1     top=BasicAuth                   file=httpx/_auth.py
-timeout-config          symbolRank=2     fileRank=2     top=request                    file=httpx/_api.py
+timeout-config          symbolRank=1     fileRank=1     top=Timeout                    file=httpx/_config.py
 proxy-routing           symbolRank=1     fileRank=1     top=get_environment_proxies     file=httpx/_utils.py
 asgi-transport          symbolRank=1     fileRank=1     top=ASGITransport.handle_async_request file=httpx/_transports/asgi.py
 wsgi-transport          symbolRank=1     fileRank=1     top=WSGITransport              file=httpx/_transports/wsgi.py
 response-json           symbolRank=1     fileRank=1     top=Response.json              file=httpx/_models.py
 response-status-errors  symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
-multipart-encoding      symbolRank=4     fileRank=1     top=encode_request             file=httpx/_content.py
+multipart-encoding      symbolRank=1     fileRank=1     top=encode_multipart_data      file=httpx/_content.py
 ```
 
 ## Initial Findings
@@ -318,10 +339,10 @@ multipart-encoding      symbolRank=4     fileRank=1     top=encode_request      
 - `top-level-request-api` now hits `request` after exact dotted API references are added as intent candidates.
 - `response-json` now hits `Response.json` in symbol mode after adding a method owner/name signal.
 - Soft lexical hybrid ranking recovers HTTPX Symbol Hit@5 `1.00` while keeping Graphify hybrid saturated.
-- Exact-object ordering moves HTTPX hybrid Symbol Hit@1 from `0.77` to `0.85` while preserving Symbol Hit@5 `1.00`.
+- Exact-object ordering moved HTTPX hybrid Symbol Hit@1 from `0.77` to `0.85` while preserving Symbol Hit@5 `1.00`.
+- Guarded coding-domain signals saturated the current HTTPX set at Symbol Hit@1/Hit@5 `1.00/1.00`.
 
 ## Next HTTPX Work
 
-- Investigate remaining hybrid top-one misses, especially `timeout-config` and `multipart-encoding`.
 - Keep HTTPX results separate from Graphify results so cross-corpus changes stay visible.
-- Add a third corpus or larger HTTPX question set before adding more hand-built intent rules.
+- Expand the HTTPX question set or add a new corpus before further HTTPX-specific ranking work.

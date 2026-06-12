@@ -180,6 +180,110 @@ class Path:
     );
   });
 
+  test("hybrid mode uses decorator target phrasing as an implementation hint", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-decorator-target-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "decorators.py"),
+      `def command(f):
+    attached_to_commands = f
+    return attached_to_commands
+
+def option(*param_decls):
+    option_decorators_attached_to_commands = param_decls
+    return option_decorators_attached_to_commands
+
+class Command:
+    def get_help_option(self):
+        option_decorators_attached_to_commands = "helper option"
+        return option_decorators_attached_to_commands
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where are option decorators attached to commands?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "option",
+      kind: "function",
+      file: "pkg/decorators.py"
+    });
+    expect(result.matches[0].why).toContain("decorator target match");
+  });
+
+  test("hybrid mode boosts multi-token symbol names covered by query terms", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-symbol-coverage-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "content.py"),
+      `def encode_request(request):
+    multipart_form_data_encoded = request
+    return multipart_form_data_encoded
+
+def encode_urlencoded_data(data):
+    encoded_form_data = data
+    return encoded_form_data
+
+def encode_multipart_data(data):
+    multipart_form_data_encoded = data
+    return multipart_form_data_encoded
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where is multipart form data encoded?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "encode_multipart_data",
+      kind: "function",
+      file: "pkg/content.py"
+    });
+    expect(result.matches[0].why).toContain("symbol token coverage match");
+  });
+
+  test("hybrid mode prefers class representations for configuration questions", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-class-representation-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "api.py"),
+      `def request(timeout=None):
+    timeout_configuration_represented = timeout
+    return timeout_configuration_represented
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "config.py"),
+      `class Timeout:
+    """Timeout configuration representation."""
+
+    def __init__(self, value):
+        self.value = value
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where is timeout configuration represented?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "Timeout",
+      kind: "class",
+      file: "pkg/config.py"
+    });
+    expect(result.matches[0].why).toContain("representation class match");
+  });
+
   test("hybrid mode can add an entrypoint intent candidate outside plain FTS matches", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-entrypoint-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

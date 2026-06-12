@@ -40,7 +40,8 @@ Agents do not only need more text search. They need search results tied to code 
 - HTTPX after dotted API and method owner/name ranking: symbol mode Symbol Hit@1 0.69, Symbol Hit@5 1.00, File Hit@1 1.00, Avg 12ms; hybrid mode Symbol Hit@1 0.46, Symbol Hit@5 0.62, File Hit@5 0.92, Avg 12ms.
 - HTTPX after soft lexical hybrid ranking: hybrid mode Symbol Hit@1 0.77, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 15ms; Graphify hybrid stayed Symbol Hit@1 1.00.
 - HTTPX after exact-object ordering: hybrid mode Symbol Hit@1 0.85, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 13ms.
-- Click after scoped entrypoint intent, hybrid method specificity, answer-key audits, the CliRunner entrypoint fix, stem-equivalent core-symbol ranking, and exact-object ordering: FTS Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 0.93, Avg 3ms; symbol mode Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 1.00, Avg 16ms; hybrid mode Symbol Hit@1 0.86, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 18ms.
+- HTTPX after guarded coding-domain signals: hybrid mode Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 13ms.
+- Click after scoped entrypoint intent, hybrid method specificity, answer-key audits, the CliRunner entrypoint fix, stem-equivalent core-symbol ranking, exact-object ordering, and decorator-target signals: FTS Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 0.93, Avg 3ms; symbol mode Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 1.00, Avg 16ms; hybrid mode Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 18ms.
 - Early conclusion: structure is useful as a conservative reranker, and query understanding is needed when the right symbol is not present in the FTS candidate set.
 - Detailed benchmark JSON saturates the current Graphify set, while HTTPX and Click show cross-corpus behavior is not solved by one benchmark.
 - Source-only hygiene v2 removed fixture/sample corpora; remaining misses are now cleaner evidence for ranking/query-intent work.
@@ -61,6 +62,7 @@ Agents do not only need more text search. They need search results tied to code 
 - The Click section should include the over-trigger lesson: `cli` alone was too broad for entrypoint intent because `CliRunner` is a test helper, not a request for the CLI main function.
 - The Click section should include the stem-equivalence lesson: `shell_completion.py` and `shell_complete` should match as core-symbol equivalents, but only under a narrow rule that does not boost every method in a short-stem file like `_auth.py`.
 - The Click/HTTPX section should include the exact-object ordering lesson: module demotion and owner/source method signals improved top-one, but the first broad version over-boosted `MultipartStream.__init__`, proving constructor and partial-owner safeguards matter.
+- The final write-up should call the current benchmark set exhausted: all three hybrid benchmarks are saturated, so the next evidence must come from a larger or new corpus.
 - The readiness section should include the packaging lesson: a tool can have strong benchmark numbers and still fail local use if help exits nonzero or the built bin path is wrong.
 - The readiness section should distinguish implementation-ready package hygiene from owner decisions: `files`, `engines`, and `npm pack --dry-run` can be done now; public license and repository URL should be chosen deliberately.
 

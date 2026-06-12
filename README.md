@@ -14,11 +14,11 @@ Current benchmark shape, using hybrid mode:
 
 | Corpus | Questions | Symbol Hit@1 | Symbol Hit@5 | File Hit@5 | Avg latency |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Graphify v8 | 10 | 1.00 | 1.00 | 1.00 | 53ms |
-| HTTPX | 13 | 0.85 | 1.00 | 1.00 | 13ms |
-| Click | 14 | 0.86 | 1.00 | 1.00 | 18ms |
+| Graphify v8 | 10 | 1.00 | 1.00 | 1.00 | 57ms |
+| HTTPX | 13 | 1.00 | 1.00 | 1.00 | 13ms |
+| Click | 14 | 1.00 | 1.00 | 1.00 | 18ms |
 
-These numbers are useful, but not final product claims. The benchmark sets are small, answer keys were source-audited, and ranking still uses hand-built query-intent rules.
+These numbers are useful, but not final product claims. The current golden sets are small and now saturated, answer keys were source-audited, and ranking still uses hand-built query-intent rules.
 
 ## Install
 

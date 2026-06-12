@@ -83,9 +83,9 @@ Hybrid mode:
 ```text
 Mode: hybrid
 Questions: 14
-Symbol Hit@1: 0.86
+Symbol Hit@1: 1.00
 Symbol Hit@5: 1.00
-Symbol MRR: 0.92
+Symbol MRR: 1.00
 File Hit@1: 1.00
 File Hit@5: 1.00
 File MRR: 1.00
@@ -115,14 +115,16 @@ The `shell-completion` row then exposed a broader core-symbol ordering issue. `s
 
 The exact-object ordering pass then added a small module-context penalty, a method owner/source signal, and narrower method lexical boosting. This moved `path-type-validation` from rank 4 to top-one by preferring `Path.convert` over module/class context, while preserving Symbol Hit@5.
 
+The guarded coding-domain pass added decorator-target phrasing. A first version over-boosted `Command.get_help_option` because it contained the word `option`; the final rule requires the callable's own symbol name to match the decorator target. This saturated the current Click set.
+
 ## Per-Question Detail
 
 Latest hybrid mode detail:
 
 ```text
 command-decorator           symbolRank=1  fileRank=1  top=command                         file=src/click/decorators.py
-group-decorator             symbolRank=2  fileRank=1  top=Group.result_callback           file=src/click/core.py
-option-decorator            symbolRank=3  fileRank=1  top=command                         file=src/click/decorators.py
+group-decorator             symbolRank=1  fileRank=1  top=Group.group                     file=src/click/core.py
+option-decorator            symbolRank=1  fileRank=1  top=option                          file=src/click/decorators.py
 context-callback-invoke     symbolRank=1  fileRank=1  top=Context.invoke                  file=src/click/core.py
 command-main                symbolRank=1  fileRank=1  top=Command.main                    file=src/click/core.py
 group-subcommand-dispatch   symbolRank=1  fileRank=1  top=Group.invoke                    file=src/click/core.py
@@ -147,7 +149,8 @@ usage-formatting            symbolRank=1  fileRank=1  top=HelpFormatter.write_us
 - Good: `option-value-source` now lands directly on `Option.consume_value` after combining the narrower entrypoint trigger with method specificity.
 - Good: `usage-formatting` now lands directly on `HelpFormatter.write_usage`, another container-vs-method win.
 - Good: `shell-completion` now lands on `shell_complete` after the core-symbol rule learned that `shell_completion.py` and `shell_complete` are stem-equivalent.
-- Mixed: `group-decorator` lands on the decorators module first and `Group.group` at rank 3. Source audit showed the original expected symbol set was too narrow, but the top-level `group` wrapper still does not beat the module or shortcut method.
+- Good: `group-decorator` now lands on `Group.group` after the guarded decorator-target signal.
+- Good: `option-decorator` now lands on `option`; the rule is guarded so helper methods like `Command.get_help_option` do not win just because they contain the target word.
 
 ## Cross-Corpus Comparison
 
@@ -155,13 +158,13 @@ Latest comparable hybrid results:
 
 ```text
 Graphify: Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00
-HTTPX:    Symbol Hit@1 0.85, Symbol Hit@5 1.00, File Hit@5 1.00
-Click:    Symbol Hit@1 0.86, Symbol Hit@5 1.00, File Hit@5 1.00
+HTTPX:    Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00
+Click:    Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00
 ```
 
-Click lowers confidence in the current exact-symbol ranking. The system is good at finding files and neighborhoods, but exact method/function ordering still struggles in dense framework code.
+Click lowered confidence in the earlier exact-symbol ranking. The current set is now saturated, so it no longer provides fresh ranking pressure.
 
-The third corpus does not reverse the soft-hybrid conclusion. It makes the claim more precise: hybrid is the best current mode across these three corpora, but its biggest remaining weakness is not recall. It is choosing the right room after it has found the right building.
+The third corpus does not reverse the soft-hybrid conclusion. It makes the claim more precise: hybrid is the best current mode across these three corpora, but the benchmark is now exhausted and needs expansion.
 
 ## Findings
 
@@ -179,9 +182,9 @@ The third corpus does not reverse the soft-hybrid conclusion. It makes the claim
 - The cli-runner audit improved Click Symbol Hit@1 from `0.64` to `0.71` and File Hit@1 from `0.93` to `1.00` by narrowing the entrypoint trigger. Graphify and HTTPX hybrid metrics stayed at Symbol Hit@1/Hit@5 `1.00/1.00` and `0.77/1.00`.
 - The stem-equivalent core-symbol rule improved Click Symbol Hit@1 from `0.71` to `0.79` by moving `shell_complete` over the `shell_completion.py` module. Graphify and HTTPX hybrid metrics stayed at Symbol Hit@1/Hit@5 `1.00/1.00` and `0.77/1.00`.
 - The exact-object ordering pass improved Click Symbol Hit@1 from `0.79` to `0.86` by moving `Path.convert` over module/class context. Graphify stayed saturated and HTTPX improved to Symbol Hit@1/Hit@5 `0.85/1.00`.
-- All previously listed Click top-one misses have now been source-audited or fixed. Further work should move from miss triage to a broader exact-method ordering design.
+- The guarded decorator-target signal improved Click Symbol Hit@1 from `0.86` to `1.00`, while Graphify and HTTPX stayed saturated.
+- All previously listed Click top-one misses have now been source-audited or fixed.
 
 ## Next Click Work
 
-- The remaining Click top-one misses are decorator phrasing cases: `group-decorator` and `option-decorator`.
-- Consider a general decorator-target phrasing rule before adding any benchmark-specific special case.
+- The current Click set is saturated. Further Click work should expand the question set before adding more ranking rules.

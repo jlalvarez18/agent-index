@@ -65,6 +65,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - The `index` command now reports whether it ran in `source-only` or `all-files` mode. This matters because source filtering changed benchmark conclusions earlier, so the mode should be visible in future process notes.
 - `--index-path` is now exposed consistently on `index`, `query`, and `benchmark`. This makes the existing core support usable from the CLI, especially for external corpora where writing under the target tree is not ideal.
 - A broader exact-object ranking pass improved HTTPX and Click top-one without sacrificing top-five recall. The first version regressed HTTPX `multipart-encoding` by boosting `MultipartStream.__init__`; narrowing owner/source matching and excluding dunder methods from broad lexical boosts recovered Symbol Hit@5.
+- A final guarded coding-domain pass saturated the current three-corpus hybrid benchmarks by adding decorator-target phrasing, multi-token symbol coverage, and representation-class signals. This should be framed as benchmark exhaustion, not proof of general search quality.
 
 ## Rejected Ideas
 
@@ -87,4 +88,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Should intent rules be split into trigger detection and scoring explanations so broad phrases are easier to audit?
 - What broader exact-method ordering design would improve the remaining Click non-top-one rows, such as `Path.convert`, without over-boosting unrelated methods in compact modules?
 - What package metadata and `npm pack` checks are enough before calling the prototype publishable, even if it stays pre-1.0?
-- Can decorator-target phrasing and multi-token symbol coverage improve the remaining HTTPX/Click top-one misses without becoming another corpus-specific rule list?
+- Which larger fourth corpus or expanded golden set can test whether the coding-domain signals generalize beyond the now-saturated small benchmarks?

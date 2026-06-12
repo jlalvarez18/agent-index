@@ -54,6 +54,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Auditing the Click `path-type-validation` question confirmed the expected method: `Path.convert` performs the existence and permission checks. The current module/class results ahead of it are useful navigation context, so this was recorded as acceptable top-one ambiguity rather than a benchmark or ranking change.
 - Auditing the Click `terminal-prompt` question showed answer-key ambiguity across public helper and option-specific prompt paths. `Option.prompt_for_value` calls `confirm` for boolean flags and passes `confirmation_prompt` to `prompt`, so adding it moved Click hybrid Symbol Hit@1 from 0.57 to 0.64 without ranking changes.
 - Auditing the Click `cli-runner-invoke` question found a real ranking weakness: `CliRunner` supplied a `cli` token that over-triggered the entrypoint prior and boosted `Command.main`. Requiring `cli` to appear with `main` fixed the miss and moved Click hybrid Symbol Hit@1 from 0.64 to 0.71 while preserving Graphify and HTTPX.
+- A stem-equivalent core-symbol rule moved `shell-completion` to top-one by treating `shell_completion.py` and `shell_complete` as the same core implementation. The first broad version over-boosted helpers like `DigestAuth.auth_flow`; narrowing the rule to equal-length file/symbol token sets preserved Graphify and HTTPX while moving Click hybrid Symbol Hit@1 from 0.71 to 0.79.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 - In the current sandbox, running `tsx` through the CLI may fail with `listen EPERM` on a temp IPC pipe. The same command works when run outside the sandbox.
 
@@ -76,4 +77,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?
 - Can container-vs-method ordering improve Click top-one precision without regressing Graphify or HTTPX?
 - Should intent rules be split into trigger detection and scoring explanations so broad phrases are easier to audit?
-- What broader exact-method ordering design would improve Click top-one precision without turning the query layer into a list of repo-specific patches?
+- What broader exact-method ordering design would improve the remaining Click non-top-one rows, such as `Path.convert`, without over-boosting unrelated methods in compact modules?

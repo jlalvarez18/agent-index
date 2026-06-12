@@ -363,6 +363,37 @@ def _split_community(graph):
     await expectTopHybridSymbol(root, "where does community detection run?", "cluster");
   });
 
+  test("hybrid mode treats stem-equivalent file names as core implementation symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-core-stems-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "shell_completion.py"),
+      `"""Shell completion source and complete instruction helpers."""
+
+def shell_complete(command, instruction):
+    if instruction == "source":
+        return "source script"
+    if instruction == "complete":
+        return "complete choices"
+    return ""
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where does shell completion decide between source and complete instructions?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "shell_complete",
+      kind: "function",
+      file: "pkg/shell_completion.py"
+    });
+    expect(result.matches[0].why).toContain("core symbol match");
+  });
+
   test("hybrid mode prefers incremental change detection over watcher orchestration", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-incremental-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

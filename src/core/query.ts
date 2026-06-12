@@ -382,11 +382,20 @@ function rankedQueryTokens(question: string): string[] {
 
 function coreSymbolAdjustment(row: CandidateRow): { score: number; reason: string } {
   let score = 0;
-  const fileStem = normalize(path.basename(row.file_path, ".py"));
-  const symbolName = normalize(row.symbol_name.replace(/^_+/, ""));
-  const symbolTokens = new Set(symbolName.split(/\s+/).filter(Boolean));
+  const fileStemTokens = normalize(path.basename(row.file_path, ".py"))
+    .split(/\s+/)
+    .filter(Boolean);
+  const symbolNameTokens = normalize(row.symbol_name.replace(/^_+/, ""))
+    .split(/\s+/)
+    .filter(Boolean);
+  const symbolTokens = new Set(symbolNameTokens);
 
-  if (fileStem && symbolName === fileStem && (row.kind === "function" || row.kind === "method")) {
+  if (
+    fileStemTokens.length > 0 &&
+    (row.kind === "function" || row.kind === "method") &&
+    symbolNameTokens.length === fileStemTokens.length &&
+    fileStemTokens.every((fileToken) => symbolNameTokens.some((symbolToken) => tokensLooselyMatch(fileToken, symbolToken)))
+  ) {
     score += 6;
   }
 
@@ -397,6 +406,22 @@ function coreSymbolAdjustment(row: CandidateRow): { score: number; reason: strin
   }
 
   return { score, reason: "core symbol match" };
+}
+
+function tokensLooselyMatch(left: string, right: string): boolean {
+  if (left === right || stemToken(left) === stemToken(right)) {
+    return true;
+  }
+
+  return commonPrefixLength(left, right) >= 5;
+}
+
+function commonPrefixLength(left: string, right: string): number {
+  let index = 0;
+  while (index < left.length && index < right.length && left[index] === right[index]) {
+    index += 1;
+  }
+  return index;
 }
 
 function methodOwnerNameAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {

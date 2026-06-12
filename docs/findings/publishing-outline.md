@@ -40,8 +40,8 @@ Agents do not only need more text search. They need search results tied to code 
 - HTTPX after dotted API and method owner/name ranking: symbol mode Symbol Hit@1 0.69, Symbol Hit@5 1.00, File Hit@1 1.00, Avg 12ms; hybrid mode Symbol Hit@1 0.46, Symbol Hit@5 0.62, File Hit@5 0.92, Avg 12ms.
 - HTTPX after soft lexical hybrid ranking: hybrid mode Symbol Hit@1 0.77, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 15ms; Graphify hybrid stayed Symbol Hit@1 1.00.
 - HTTPX after exact-object ordering: hybrid mode Symbol Hit@1 0.85, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 13ms.
-- HTTPX after guarded coding-domain signals: hybrid mode Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 13ms.
-- Click after scoped entrypoint intent, hybrid method specificity, answer-key audits, the CliRunner entrypoint fix, stem-equivalent core-symbol ranking, exact-object ordering, and decorator-target signals: FTS Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 0.93, Avg 3ms; symbol mode Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 1.00, Avg 16ms; hybrid mode Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 18ms.
+- HTTPX after guarded coding-domain signals: hybrid mode Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 14ms.
+- Click after scoped entrypoint intent, hybrid method specificity, answer-key audits, the CliRunner entrypoint fix, stem-equivalent core-symbol ranking, exact-object ordering, and decorator-target signals: FTS Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 0.93, Avg 3ms; symbol mode Symbol Hit@1 0.43, Symbol Hit@5 0.86, File Hit@5 1.00, Avg 16ms; hybrid mode Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00, Avg 20ms.
 - Early conclusion: structure is useful as a conservative reranker, and query understanding is needed when the right symbol is not present in the FTS candidate set.
 - Detailed benchmark JSON saturates the current Graphify set, while HTTPX and Click show cross-corpus behavior is not solved by one benchmark.
 - Source-only hygiene v2 removed fixture/sample corpora; remaining misses are now cleaner evidence for ranking/query-intent work.

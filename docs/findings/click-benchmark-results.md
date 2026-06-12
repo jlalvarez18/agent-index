@@ -90,7 +90,7 @@ File Hit@1: 1.00
 File Hit@5: 1.00
 File MRR: 1.00
 Partial file hits: 0.00
-Avg latency: 18ms
+Avg latency: 20ms
 ```
 
 Click supports the soft-hybrid direction. Hybrid beats FTS and symbol mode on Symbol Hit@1 and Symbol Hit@5, while matching symbol mode on File Hit@5. The tradeoff is latency: FTS is much faster.

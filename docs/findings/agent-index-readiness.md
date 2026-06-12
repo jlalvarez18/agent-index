@@ -11,9 +11,9 @@ Last audit: 2026-06-12
 - Built CLI help: `node dist/cli.js --help` exits successfully.
 - `git diff --check`: passes.
 - `npm pack --dry-run`: passes and includes README, benchmark JSON, docs, built `dist` files, and package metadata.
-- Hybrid Graphify benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `57ms`.
-- Hybrid HTTPX benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `13ms`.
-- Hybrid Click benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `18ms`.
+- Hybrid Graphify benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `55ms`.
+- Hybrid HTTPX benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `14ms`.
+- Hybrid Click benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `20ms`.
 
 ## Resolved In Latest Audit
 

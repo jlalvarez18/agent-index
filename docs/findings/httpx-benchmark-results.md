@@ -289,7 +289,7 @@ File Hit@1: 1.00
 File Hit@5: 1.00
 File MRR: 1.00
 Partial file hits: 0.00
-Avg latency: 13ms
+Avg latency: 14ms
 ```
 
 ## Per-Question Detail

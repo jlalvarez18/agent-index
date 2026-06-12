@@ -40,6 +40,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - The current Graphify set is no longer useful for additional ranking optimization by itself. The next evidence should come from another repository or a larger golden set.
 - HTTPX is now the second corpus. Its first baseline reverses the Graphify conclusion: symbol mode beats hybrid on exact symbol retrieval, with Symbol Hit@5 0.83 vs hybrid 0.42. This is useful evidence that the hybrid strategy is corpus-sensitive.
 - Auditing the HTTPX truth set preserved that conclusion. The cleaned 13-question set gives symbol mode Symbol Hit@5 0.85 and File Hit@5 1.00, while hybrid gives Symbol Hit@5 0.46 and File Hit@5 0.85. The remaining symbol-mode misses are mostly module/class containers outranking exact functions, such as `main`, `request`, and `Response.json`.
+- Inspecting the HTTPX index showed `main` was absent from `httpx/_main.py`, not merely under-ranked. Tree-sitter wraps decorated functions and methods in `decorated_definition`; adding extraction for that wrapper increased HTTPX source-only coverage from 466 to 544 symbols and moved symbol-mode Hit@5 from 0.85 to 0.92.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas
@@ -59,4 +60,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Which hybrid ranking signals can improve Symbol Hit@1 without reducing protected FTS top-five recall?
 - Can query-intent terms like "entrypoint", "export", and "report" be mapped to likely file/symbol patterns without overfitting to Graphify?
 - Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?
-- Should query mode prefer exact function/method matches over module/class containers when both are in the same high-confidence file?
+- Should query mode prefer exact function/method matches over module/class containers when both are in the same high-confidence file, after confirming the function/method is actually extracted?

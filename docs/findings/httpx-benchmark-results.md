@@ -21,7 +21,7 @@ npm run agent-index -- index /Users/juan/Repos/httpx --source-only
 Index summary:
 
 ```text
-Indexed 23 files, 466 symbols, 466 chunks, 1675 edges at /Users/juan/Repos/httpx/.codeindex/index.sqlite
+Indexed 23 files, 544 symbols, 544 chunks, 1851 edges at /Users/juan/Repos/httpx/.codeindex/index.sqlite
 ```
 
 Benchmark command:
@@ -95,12 +95,79 @@ Avg latency: 13ms
 
 The audited HTTPX result keeps the same conclusion as the first run. On this corpus, symbol mode is currently stronger than hybrid for exact symbols: Symbol Hit@5 is `0.85` for symbol mode but only `0.46` for hybrid. Symbol mode also reaches File Hit@5 `1.00`, which means the remaining misses are mostly intra-file or container-vs-method ordering problems.
 
-## Per-Question Detail
+## Decorated Definition Extraction
 
-Symbol mode detail:
+Run date: 2026-06-12
+
+The `cli-entrypoint` miss was not only a ranking problem. Inspecting the HTTPX SQLite index showed no `main` function symbol in `httpx/_main.py`; only the module symbol existed. The root cause was Python Tree-sitter wrapping decorated functions and methods in `decorated_definition`, which the extractor ignored.
+
+After extracting decorated functions and methods, the HTTPX source-only index changed from `466` symbols / `1675` edges to `544` symbols / `1851` edges.
+
+Plain FTS after reindex:
 
 ```text
-cli-entrypoint          symbolRank=null  fileRank=1     top=httpx/_main.py              file=httpx/_main.py
+Mode: fts
+Questions: 13
+Symbol Hit@1: 0.31
+Symbol Hit@5: 0.54
+Symbol MRR: 0.40
+File Hit@1: 0.54
+File Hit@5: 0.85
+File MRR: 0.63
+Partial file hits: 0.31
+Avg latency: 3ms
+```
+
+Symbol mode after reindex:
+
+```text
+Mode: symbol
+Questions: 13
+Symbol Hit@1: 0.46
+Symbol Hit@5: 0.92
+Symbol MRR: 0.66
+File Hit@1: 0.92
+File Hit@5: 1.00
+File MRR: 0.95
+Partial file hits: 0.08
+Avg latency: 13ms
+```
+
+Hybrid mode after reindex:
+
+```text
+Mode: hybrid
+Questions: 13
+Symbol Hit@1: 0.38
+Symbol Hit@5: 0.54
+Symbol MRR: 0.46
+File Hit@1: 0.77
+File Hit@5: 0.85
+File MRR: 0.81
+Partial file hits: 0.31
+Avg latency: 13ms
+```
+
+Graphify preservation check:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+Avg latency: 56ms
+```
+
+The extractor fix moved `cli-entrypoint` from a partial file hit to an exact symbol hit in both symbol and hybrid mode. It also improved HTTPX exact-symbol recall without changing ranking rules.
+
+## Per-Question Detail
+
+Latest symbol mode detail:
+
+```text
+cli-entrypoint          symbolRank=1     fileRank=1     top=main                       file=httpx/_main.py
 top-level-request-api   symbolRank=null  fileRank=1     top=httpx/_api.py               file=httpx/_api.py
 sync-client-send        symbolRank=1     fileRank=1     top=Client.send                 file=httpx/_client.py
 async-client-send       symbolRank=2     fileRank=1     top=AsyncClient                 file=httpx/_client.py
@@ -112,15 +179,15 @@ asgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/as
 wsgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/wsgi.py   file=httpx/_transports/wsgi.py
 response-json           symbolRank=4     fileRank=3     top=httpx/_content.py           file=httpx/_content.py
 response-status-errors  symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
-multipart-encoding      symbolRank=2     fileRank=1     top=encode_urlencoded_data      file=httpx/_content.py
+multipart-encoding      symbolRank=3     fileRank=1     top=encode_urlencoded_data      file=httpx/_content.py
 ```
 
-Hybrid mode detail:
+Latest hybrid mode detail:
 
 ```text
-cli-entrypoint          symbolRank=null  fileRank=1     top=httpx/_main.py              file=httpx/_main.py
+cli-entrypoint          symbolRank=1     fileRank=1     top=main                       file=httpx/_main.py
 top-level-request-api   symbolRank=null  fileRank=null  top=httpx/__init__.py            file=httpx/__init__.py
-sync-client-send        symbolRank=null  fileRank=1     top=AsyncClient                 file=httpx/_client.py
+sync-client-send        symbolRank=null  fileRank=2     top=Auth                        file=httpx/_auth.py
 async-client-send       symbolRank=null  fileRank=1     top=AsyncClient                 file=httpx/_client.py
 redirect-handling       symbolRank=null  fileRank=1     top=BaseClient.build_request    file=httpx/_client.py
 basic-auth              symbolRank=1     fileRank=1     top=BasicAuth                   file=httpx/_auth.py
@@ -138,12 +205,12 @@ multipart-encoding      symbolRank=1     fileRank=1     top=MultipartStream     
 - The second corpus immediately caught overconfidence from Graphify. A saturated Graphify score did not mean the hybrid ranking strategy was generally best.
 - Symbol mode is the best current HTTPX mode for exact symbols, while hybrid is competitive for file-level retrieval.
 - Several misses are exact-symbol ordering problems rather than file-retrieval failures.
-- `cli-entrypoint` lands in `httpx/_main.py` in hybrid but misses the `main` function, which means file-level intent works but intra-file symbol ordering still needs work.
+- `cli-entrypoint` now hits `main` after decorated functions are extracted.
 - `top-level-request-api` is now clearer, and symbol mode finds the right file, but both symbol and hybrid still miss the `request` function itself.
 - `response-json` shows a real limitation: the query lands near content encoding instead of `Response.json`, while `response-status-errors` cleanly hits `Response.raise_for_status`.
 
 ## Next HTTPX Work
 
-- Improve intra-file symbol ordering so module/class containers do not hide exact functions such as `main`, `request`, and `Response.json`.
+- Improve intra-file symbol ordering so module/class containers do not hide exact functions such as `request` and `Response.json`.
 - Keep HTTPX results separate from Graphify results so cross-corpus changes stay visible.
 - Compare symbol mode and hybrid mode per question before changing hybrid candidate protection.

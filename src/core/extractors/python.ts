@@ -54,11 +54,15 @@ function collectTopLevel(
     return;
   }
 
-  if (node.type === "class_definition") {
-    const name = requiredName(node);
-    const symbol = symbolForNode(name, name, "class", node, moduleName);
+  const decorated = decoratedDefinition(node);
+  const definition = decorated?.definition ?? node;
+  const rangeNode = decorated?.rangeNode ?? node;
+
+  if (definition.type === "class_definition") {
+    const name = requiredName(definition);
+    const symbol = symbolForNode(name, name, "class", rangeNode, moduleName);
     symbols.push(symbol);
-    chunks.push(chunkForNode(symbol.qualifiedName, node, file.text));
+    chunks.push(chunkForNode(symbol.qualifiedName, rangeNode, file.text));
     edges.push({
       sourceSymbolName: moduleName,
       targetName: symbol.qualifiedName,
@@ -66,17 +70,20 @@ function collectTopLevel(
       confidence: "exact"
     });
 
-    const body = node.childForFieldName("body");
+    const body = definition.childForFieldName("body");
     for (const member of body?.namedChildren ?? []) {
-      if (member.type === "function_definition") {
-        collectFunction(member, file, symbols, chunks, edges, name);
+      const decoratedMember = decoratedDefinition(member);
+      const memberDefinition = decoratedMember?.definition ?? member;
+      const memberRangeNode = decoratedMember?.rangeNode ?? member;
+      if (memberDefinition.type === "function_definition") {
+        collectFunction(memberDefinition, file, symbols, chunks, edges, name, memberRangeNode);
       }
     }
     return;
   }
 
-  if (node.type === "function_definition") {
-    collectFunction(node, file, symbols, chunks, edges, moduleName);
+  if (definition.type === "function_definition") {
+    collectFunction(definition, file, symbols, chunks, edges, moduleName, rangeNode);
   }
 }
 
@@ -86,14 +93,15 @@ function collectFunction(
   symbols: CodeSymbol[],
   chunks: CodeChunk[],
   edges: CodeEdge[],
-  parentSymbolName: string
+  parentSymbolName: string,
+  rangeNode: SyntaxNode = node
 ) {
   const name = requiredName(node);
   const isMethod = parentSymbolName !== file.relativePath;
   const qualifiedName = isMethod ? `${parentSymbolName}.${name}` : name;
-  const symbol = symbolForNode(name, qualifiedName, isMethod ? "method" : "function", node, parentSymbolName);
+  const symbol = symbolForNode(name, qualifiedName, isMethod ? "method" : "function", rangeNode, parentSymbolName);
   symbols.push(symbol);
-  chunks.push(chunkForNode(symbol.qualifiedName, node, file.text));
+  chunks.push(chunkForNode(symbol.qualifiedName, rangeNode, file.text));
   edges.push({
     sourceSymbolName: parentSymbolName,
     targetName: symbol.qualifiedName,
@@ -109,6 +117,17 @@ function collectFunction(
       confidence: "name"
     });
   }
+}
+
+function decoratedDefinition(node: SyntaxNode): { definition: SyntaxNode; rangeNode: SyntaxNode } | undefined {
+  if (node.type !== "decorated_definition") {
+    return undefined;
+  }
+
+  const definition = node.namedChildren.find(
+    (child) => child.type === "class_definition" || child.type === "function_definition"
+  );
+  return definition ? { definition, rangeNode: node } : undefined;
 }
 
 function symbolForNode(

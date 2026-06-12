@@ -141,4 +141,57 @@ def load_value(key):
       })
     );
   });
+
+  test("extracts decorated functions and methods using the decorated source range", () => {
+    const result = extractPython(
+      sourceFile(`@click.command()
+@click.option("--verbose")
+def main(verbose):
+    return verbose
+
+class Response:
+    @property
+    def json(self):
+        return {}
+`)
+    );
+
+    expect(result.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "main",
+          qualifiedName: "main",
+          kind: "function",
+          startLine: 1,
+          endLine: 4,
+          parentSymbolName: "pkg/cache.py"
+        }),
+        expect.objectContaining({
+          name: "json",
+          qualifiedName: "Response.json",
+          kind: "method",
+          startLine: 7,
+          endLine: 9,
+          parentSymbolName: "Response"
+        })
+      ])
+    );
+
+    expect(result.chunks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          symbolName: "main",
+          startLine: 1,
+          endLine: 4,
+          text: '@click.command()\n@click.option("--verbose")\ndef main(verbose):\n    return verbose'
+        }),
+        expect.objectContaining({
+          symbolName: "Response.json",
+          startLine: 7,
+          endLine: 9,
+          text: "    @property\n    def json(self):\n        return {}"
+        })
+      ])
+    );
+  });
 });

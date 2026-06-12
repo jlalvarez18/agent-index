@@ -1,7 +1,7 @@
 [
   {
     "id": "cli-entrypoint",
-    "question": "where is the httpx command line client entrypoint?",
+    "question": "where is the Click main function for the httpx CLI defined?",
     "expected": {
       "files": ["httpx/_main.py"],
       "symbols": ["main"]
@@ -9,7 +9,7 @@
   },
   {
     "id": "top-level-request-api",
-    "question": "where does the top-level httpx request API send a request?",
+    "question": "where is the module-level httpx.request convenience function defined?",
     "expected": {
       "files": ["httpx/_api.py"],
       "symbols": ["request"]
@@ -80,11 +80,19 @@
     }
   },
   {
-    "id": "response-json-status",
-    "question": "where does a response parse JSON and raise for bad status?",
+    "id": "response-json",
+    "question": "where does a response parse JSON content?",
     "expected": {
       "files": ["httpx/_models.py"],
-      "symbols": ["Response.json", "Response.raise_for_status"]
+      "symbols": ["Response.json"]
+    }
+  },
+  {
+    "id": "response-status-errors",
+    "question": "where does a response raise HTTP status errors?",
+    "expected": {
+      "files": ["httpx/_models.py"],
+      "symbols": ["Response.raise_for_status"]
     }
   },
   {

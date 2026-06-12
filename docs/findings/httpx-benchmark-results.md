@@ -30,66 +30,78 @@ Benchmark command:
 npm run agent-index -- benchmark ./benchmarks/httpx-python.json --target /Users/juan/Repos/httpx --mode <fts|symbol|hybrid>
 ```
 
-The initial golden set contains 12 questions covering CLI entrypoint, top-level request API, sync and async clients, redirects, basic auth, timeout config, proxy routing, ASGI/WSGI transports, response helpers, and multipart encoding.
+The audited golden set contains 13 questions covering CLI entrypoint, top-level request API, sync and async clients, redirects, basic auth, timeout config, proxy routing, ASGI/WSGI transports, response helpers, and multipart encoding.
 
-## Baseline Results
+## Truth-Set Audit
 
-Run date: 2026-06-11
+Run date: 2026-06-12
+
+The first HTTPX baseline had 12 questions. Two prompts needed cleanup before ranking work:
+
+- `top-level-request-api` expected `httpx/_api.py::request`, but the wording "send a request" also matched lower-level transport handling. It now asks where the module-level `httpx.request` convenience function is defined.
+- `response-json-status` asked for two behaviors in one question. It is now split into `response-json` and `response-status-errors`.
+- `cli-entrypoint` now names the Click CLI function directly, while keeping the same expected `main` symbol.
+
+No ranking code changed during this audit.
+
+## Audited Results
+
+Run date: 2026-06-12
 
 Plain FTS:
 
 ```text
 Mode: fts
-Questions: 12
-Symbol Hit@1: 0.33
-Symbol Hit@5: 0.42
-Symbol MRR: 0.38
-File Hit@1: 0.58
-File Hit@5: 0.83
-File MRR: 0.67
-Partial file hits: 0.42
-Avg latency: 3ms
+Questions: 13
+Symbol Hit@1: 0.31
+Symbol Hit@5: 0.46
+Symbol MRR: 0.36
+File Hit@1: 0.54
+File Hit@5: 0.85
+File MRR: 0.64
+Partial file hits: 0.38
+Avg latency: 2ms
 ```
 
 Symbol mode:
 
 ```text
 Mode: symbol
-Questions: 12
-Symbol Hit@1: 0.42
-Symbol Hit@5: 0.83
-Symbol MRR: 0.63
-File Hit@1: 0.83
-File Hit@5: 0.92
-File MRR: 0.88
-Partial file hits: 0.08
-Avg latency: 15ms
+Questions: 13
+Symbol Hit@1: 0.38
+Symbol Hit@5: 0.85
+Symbol MRR: 0.60
+File Hit@1: 0.92
+File Hit@5: 1.00
+File MRR: 0.95
+Partial file hits: 0.15
+Avg latency: 11ms
 ```
 
 Hybrid mode:
 
 ```text
 Mode: hybrid
-Questions: 12
-Symbol Hit@1: 0.25
-Symbol Hit@5: 0.42
-Symbol MRR: 0.33
-File Hit@1: 0.83
-File Hit@5: 0.83
-File MRR: 0.83
-Partial file hits: 0.42
-Avg latency: 11ms
+Questions: 13
+Symbol Hit@1: 0.31
+Symbol Hit@5: 0.46
+Symbol MRR: 0.38
+File Hit@1: 0.85
+File Hit@5: 0.85
+File MRR: 0.85
+Partial file hits: 0.38
+Avg latency: 13ms
 ```
 
-The first HTTPX result is useful because it does not simply repeat Graphify. On this corpus, symbol mode is currently stronger than hybrid for exact symbols: Symbol Hit@5 is `0.83` for symbol mode but only `0.42` for hybrid. That suggests the conservative hybrid candidate protection that helped Graphify can hold back symbol matches on a library-shaped corpus.
+The audited HTTPX result keeps the same conclusion as the first run. On this corpus, symbol mode is currently stronger than hybrid for exact symbols: Symbol Hit@5 is `0.85` for symbol mode but only `0.46` for hybrid. Symbol mode also reaches File Hit@5 `1.00`, which means the remaining misses are mostly intra-file or container-vs-method ordering problems.
 
 ## Per-Question Detail
 
 Symbol mode detail:
 
 ```text
-cli-entrypoint          symbolRank=null  fileRank=2     top=httpx/_client.py            file=httpx/_client.py
-top-level-request-api   symbolRank=null  fileRank=null  top=httpx/_client.py            file=httpx/_client.py
+cli-entrypoint          symbolRank=null  fileRank=1     top=httpx/_main.py              file=httpx/_main.py
+top-level-request-api   symbolRank=null  fileRank=1     top=httpx/_api.py               file=httpx/_api.py
 sync-client-send        symbolRank=1     fileRank=1     top=Client.send                 file=httpx/_client.py
 async-client-send       symbolRank=2     fileRank=1     top=AsyncClient                 file=httpx/_client.py
 redirect-handling       symbolRank=1     fileRank=1     top=BaseClient._build_redirect_request file=httpx/_client.py
@@ -98,7 +110,8 @@ timeout-config          symbolRank=2     fileRank=1     top=httpx/_config.py    
 proxy-routing           symbolRank=1     fileRank=1     top=get_environment_proxies     file=httpx/_utils.py
 asgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/asgi.py   file=httpx/_transports/asgi.py
 wsgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/wsgi.py   file=httpx/_transports/wsgi.py
-response-json-status    symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
+response-json           symbolRank=4     fileRank=3     top=httpx/_content.py           file=httpx/_content.py
+response-status-errors  symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
 multipart-encoding      symbolRank=2     fileRank=1     top=encode_urlencoded_data      file=httpx/_content.py
 ```
 
@@ -106,7 +119,7 @@ Hybrid mode detail:
 
 ```text
 cli-entrypoint          symbolRank=null  fileRank=1     top=httpx/_main.py              file=httpx/_main.py
-top-level-request-api   symbolRank=null  fileRank=null  top=BaseTransport.handle_request file=httpx/_transports/base.py
+top-level-request-api   symbolRank=null  fileRank=null  top=httpx/__init__.py            file=httpx/__init__.py
 sync-client-send        symbolRank=null  fileRank=1     top=AsyncClient                 file=httpx/_client.py
 async-client-send       symbolRank=null  fileRank=1     top=AsyncClient                 file=httpx/_client.py
 redirect-handling       symbolRank=null  fileRank=1     top=BaseClient.build_request    file=httpx/_client.py
@@ -115,7 +128,8 @@ timeout-config          symbolRank=null  fileRank=1     top=httpx/_config.py    
 proxy-routing           symbolRank=1     fileRank=1     top=get_environment_proxies     file=httpx/_utils.py
 asgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/asgi.py   file=httpx/_transports/asgi.py
 wsgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/wsgi.py   file=httpx/_transports/wsgi.py
-response-json-status    symbolRank=null  fileRank=null  top=httpx/_auth.py              file=httpx/_auth.py
+response-json           symbolRank=null  fileRank=null  top=httpx/_content.py           file=httpx/_content.py
+response-status-errors  symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
 multipart-encoding      symbolRank=1     fileRank=1     top=MultipartStream             file=httpx/_multipart.py
 ```
 
@@ -125,12 +139,11 @@ multipart-encoding      symbolRank=1     fileRank=1     top=MultipartStream     
 - Symbol mode is the best current HTTPX mode for exact symbols, while hybrid is competitive for file-level retrieval.
 - Several misses are exact-symbol ordering problems rather than file-retrieval failures.
 - `cli-entrypoint` lands in `httpx/_main.py` in hybrid but misses the `main` function, which means file-level intent works but intra-file symbol ordering still needs work.
-- `top-level-request-api` may need a truth-set review: the user-facing top-level function is `httpx/_api.py::request`, but the query wording also strongly matches lower-level transport request handling.
-- `response-json-status` is a hard query because it asks for two behaviors in one question: `Response.json` and `Response.raise_for_status`.
+- `top-level-request-api` is now clearer, and symbol mode finds the right file, but both symbol and hybrid still miss the `request` function itself.
+- `response-json` shows a real limitation: the query lands near content encoding instead of `Response.json`, while `response-status-errors` cleanly hits `Response.raise_for_status`.
 
 ## Next HTTPX Work
 
-- Audit the 12 golden labels after reading the relevant source, especially `top-level-request-api` and `response-json-status`.
+- Improve intra-file symbol ordering so module/class containers do not hide exact functions such as `main`, `request`, and `Response.json`.
 - Keep HTTPX results separate from Graphify results so cross-corpus changes stay visible.
-- Do not tune ranking until the HTTPX truth set is audited.
-- After audit, compare symbol mode and hybrid mode per question to decide whether hybrid should protect FTS candidates differently.
+- Compare symbol mode and hybrid mode per question before changing hybrid candidate protection.

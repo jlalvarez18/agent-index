@@ -39,6 +39,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Inspecting the incremental-cache miss confirmed the golden label: `watch()` orchestrates file events, while `detect_incremental()` decides what changed by comparing the manifest. Adding a narrow incremental change-detection intent rule saturated the current Graphify benchmark at Symbol Hit@1 1.00 / Symbol Hit@5 1.00.
 - The current Graphify set is no longer useful for additional ranking optimization by itself. The next evidence should come from another repository or a larger golden set.
 - HTTPX is now the second corpus. Its first baseline reverses the Graphify conclusion: symbol mode beats hybrid on exact symbol retrieval, with Symbol Hit@5 0.83 vs hybrid 0.42. This is useful evidence that the hybrid strategy is corpus-sensitive.
+- Auditing the HTTPX truth set preserved that conclusion. The cleaned 13-question set gives symbol mode Symbol Hit@5 0.85 and File Hit@5 1.00, while hybrid gives Symbol Hit@5 0.46 and File Hit@5 0.85. The remaining symbol-mode misses are mostly module/class containers outranking exact functions, such as `main`, `request`, and `Response.json`.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas
@@ -58,3 +59,4 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Which hybrid ranking signals can improve Symbol Hit@1 without reducing protected FTS top-five recall?
 - Can query-intent terms like "entrypoint", "export", and "report" be mapped to likely file/symbol patterns without overfitting to Graphify?
 - Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?
+- Should query mode prefer exact function/method matches over module/class containers when both are in the same high-confidence file?

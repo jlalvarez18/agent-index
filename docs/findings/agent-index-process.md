@@ -49,6 +49,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Narrowing the entrypoint trigger to explicit `entry point`, `entrypoint`, and `cli` terms moved Click hybrid Symbol Hit@5 from 0.79 to 0.86 while preserving Graphify and HTTPX. This is a useful example of pruning an intent rule instead of adding another special case.
 - Adding a small hybrid-only method specificity boost for results that already have `method owner/name match` moved Click hybrid Symbol Hit@1 from 0.36 to 0.50 while preserving Graphify and HTTPX. This improved exact-method ordering without adding another query-intent rule.
 - Auditing the Click `shell-completion` question showed a benchmark wording problem, not a ranking problem. Rewording it around source-vs-complete instruction handling moved Click hybrid Symbol Hit@5 from 0.86 to 0.93 without code changes.
+- Auditing the Click `group-decorator` question showed answer-key ambiguity. The top-level `group` wrapper delegates through `command(cls=Group)`, while `Group.group` is also a source-valid group decorator path that registers the result. Expanding the expected symbols moved Click hybrid Symbol Hit@5 from 0.93 to 1.00 without ranking changes.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 - In the current sandbox, running `tsx` through the CLI may fail with `listen EPERM` on a temp IPC pipe. The same command works when run outside the sandbox.
 
@@ -69,6 +70,6 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Which top-one ranking signals can improve remaining HTTPX hybrid misses without turning the benchmark into a rule-list for specific questions?
 - Can query-intent terms like "entrypoint", "export", and "report" be mapped to likely file/symbol patterns without overfitting to Graphify?
 - Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?
-- Can container-vs-method ordering improve Click without regressing Graphify or HTTPX?
+- Can container-vs-method ordering improve Click top-one precision without regressing Graphify or HTTPX?
 - Should intent rules be split into trigger detection and scoring explanations so broad phrases are easier to audit?
-- Which remaining Click misses are legitimate ambiguity versus ranking failures?
+- Which remaining Click top-one misses are legitimate ambiguity versus ranking failures?

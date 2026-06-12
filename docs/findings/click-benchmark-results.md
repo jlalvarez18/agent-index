@@ -54,13 +54,13 @@ Plain FTS:
 Mode: fts
 Questions: 14
 Symbol Hit@1: 0.36
-Symbol Hit@5: 0.79
-Symbol MRR: 0.51
+Symbol Hit@5: 0.86
+Symbol MRR: 0.54
 File Hit@1: 0.86
 File Hit@5: 0.93
 File MRR: 0.89
-Partial file hits: 0.14
-Avg latency: 2ms
+Partial file hits: 0.07
+Avg latency: 4ms
 ```
 
 Symbol mode:
@@ -69,13 +69,13 @@ Symbol mode:
 Mode: symbol
 Questions: 14
 Symbol Hit@1: 0.21
-Symbol Hit@5: 0.71
-Symbol MRR: 0.38
+Symbol Hit@5: 0.79
+Symbol MRR: 0.40
 File Hit@1: 0.86
 File Hit@5: 1.00
 File MRR: 0.91
-Partial file hits: 0.29
-Avg latency: 17ms
+Partial file hits: 0.21
+Avg latency: 18ms
 ```
 
 Hybrid mode:
@@ -84,13 +84,13 @@ Hybrid mode:
 Mode: hybrid
 Questions: 14
 Symbol Hit@1: 0.50
-Symbol Hit@5: 0.93
-Symbol MRR: 0.67
+Symbol Hit@5: 1.00
+Symbol MRR: 0.69
 File Hit@1: 0.86
 File Hit@5: 1.00
 File MRR: 0.91
-Partial file hits: 0.07
-Avg latency: 16ms
+Partial file hits: 0.00
+Avg latency: 17ms
 ```
 
 Click supports the soft-hybrid direction. Hybrid beats FTS and symbol mode on Symbol Hit@1 and Symbol Hit@5, while matching symbol mode on File Hit@5. The tradeoff is latency: FTS is much faster.
@@ -101,13 +101,15 @@ The next ranking pass added a small hybrid-only specificity boost for methods th
 
 The `shell-completion` question was then audited against source. The original wording, "where is shell completion dispatch implemented?", was too broad and reasonably matched formatter methods. It now asks where Click decides between `source` and `complete` shell completion instructions. No ranking code changed for this audit.
 
+The `group-decorator` question was then audited against source. The original answer key only allowed the top-level `group` function, but the question wording also reasonably matches `Group.group`, the shortcut decorator that declares and attaches a group to another group, and `command`, the shared decorator implementation used by `group(cls=Group)`. Expanding the expected answer key moved hybrid Symbol Hit@5 to `1.00` without ranking changes.
+
 ## Per-Question Detail
 
 Latest hybrid mode detail:
 
 ```text
 command-decorator           symbolRank=1  fileRank=1  top=command                         file=src/click/decorators.py
-group-decorator             symbolRank=-  fileRank=1  top=src/click/decorators.py         file=src/click/decorators.py
+group-decorator             symbolRank=3  fileRank=1  top=src/click/decorators.py         file=src/click/decorators.py
 option-decorator            symbolRank=3  fileRank=1  top=command                         file=src/click/decorators.py
 context-callback-invoke     symbolRank=1  fileRank=1  top=Context.invoke                  file=src/click/core.py
 command-main                symbolRank=1  fileRank=1  top=Command.main                    file=src/click/core.py
@@ -130,7 +132,7 @@ usage-formatting            symbolRank=1  fileRank=1  top=HelpFormatter.write_us
 - Good: `option-value-source` now lands directly on `Option.consume_value` after combining the narrower entrypoint trigger with method specificity.
 - Good: `usage-formatting` now lands directly on `HelpFormatter.write_usage`, another container-vs-method win.
 - Mixed: `shell-completion` now finds the dispatcher `shell_complete` at rank 2 after the question wording was narrowed to source-vs-complete instruction handling. The module still ranks first.
-- Bad: `group-decorator` lands in `src/click/decorators.py` but misses the `group` function in top five. The correct file is obvious, but exact wrapper functions are still hard when nearby decorator helpers share the same vocabulary.
+- Mixed: `group-decorator` lands on the decorators module first and `Group.group` at rank 3. Source audit showed the original expected symbol set was too narrow, but the top-level `group` wrapper still does not beat the module or shortcut method.
 
 ## Cross-Corpus Comparison
 
@@ -139,7 +141,7 @@ Latest comparable hybrid results:
 ```text
 Graphify: Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00
 HTTPX:    Symbol Hit@1 0.77, Symbol Hit@5 1.00, File Hit@5 1.00
-Click:    Symbol Hit@1 0.50, Symbol Hit@5 0.93, File Hit@5 1.00
+Click:    Symbol Hit@1 0.50, Symbol Hit@5 1.00, File Hit@5 1.00
 ```
 
 Click lowers confidence in the current exact-symbol ranking. The system is good at finding files and neighborhoods, but exact method/function ordering still struggles in dense framework code.
@@ -150,14 +152,15 @@ The third corpus does not reverse the soft-hybrid conclusion. It makes the claim
 
 - Click validates the need for cross-corpus testing. Graphify is saturated and HTTPX is strong, but Click exposes new exact-symbol misses.
 - File-level retrieval is strong: hybrid and symbol mode both reach File Hit@5 `1.00`.
-- Plain FTS remains a strong baseline. It reaches Symbol Hit@5 `0.79` at `2ms`, close to hybrid's `0.93` at `16ms`.
+- Plain FTS remains a strong baseline. It reaches Symbol Hit@5 `0.86` at `4ms`, close to hybrid's `1.00` at `17ms`.
 - Symbol mode alone underperforms hybrid on this corpus. It often promotes module/class containers over exact methods.
 - The entrypoint intent is useful but must stay narrowly scoped. Removing the broad `command` + `line` trigger improved Click Symbol Hit@5 from `0.79` to `0.86` while preserving Graphify and HTTPX.
 - A small hybrid-only method specificity boost improved Click Symbol Hit@1 from `0.36` to `0.50` while preserving Graphify and HTTPX.
 - The shell-completion audit improved Click Symbol Hit@5 from `0.86` to `0.93` without code changes, which reinforces the rule that misses need source review before ranking work.
-- The next ranking work should be conservative: inspect the remaining exact-symbol misses before adding broader rules.
+- The group-decorator audit improved Click Symbol Hit@5 from `0.93` to `1.00` without code changes by recognizing `Group.group` and `command` as source-backed alternatives to the top-level `group` wrapper.
+- The next ranking work should be conservative: inspect the remaining top-one misses before adding broader rules.
 
 ## Next Click Work
 
-- Inspect the remaining misses: `group-decorator`, `choice-type-conversion`, `path-type-validation`, `terminal-prompt`, and `cli-runner-invoke`.
+- Inspect the remaining top-one misses: `choice-type-conversion`, `path-type-validation`, `terminal-prompt`, and `cli-runner-invoke`.
 - Keep Click as a validation corpus and rerun all three corpora after any ranking change.

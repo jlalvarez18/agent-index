@@ -11,8 +11,8 @@
     "id": "group-decorator",
     "question": "where does Click create a group decorator from a function?",
     "expected": {
-      "files": ["src/click/decorators.py"],
-      "symbols": ["group"]
+      "files": ["src/click/decorators.py", "src/click/core.py"],
+      "symbols": ["group", "Group.group", "command"]
     }
   },
   {

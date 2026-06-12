@@ -6,7 +6,7 @@ Last audit: 2026-06-12
 
 ## Current Evidence
 
-- `npm test`: 37 tests passed across 7 files.
+- `npm test`: 43 tests passed across 7 files.
 - `npm run build`: passes and emits `dist/cli.js`.
 - Built CLI help: `node dist/cli.js --help` exits successfully.
 - `git diff --check`: passes.
@@ -42,4 +42,4 @@ Last audit: 2026-06-12
 
 The prototype is close to local dogfood use for Python repositories. The main remaining readiness gaps are not basic correctness; they are public-publishing decisions and broader validation beyond the now-saturated small benchmarks.
 
-The current system is strongest when the agent needs a ranked starting point with file, symbol, line range, and nearby context. It is weaker when a dense API has many plausible methods in the same class or module.
+The current system is strongest when the agent needs a ranked starting point with file, symbol, line range, and nearby context. Dense APIs with many plausible nearby methods remain the area to keep testing on larger benchmarks.

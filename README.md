@@ -63,6 +63,8 @@ By default, the index is written to:
 <target>/.codeindex/index.sqlite
 ```
 
+Use `--index-path /path/to/index.sqlite` with `index`, `query`, and `benchmark` when the index should live outside the target tree.
+
 `--source-only` skips common support directories such as tests, tools, examples, fixtures, samples, and worked corpora. That is the recommended mode for benchmark-style source retrieval.
 
 The success message includes the index mode, for example `(mode: source-only)`, so benchmark notes can record how the index was built.

@@ -26,8 +26,9 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .command("index")
     .argument("<target>", "target repository or directory")
     .option("--source-only", "skip tests and tools while indexing")
-    .action(async (target: string, options: { sourceOnly?: boolean }) => {
-      const stats = await indexTarget(target, { includeSupportCode: !options.sourceOnly });
+    .option("--index-path <path>", "SQLite index path")
+    .action(async (target: string, options: { sourceOnly?: boolean; indexPath?: string }) => {
+      const stats = await indexTarget(target, { includeSupportCode: !options.sourceOnly, indexPath: options.indexPath });
       const mode = options.sourceOnly ? "source-only" : "all-files";
       io.write(
         `Indexed ${stats.files} files, ${stats.symbols} symbols, ${stats.chunks} chunks, ${stats.edges} edges at ${stats.indexPath} (mode: ${mode})`
@@ -38,12 +39,14 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .command("query")
     .argument("<question>", "natural-language code question")
     .requiredOption("--target <target>", "target repository or directory")
+    .option("--index-path <path>", "SQLite index path")
     .option("--limit <limit>", "maximum result count", "5")
     .option("--mode <mode>", "query mode: symbol, fts, or hybrid", "symbol")
-    .action(async (question: string, options: { target: string; limit: string; mode: string }) => {
+    .action(async (question: string, options: { target: string; indexPath?: string; limit: string; mode: string }) => {
       const mode = parseMode(options.mode);
       const response = await queryIndex(question, {
         target: options.target,
+        indexPath: options.indexPath,
         limit: Number.parseInt(options.limit, 10),
         mode
       });
@@ -54,11 +57,12 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .command("benchmark")
     .argument("<benchmark-json>", "golden benchmark file")
     .requiredOption("--target <target>", "target repository or directory")
+    .option("--index-path <path>", "SQLite index path")
     .option("--mode <mode>", "benchmark mode: symbol, fts, or hybrid", "symbol")
     .option("--json", "write full benchmark result as JSON")
-    .action(async (benchmarkJson: string, options: { target: string; mode: string; json?: boolean }) => {
+    .action(async (benchmarkJson: string, options: { target: string; indexPath?: string; mode: string; json?: boolean }) => {
       const mode = parseMode(options.mode);
-      const result = await runBenchmark(benchmarkJson, { target: options.target, mode });
+      const result = await runBenchmark(benchmarkJson, { target: options.target, indexPath: options.indexPath, mode });
       io.write(options.json ? JSON.stringify(result, null, 2) : formatBenchmark(result));
     });
 

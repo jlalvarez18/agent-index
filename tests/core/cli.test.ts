@@ -83,6 +83,24 @@ describe("runCli", () => {
     expect(queryJson.matches[0].symbol).toBe("load_value");
   });
 
+  test("supports custom index paths across index, query, and benchmark", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+    const indexPath = path.join(root, "custom-index.sqlite");
+    const output: string[] = [];
+
+    await runCli(["index", root, "--index-path", indexPath], { write: (line) => output.push(line) });
+    await runCli(["query", "where is semantic cache loaded?", "--target", root, "--index-path", indexPath], {
+      write: (line) => output.push(line)
+    });
+    await runCli(["benchmark", benchmarkPath, "--target", root, "--index-path", indexPath], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[0]).toContain(indexPath);
+    expect(JSON.parse(output[1]).matches[0].symbol).toBe("load_value");
+    expect(output[2]).toContain("Symbol Hit@5: 1.00");
+  });
+
   test("supports hybrid benchmark mode", async () => {
     const { root, benchmarkPath } = await fixtureProject();
     const output: string[] = [];

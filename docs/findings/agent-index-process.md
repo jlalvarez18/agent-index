@@ -63,6 +63,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - The interactive `query` command now supports the same `fts`, `symbol`, and `hybrid` modes as `benchmark`, defaulting to the previous symbol behavior. This makes qualitative inspection line up with measured benchmark modes.
 - The npm package now has an explicit file allowlist and Node engine. `npm pack --dry-run` includes README, benchmark JSON, built `dist` files, and package metadata. The license remains `UNLICENSED` because choosing a public license is an owner/legal decision, not an implementation detail.
 - The `index` command now reports whether it ran in `source-only` or `all-files` mode. This matters because source filtering changed benchmark conclusions earlier, so the mode should be visible in future process notes.
+- `--index-path` is now exposed consistently on `index`, `query`, and `benchmark`. This makes the existing core support usable from the CLI, especially for external corpora where writing under the target tree is not ideal.
 
 ## Rejected Ideas
 

@@ -105,6 +105,8 @@ The `group-decorator` question was then audited against source. The original ans
 
 The `choice-type-conversion` question was then audited against source. `Choice.convert` is the end-to-end conversion method, but `Choice._normalized_mapping` is the code path that returns the accepted normalized command-line values and delegates to `Choice.normalize_choice`. Because the question asks about values being normalized and converted, the answer key now includes `_normalized_mapping`. No ranking code changed for this audit.
 
+The `path-type-validation` question was then audited against source. `Path.convert` is still the exact expected method: it handles existence, file/directory, readable, writable, executable, and result coercion checks. The current rank 1 and rank 2 results are the containing `types.py` module and `Path` class, so this is acceptable top-one ambiguity rather than benchmark ambiguity. No answer-key or ranking change was made.
+
 ## Per-Question Detail
 
 Latest hybrid mode detail:
@@ -131,6 +133,7 @@ usage-formatting            symbolRank=1  fileRank=1  top=HelpFormatter.write_us
 - Good: `command-decorator` lands directly on `command` in `src/click/decorators.py`. This is the ideal case: lexical terms, symbol name, and source text all agree.
 - Good: `command-main` lands on `Command.main`, which shows that the existing entrypoint intent can help outside Graphify and HTTPX.
 - Good: `choice-type-conversion` lands on `Choice._normalized_mapping`, which source audit confirmed is a valid answer for the normalization half of the question, with `Choice.convert` next.
+- Mixed: `path-type-validation` lands on `src/click/types.py` first, with `Path.convert` at rank 4. The class/module context is useful, but the exact validation logic lives in `Path.convert`.
 - Good: `option-value-source` now lands directly on `Option.consume_value` after combining the narrower entrypoint trigger with method specificity.
 - Good: `usage-formatting` now lands directly on `HelpFormatter.write_usage`, another container-vs-method win.
 - Mixed: `shell-completion` now finds the dispatcher `shell_complete` at rank 2 after the question wording was narrowed to source-vs-complete instruction handling. The module still ranks first.
@@ -161,9 +164,10 @@ The third corpus does not reverse the soft-hybrid conclusion. It makes the claim
 - The shell-completion audit improved Click Symbol Hit@5 from `0.86` to `0.93` without code changes, which reinforces the rule that misses need source review before ranking work.
 - The group-decorator audit improved Click Symbol Hit@5 from `0.93` to `1.00` without code changes by recognizing `Group.group` and `command` as source-backed alternatives to the top-level `group` wrapper.
 - The choice-type-conversion audit improved Click Symbol Hit@1 from `0.50` to `0.57` without code changes by recognizing `_normalized_mapping` as the normalization implementation named by the question.
+- The path-type-validation audit did not change metrics. It classified the miss as acceptable top-one ambiguity: the exact method is present at rank 4, behind its containing module and class.
 - The next ranking work should be conservative: inspect the remaining top-one misses before adding broader rules.
 
 ## Next Click Work
 
-- Inspect the remaining top-one misses: `path-type-validation`, `terminal-prompt`, and `cli-runner-invoke`.
+- Inspect the remaining top-one misses: `terminal-prompt` and `cli-runner-invoke`.
 - Keep Click as a validation corpus and rerun all three corpora after any ranking change.

@@ -53,6 +53,7 @@ Agents do not only need more text search. They need search results tied to code 
 - The Click section should include the truth-set lesson: the shell-completion miss was mostly vague wording, not a ranking failure.
 - The Click section should include the shortcut-API lesson: `group-decorator` looked like a miss until source audit showed `Group.group` and shared `command(cls=Group)` were valid answers for the original wording.
 - The Click section should include the multi-step-method lesson: `choice-type-conversion` involved normalization and conversion, so `_normalized_mapping` was a valid answer instead of a ranking miss.
+- The Click section should include the top-one ambiguity lesson: `path-type-validation` had the exact method at rank 4 behind its module/class, which is useful but still shows room for exact-method ordering.
 
 ## Evidence To Include Later
 

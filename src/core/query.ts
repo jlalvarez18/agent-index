@@ -199,7 +199,7 @@ export function rankHybridMatches(items: HybridRankInput[], limit: number): Quer
   return items
     .map((item) => ({
       ...item,
-      adjustedScore: item.match.score + hybridLexicalBoost(item)
+      adjustedScore: item.match.score + hybridLexicalBoost(item) + hybridSpecificityBoost(item)
     }))
     .sort((a, b) => b.adjustedScore - a.adjustedScore || a.inputIndex - b.inputIndex)
     .slice(0, limit)
@@ -213,6 +213,13 @@ function hybridLexicalBoost(item: HybridRankInput): number {
     (item.match.kind === "function" || item.match.kind === "method")
   ) {
     return 4;
+  }
+  return 0;
+}
+
+function hybridSpecificityBoost(item: HybridRankInput): number {
+  if (item.match.kind === "method" && item.match.why.includes("method owner/name match")) {
+    return 2;
   }
   return 0;
 }

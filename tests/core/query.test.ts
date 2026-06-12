@@ -87,6 +87,18 @@ describe("queryIndex", () => {
     expect(ranked.map((item) => item.symbol)).toEqual(["Client.send", "support_notes", "pkg/module.py"]);
   });
 
+  test("hybrid ranking lifts precise owner/name methods over broad class containers", () => {
+    const classContainer = match("Command", "class", 20.5);
+    const preciseMethod = {
+      ...match("Option.consume_value", "method", 19.5),
+      why: ["matched source text", "symbol name match", "method owner/name match"]
+    };
+
+    const ranked = rankHybridMatches([hybridItem(classContainer, undefined), hybridItem(preciseMethod, undefined)], 2);
+
+    expect(ranked.map((item) => item.symbol)).toEqual(["Option.consume_value", "Command"]);
+  });
+
   test("hybrid mode can add an entrypoint intent candidate outside plain FTS matches", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-entrypoint-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });
@@ -160,6 +172,37 @@ class Option:
       file: "pkg/core.py"
     });
     expect(result.matches[0].why).not.toContain("entrypoint intent match");
+  });
+
+  test("hybrid mode prefers matching child methods over broad class containers", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-child-methods-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "core.py"),
+      `class Option:
+    """Options handle command line values, defaults, prompts, environment variables, and parsing."""
+
+    command_line_values_defaults_prompts_environment_variables = "class overview"
+
+    def consume_value(self, ctx, opts):
+        value_source = "command line values defaults prompts environment variables"
+        return value_source
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where does an option consume command line values, defaults, prompts, and environment variables?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "Option.consume_value",
+      kind: "method",
+      file: "pkg/core.py"
+    });
+    expect(result.matches[0].why).toContain("method owner/name match");
   });
 
   test("hybrid mode boosts high-signal implementation intents", async () => {

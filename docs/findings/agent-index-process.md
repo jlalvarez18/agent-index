@@ -50,6 +50,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Adding a small hybrid-only method specificity boost for results that already have `method owner/name match` moved Click hybrid Symbol Hit@1 from 0.36 to 0.50 while preserving Graphify and HTTPX. This improved exact-method ordering without adding another query-intent rule.
 - Auditing the Click `shell-completion` question showed a benchmark wording problem, not a ranking problem. Rewording it around source-vs-complete instruction handling moved Click hybrid Symbol Hit@5 from 0.86 to 0.93 without code changes.
 - Auditing the Click `group-decorator` question showed answer-key ambiguity. The top-level `group` wrapper delegates through `command(cls=Group)`, while `Group.group` is also a source-valid group decorator path that registers the result. Expanding the expected symbols moved Click hybrid Symbol Hit@5 from 0.93 to 1.00 without ranking changes.
+- Auditing the Click `choice-type-conversion` question showed another answer-key ambiguity. `Choice.convert` performs end-to-end conversion, but `_normalized_mapping` directly implements the accepted normalized values named by the question. Expanding the expected symbols moved Click hybrid Symbol Hit@1 from 0.50 to 0.57 without ranking changes.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 - In the current sandbox, running `tsx` through the CLI may fail with `listen EPERM` on a temp IPC pipe. The same command works when run outside the sandbox.
 

@@ -60,7 +60,7 @@
     "question": "where are choice parameter values normalized and converted?",
     "expected": {
       "files": ["src/click/types.py"],
-      "symbols": ["Choice.convert", "Choice.normalize_choice"]
+      "symbols": ["Choice.convert", "Choice.normalize_choice", "Choice._normalized_mapping"]
     }
   },
   {

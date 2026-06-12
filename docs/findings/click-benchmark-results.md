@@ -55,12 +55,12 @@ Mode: fts
 Questions: 14
 Symbol Hit@1: 0.36
 Symbol Hit@5: 0.86
-Symbol MRR: 0.54
+Symbol MRR: 0.56
 File Hit@1: 0.86
 File Hit@5: 0.93
 File MRR: 0.89
 Partial file hits: 0.07
-Avg latency: 4ms
+Avg latency: 3ms
 ```
 
 Symbol mode:
@@ -68,14 +68,14 @@ Symbol mode:
 ```text
 Mode: symbol
 Questions: 14
-Symbol Hit@1: 0.21
+Symbol Hit@1: 0.29
 Symbol Hit@5: 0.79
-Symbol MRR: 0.40
+Symbol MRR: 0.44
 File Hit@1: 0.86
 File Hit@5: 1.00
 File MRR: 0.91
 Partial file hits: 0.21
-Avg latency: 18ms
+Avg latency: 16ms
 ```
 
 Hybrid mode:
@@ -83,9 +83,9 @@ Hybrid mode:
 ```text
 Mode: hybrid
 Questions: 14
-Symbol Hit@1: 0.50
+Symbol Hit@1: 0.57
 Symbol Hit@5: 1.00
-Symbol MRR: 0.69
+Symbol MRR: 0.73
 File Hit@1: 0.86
 File Hit@5: 1.00
 File MRR: 0.91
@@ -103,6 +103,8 @@ The `shell-completion` question was then audited against source. The original wo
 
 The `group-decorator` question was then audited against source. The original answer key only allowed the top-level `group` function, but the question wording also reasonably matches `Group.group`, the shortcut decorator that declares and attaches a group to another group, and `command`, the shared decorator implementation used by `group(cls=Group)`. Expanding the expected answer key moved hybrid Symbol Hit@5 to `1.00` without ranking changes.
 
+The `choice-type-conversion` question was then audited against source. `Choice.convert` is the end-to-end conversion method, but `Choice._normalized_mapping` is the code path that returns the accepted normalized command-line values and delegates to `Choice.normalize_choice`. Because the question asks about values being normalized and converted, the answer key now includes `_normalized_mapping`. No ranking code changed for this audit.
+
 ## Per-Question Detail
 
 Latest hybrid mode detail:
@@ -115,7 +117,7 @@ context-callback-invoke     symbolRank=1  fileRank=1  top=Context.invoke        
 command-main                symbolRank=1  fileRank=1  top=Command.main                    file=src/click/core.py
 group-subcommand-dispatch   symbolRank=1  fileRank=1  top=Group.invoke                    file=src/click/core.py
 option-value-source         symbolRank=1  fileRank=1  top=Option.consume_value            file=src/click/core.py
-choice-type-conversion      symbolRank=2  fileRank=1  top=Choice._normalized_mapping      file=src/click/types.py
+choice-type-conversion      symbolRank=1  fileRank=1  top=Choice._normalized_mapping      file=src/click/types.py
 path-type-validation        symbolRank=4  fileRank=1  top=src/click/types.py              file=src/click/types.py
 echo-output                 symbolRank=1  fileRank=1  top=echo                            file=src/click/utils.py
 terminal-prompt             symbolRank=2  fileRank=2  top=Option.prompt_for_value         file=src/click/core.py
@@ -128,7 +130,7 @@ usage-formatting            symbolRank=1  fileRank=1  top=HelpFormatter.write_us
 
 - Good: `command-decorator` lands directly on `command` in `src/click/decorators.py`. This is the ideal case: lexical terms, symbol name, and source text all agree.
 - Good: `command-main` lands on `Command.main`, which shows that the existing entrypoint intent can help outside Graphify and HTTPX.
-- Mixed: `choice-type-conversion` lands in the right class neighborhood, with `Choice._normalized_mapping` first and `Choice.convert` second. This is useful for navigation but not exact top-one.
+- Good: `choice-type-conversion` lands on `Choice._normalized_mapping`, which source audit confirmed is a valid answer for the normalization half of the question, with `Choice.convert` next.
 - Good: `option-value-source` now lands directly on `Option.consume_value` after combining the narrower entrypoint trigger with method specificity.
 - Good: `usage-formatting` now lands directly on `HelpFormatter.write_usage`, another container-vs-method win.
 - Mixed: `shell-completion` now finds the dispatcher `shell_complete` at rank 2 after the question wording was narrowed to source-vs-complete instruction handling. The module still ranks first.
@@ -141,7 +143,7 @@ Latest comparable hybrid results:
 ```text
 Graphify: Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00
 HTTPX:    Symbol Hit@1 0.77, Symbol Hit@5 1.00, File Hit@5 1.00
-Click:    Symbol Hit@1 0.50, Symbol Hit@5 1.00, File Hit@5 1.00
+Click:    Symbol Hit@1 0.57, Symbol Hit@5 1.00, File Hit@5 1.00
 ```
 
 Click lowers confidence in the current exact-symbol ranking. The system is good at finding files and neighborhoods, but exact method/function ordering still struggles in dense framework code.
@@ -152,15 +154,16 @@ The third corpus does not reverse the soft-hybrid conclusion. It makes the claim
 
 - Click validates the need for cross-corpus testing. Graphify is saturated and HTTPX is strong, but Click exposes new exact-symbol misses.
 - File-level retrieval is strong: hybrid and symbol mode both reach File Hit@5 `1.00`.
-- Plain FTS remains a strong baseline. It reaches Symbol Hit@5 `0.86` at `4ms`, close to hybrid's `1.00` at `17ms`.
+- Plain FTS remains a strong baseline. It reaches Symbol Hit@5 `0.86` at `3ms`, close to hybrid's `1.00` at `17ms`.
 - Symbol mode alone underperforms hybrid on this corpus. It often promotes module/class containers over exact methods.
 - The entrypoint intent is useful but must stay narrowly scoped. Removing the broad `command` + `line` trigger improved Click Symbol Hit@5 from `0.79` to `0.86` while preserving Graphify and HTTPX.
 - A small hybrid-only method specificity boost improved Click Symbol Hit@1 from `0.36` to `0.50` while preserving Graphify and HTTPX.
 - The shell-completion audit improved Click Symbol Hit@5 from `0.86` to `0.93` without code changes, which reinforces the rule that misses need source review before ranking work.
 - The group-decorator audit improved Click Symbol Hit@5 from `0.93` to `1.00` without code changes by recognizing `Group.group` and `command` as source-backed alternatives to the top-level `group` wrapper.
+- The choice-type-conversion audit improved Click Symbol Hit@1 from `0.50` to `0.57` without code changes by recognizing `_normalized_mapping` as the normalization implementation named by the question.
 - The next ranking work should be conservative: inspect the remaining top-one misses before adding broader rules.
 
 ## Next Click Work
 
-- Inspect the remaining top-one misses: `choice-type-conversion`, `path-type-validation`, `terminal-prompt`, and `cli-runner-invoke`.
+- Inspect the remaining top-one misses: `path-type-validation`, `terminal-prompt`, and `cli-runner-invoke`.
 - Keep Click as a validation corpus and rerun all three corpora after any ranking change.

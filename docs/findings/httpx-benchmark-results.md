@@ -215,6 +215,41 @@ Avg latency: 55ms
 
 Graphify symbol mode stayed at Symbol Hit@1 `0.90` and Symbol Hit@5 `1.00`; plain FTS stayed at Symbol Hit@5 `0.40`.
 
+## Soft Lexical Hybrid Ranking
+
+Run date: 2026-06-12
+
+The prior hybrid strategy preserved the first five FTS candidates as a hard gate. That helped Graphify, but it blocked stronger later symbol candidates on HTTPX. The new strategy gives FTS top-five function/method hits a lexical-priority boost, while letting all candidates compete by adjusted score. Modules and classes do not receive that boost.
+
+Hybrid mode after soft lexical ranking:
+
+```text
+Mode: hybrid
+Questions: 13
+Symbol Hit@1: 0.77
+Symbol Hit@5: 1.00
+Symbol MRR: 0.84
+File Hit@1: 0.92
+File Hit@5: 1.00
+File MRR: 0.94
+Partial file hits: 0.00
+Avg latency: 15ms
+```
+
+Graphify preservation check:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+Avg latency: 52ms
+```
+
+This recovers HTTPX top-five symbol recall without giving up the Graphify hybrid result. Hybrid now beats symbol mode on HTTPX Symbol Hit@1, `0.77` vs `0.69`, while matching Symbol Hit@5 `1.00`.
+
 ## Per-Question Detail
 
 Latest symbol mode detail:
@@ -240,17 +275,17 @@ Latest hybrid mode detail:
 ```text
 cli-entrypoint          symbolRank=1     fileRank=1     top=main                       file=httpx/_main.py
 top-level-request-api   symbolRank=1     fileRank=1     top=request                    file=httpx/_api.py
-sync-client-send        symbolRank=null  fileRank=2     top=Auth                        file=httpx/_auth.py
-async-client-send       symbolRank=null  fileRank=1     top=AsyncClient                 file=httpx/_client.py
-redirect-handling       symbolRank=null  fileRank=1     top=BaseClient.build_request    file=httpx/_client.py
+sync-client-send        symbolRank=1     fileRank=1     top=Client.send                 file=httpx/_client.py
+async-client-send       symbolRank=1     fileRank=1     top=AsyncClient.send           file=httpx/_client.py
+redirect-handling       symbolRank=1     fileRank=1     top=BaseClient._build_redirect_request file=httpx/_client.py
 basic-auth              symbolRank=1     fileRank=1     top=BasicAuth                   file=httpx/_auth.py
-timeout-config          symbolRank=null  fileRank=1     top=httpx/_config.py            file=httpx/_config.py
+timeout-config          symbolRank=5     fileRank=4     top=request                    file=httpx/_api.py
 proxy-routing           symbolRank=1     fileRank=1     top=get_environment_proxies     file=httpx/_utils.py
-asgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/asgi.py   file=httpx/_transports/asgi.py
+asgi-transport          symbolRank=1     fileRank=1     top=ASGITransport.handle_async_request file=httpx/_transports/asgi.py
 wsgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/wsgi.py   file=httpx/_transports/wsgi.py
-response-json           symbolRank=null  fileRank=null  top=httpx/_content.py           file=httpx/_content.py
+response-json           symbolRank=1     fileRank=1     top=Response.json              file=httpx/_models.py
 response-status-errors  symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
-multipart-encoding      symbolRank=1     fileRank=1     top=MultipartStream             file=httpx/_multipart.py
+multipart-encoding      symbolRank=5     fileRank=1     top=encode_request             file=httpx/_content.py
 ```
 
 ## Initial Findings
@@ -261,9 +296,10 @@ multipart-encoding      symbolRank=1     fileRank=1     top=MultipartStream     
 - `cli-entrypoint` now hits `main` after decorated functions are extracted.
 - `top-level-request-api` now hits `request` after exact dotted API references are added as intent candidates.
 - `response-json` now hits `Response.json` in symbol mode after adding a method owner/name signal.
+- Soft lexical hybrid ranking recovers HTTPX Symbol Hit@5 `1.00` while keeping Graphify hybrid saturated.
 
 ## Next HTTPX Work
 
-- Investigate why hybrid still misses several method-specific HTTPX questions even though symbol mode now has Symbol Hit@5 `1.00`.
+- Investigate remaining hybrid top-one misses, especially `timeout-config`, `wsgi-transport`, and `multipart-encoding`.
 - Keep HTTPX results separate from Graphify results so cross-corpus changes stay visible.
-- Compare symbol mode and hybrid mode per question before changing hybrid candidate protection.
+- Add a third corpus or larger HTTPX question set before adding more hand-built intent rules.

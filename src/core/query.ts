@@ -22,6 +22,7 @@ interface CandidateRow {
   symbol_end_line: number;
   file_path: string;
   rank: number;
+  ftsPosition?: number;
   intentReasons?: string[];
   intentBoost?: number;
 }
@@ -58,16 +59,14 @@ function rankRows(
   }
 
   if (mode === "hybrid") {
-    const protectedCount = Math.min(5, limit, rows.length);
-    const protectedMatches = rows
-      .slice(0, protectedCount)
-      .map((row) => toMatch(db, row, question))
-      .sort((a, b) => b.score - a.score);
-    const remaining = rows
-      .slice(protectedCount)
-      .map((row) => toMatch(db, row, question))
-      .sort((a, b) => b.score - a.score);
-    return [...protectedMatches, ...remaining].slice(0, limit);
+    return rankHybridMatches(
+      rows.map((row, index) => ({
+        match: toMatch(db, row, question),
+        ftsPosition: row.ftsPosition,
+        inputIndex: index
+      })),
+      limit
+    );
   }
 
   return rows
@@ -82,7 +81,7 @@ function searchCandidates(db: Database.Database, question: string): CandidateRow
     return [];
   }
 
-  return db
+  const rows = db
     .prepare(
       `
       select
@@ -108,6 +107,7 @@ function searchCandidates(db: Database.Database, question: string): CandidateRow
       `
     )
     .all({ match }) as CandidateRow[];
+  return rows.map((row, index) => ({ ...row, ftsPosition: index + 1 }));
 }
 
 function searchIntentCandidates(db: Database.Database, question: string): CandidateRow[] {
@@ -177,14 +177,50 @@ function mergeCandidateRows(rows: CandidateRow[]): CandidateRow[] {
     }
 
     const intentReasons = [...(existing.intentReasons ?? []), ...(row.intentReasons ?? [])];
+    const ftsPosition = minDefined(existing.ftsPosition, row.ftsPosition);
     byChunk.set(row.chunk_id, {
       ...existing,
       intentReasons: intentReasons.filter((reason, index) => intentReasons.indexOf(reason) === index),
       intentBoost: Math.max(existing.intentBoost ?? 0, row.intentBoost ?? 0),
+      ftsPosition,
       rank: Math.min(existing.rank, row.rank)
     });
   }
   return [...byChunk.values()];
+}
+
+export interface HybridRankInput {
+  match: QueryMatch;
+  ftsPosition?: number;
+  inputIndex: number;
+}
+
+export function rankHybridMatches(items: HybridRankInput[], limit: number): QueryMatch[] {
+  return items
+    .map((item) => ({
+      ...item,
+      adjustedScore: item.match.score + hybridLexicalBoost(item)
+    }))
+    .sort((a, b) => b.adjustedScore - a.adjustedScore || a.inputIndex - b.inputIndex)
+    .slice(0, limit)
+    .map((item) => item.match);
+}
+
+function hybridLexicalBoost(item: HybridRankInput): number {
+  if (
+    item.ftsPosition !== undefined &&
+    item.ftsPosition <= 5 &&
+    (item.match.kind === "function" || item.match.kind === "method")
+  ) {
+    return 4;
+  }
+  return 0;
+}
+
+function minDefined(left: number | undefined, right: number | undefined): number | undefined {
+  if (left === undefined) return right;
+  if (right === undefined) return left;
+  return Math.min(left, right);
 }
 
 function toMatch(db: Database.Database, row: CandidateRow, question: string): QueryMatch {

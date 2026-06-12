@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { indexTarget } from "../../src/core/indexer.js";
-import { queryIndex } from "../../src/core/query.js";
+import { queryIndex, rankHybridMatches } from "../../src/core/query.js";
+import type { QueryMatch } from "../../src/core/schema.js";
 
 async function fixtureProject() {
   const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-"));
@@ -59,7 +60,7 @@ describe("queryIndex", () => {
     expect(result.matches[0].neighbors).toEqual([]);
   });
 
-  test("hybrid mode preserves the FTS top-five set while adding graph context", async () => {
+  test("hybrid mode can keep lexical FTS candidates while adding graph context", async () => {
     const root = await fixtureProject();
     await indexTarget(root);
 
@@ -72,6 +73,18 @@ describe("queryIndex", () => {
     );
     expect(hybrid.matches.some((match) => match.neighbors.length > 0)).toBe(true);
     expect(hybrid.matches[0].why).toContain("matched source text");
+  });
+
+  test("hybrid ranking boosts lexical function hits without blocking stronger precise symbols", () => {
+    const matches = [
+      hybridItem(match("support_notes", "function", 9), 1),
+      hybridItem(match("pkg/module.py", "module", 12), 2),
+      hybridItem(match("Client.send", "method", 14), undefined)
+    ];
+
+    const ranked = rankHybridMatches(matches, 3);
+
+    expect(ranked.map((item) => item.symbol)).toEqual(["Client.send", "support_notes", "pkg/module.py"]);
   });
 
   test("hybrid mode can add an entrypoint intent candidate outside plain FTS matches", async () => {
@@ -340,4 +353,20 @@ async function expectTopHybridSymbol(root: string, question: string, symbol: str
 
   expect(result.matches[0].symbol).toBe(symbol);
   expect(result.matches[0].why).toContain("query intent match");
+}
+
+function match(symbol: string, kind: QueryMatch["kind"], score: number): QueryMatch {
+  return {
+    symbol,
+    kind,
+    file: "pkg/example.py",
+    lines: [1, 1],
+    score,
+    why: ["matched source text"],
+    neighbors: []
+  };
+}
+
+function hybridItem(match: QueryMatch, ftsPosition: number | undefined) {
+  return { match, ftsPosition, inputIndex: ftsPosition ?? 99 };
 }

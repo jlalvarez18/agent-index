@@ -174,6 +174,45 @@ class Option:
     expect(result.matches[0].why).not.toContain("entrypoint intent match");
   });
 
+  test("hybrid mode does not treat CliRunner helper questions as entrypoint queries", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-cli-runner-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "core.py"),
+      `class Command:
+    def main(self, args=None):
+        command_line_entrypoint = "main command invocation entrypoint"
+        return command_line_entrypoint
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "testing.py"),
+      `class CliRunner:
+    def isolation(self):
+        isolated_environment = "isolated test command environment"
+        return isolated_environment
+
+    def invoke(self, cli, args=None):
+        command_in_isolation = self.isolation()
+        return cli.main(args=args)
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where does the test CliRunner invoke a command in isolation?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "CliRunner.invoke",
+      kind: "method",
+      file: "pkg/testing.py"
+    });
+    expect(result.matches[0].why).not.toContain("entrypoint intent match");
+  });
+
   test("hybrid mode prefers matching child methods over broad class containers", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-child-methods-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

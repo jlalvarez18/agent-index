@@ -21,6 +21,7 @@ Agents do not only need more text search. They need search results tied to code 
 9. Next steps: compare against plain FTS, add embeddings, add MCP, add incremental indexing.
 10. Cross-corpus check: HTTPX breaks the Graphify-perfect story, then soft hybrid recovers HTTPX without giving up Graphify.
 11. Third-corpus check: Click validates hybrid as the best current mode, while exposing exact-method ordering and over-broad intent triggers.
+12. Product-readiness check: once retrieval looked useful, the next blocker was ordinary usability: help exit codes, package bin layout, clean build output, and a README.
 
 ## Current Baseline Comparison
 
@@ -57,11 +58,14 @@ Agents do not only need more text search. They need search results tied to code 
 - The Click section should include the layered API lesson: `terminal-prompt` spans public terminal helpers and option prompting, so the benchmark should allow both layers when the question is broad.
 - The Click section should include the over-trigger lesson: `cli` alone was too broad for entrypoint intent because `CliRunner` is a test helper, not a request for the CLI main function.
 - The Click section should include the stem-equivalence lesson: `shell_completion.py` and `shell_complete` should match as core-symbol equivalents, but only under a narrow rule that does not boost every method in a short-stem file like `_auth.py`.
+- The readiness section should include the packaging lesson: a tool can have strong benchmark numbers and still fail local use if help exits nonzero or the built bin path is wrong.
 
 ## Evidence To Include Later
 
 - One screenshot or terminal block for `agent-index query`.
 - Benchmark summary table.
+- README quick-start excerpt.
+- Readiness backlog table from `docs/findings/agent-index-readiness.md`.
 - Three qualitative query examples from `docs/findings/graphify-benchmark-results.md`.
 - Experiment progression table from `docs/findings/experiment-log.md`.
 - HTTPX baseline notes from `docs/findings/httpx-benchmark-results.md`.

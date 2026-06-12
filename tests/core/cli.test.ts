@@ -29,6 +29,15 @@ async function fixtureProject() {
 }
 
 describe("runCli", () => {
+  test("prints help without treating it as a command failure", async () => {
+    const output: string[] = [];
+
+    await expect(runCli(["--help"], { write: (line) => output.push(line) })).resolves.toBeUndefined();
+
+    expect(output.join("\n")).toContain("Usage: agent-index");
+    expect(output.join("\n")).toContain("Commands:");
+  });
+
   test("indexes, queries, and benchmarks through the public commands", async () => {
     const { root, benchmarkPath } = await fixtureProject();
     const output: string[] = [];

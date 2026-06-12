@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import { pathToFileURL } from "node:url";
 import { runBenchmark } from "./core/benchmark.js";
 import { indexTarget } from "./core/indexer.js";
@@ -15,6 +15,10 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
   program
     .name("agent-index")
     .description("Symbol-first local code index prototype for coding agents.")
+    .configureOutput({
+      writeOut: (text) => io.write(text.trimEnd()),
+      writeErr: (text) => io.write(text.trimEnd())
+    })
     .exitOverride()
     .showHelpAfterError();
 
@@ -54,7 +58,14 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
       io.write(options.json ? JSON.stringify(result, null, 2) : formatBenchmark(result));
     });
 
-  await program.parseAsync(argv, { from: "user" });
+  try {
+    await program.parseAsync(argv, { from: "user" });
+  } catch (error) {
+    if (error instanceof CommanderError && error.code === "commander.helpDisplayed") {
+      return;
+    }
+    throw error;
+  }
 }
 
 function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>): string {

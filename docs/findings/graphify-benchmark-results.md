@@ -25,6 +25,8 @@ Metrics:
 
 The seed set contains 10 questions covering cache behavior, CLI entrypoint, code extraction, graph construction, incremental indexing, query seeds, export, MCP serving, report generation, and community detection.
 
+For the step-by-step test/change progression, see `docs/findings/experiment-log.md`.
+
 ## Results
 
 Run date: 2026-06-11

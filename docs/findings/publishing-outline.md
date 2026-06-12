@@ -40,5 +40,6 @@ Agents do not only need more text search. They need search results tied to code 
 - One screenshot or terminal block for `agent-index query`.
 - Benchmark summary table.
 - Three qualitative query examples from `docs/findings/graphify-benchmark-results.md`.
+- Experiment progression table from `docs/findings/experiment-log.md`.
 - A short comparison table: plain FTS vs symbol-first FTS plus graph expansion.
 - One caveat box: "query-intent rules helped Graphify, but the saturated score needs cross-repo validation."

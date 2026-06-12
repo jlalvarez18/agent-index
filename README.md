@@ -65,6 +65,8 @@ By default, the index is written to:
 
 `--source-only` skips common support directories such as tests, tools, examples, fixtures, samples, and worked corpora. That is the recommended mode for benchmark-style source retrieval.
 
+The success message includes the index mode, for example `(mode: source-only)`, so benchmark notes can record how the index was built.
+
 ## Query
 
 ```bash

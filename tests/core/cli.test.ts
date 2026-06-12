@@ -131,5 +131,6 @@ describe("runCli", () => {
     await runCli(["index", root, "--source-only"], { write: (line) => output.push(line) });
 
     expect(output[0]).toContain("Indexed 1 files");
+    expect(output[0]).toContain("mode: source-only");
   });
 });

@@ -28,8 +28,9 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--source-only", "skip tests and tools while indexing")
     .action(async (target: string, options: { sourceOnly?: boolean }) => {
       const stats = await indexTarget(target, { includeSupportCode: !options.sourceOnly });
+      const mode = options.sourceOnly ? "source-only" : "all-files";
       io.write(
-        `Indexed ${stats.files} files, ${stats.symbols} symbols, ${stats.chunks} chunks, ${stats.edges} edges at ${stats.indexPath}`
+        `Indexed ${stats.files} files, ${stats.symbols} symbols, ${stats.chunks} chunks, ${stats.edges} edges at ${stats.indexPath} (mode: ${mode})`
       );
     });
 

@@ -35,6 +35,7 @@ Agents do not only need more text search. They need search results tied to code 
 - HTTPX audited symbol mode: Symbol Hit@1 0.38, Symbol Hit@5 0.85, File Hit@5 1.00, Avg 11ms.
 - HTTPX audited hybrid mode: Symbol Hit@1 0.31, Symbol Hit@5 0.46, File Hit@5 0.85, Avg 13ms.
 - HTTPX after decorated-definition extraction: symbol mode Symbol Hit@1 0.46, Symbol Hit@5 0.92, File Hit@5 1.00, Avg 13ms; hybrid mode Symbol Hit@1 0.38, Symbol Hit@5 0.54, File Hit@5 0.85, Avg 13ms.
+- HTTPX after dotted API and method owner/name ranking: symbol mode Symbol Hit@1 0.69, Symbol Hit@5 1.00, File Hit@1 1.00, Avg 12ms; hybrid mode Symbol Hit@1 0.46, Symbol Hit@5 0.62, File Hit@5 0.92, Avg 12ms.
 - Early conclusion: structure is useful as a conservative reranker, and query understanding is needed when the right symbol is not present in the FTS candidate set.
 - Detailed benchmark JSON saturates the current Graphify set, but the first HTTPX run shows cross-corpus behavior is not solved.
 - Source-only hygiene v2 removed fixture/sample corpora; remaining misses are now cleaner evidence for ranking/query-intent work.
@@ -42,6 +43,7 @@ Agents do not only need more text search. They need search results tied to code 
 - The write-up should frame the 1.00 score as "benchmark exhausted" rather than proof of general retrieval quality.
 - The HTTPX section should note that answer-key audits changed the question count from 12 to 13 but did not reverse the cross-corpus conclusion.
 - The HTTPX section should include the `main` lesson: before tuning ranking, confirm the target symbols exist in the index.
+- The HTTPX section should include the split between symbol mode and hybrid: symbol mode now has full top-five recall, while hybrid still needs a better candidate merge strategy.
 
 ## Evidence To Include Later
 

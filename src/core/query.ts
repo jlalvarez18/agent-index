@@ -228,6 +228,12 @@ function toMatch(db: Database.Database, row: CandidateRow, question: string): Qu
     addWhy(why, coreAdjustment.reason);
   }
 
+  const ownerNameAdjustment = methodOwnerNameAdjustment(row, question);
+  score += ownerNameAdjustment.score;
+  if (ownerNameAdjustment.score > 0) {
+    addWhy(why, ownerNameAdjustment.reason);
+  }
+
   const neighbors = expandNeighbors(db, row.symbol_id);
   if (neighbors.length > 0) {
     score += 0.5;
@@ -350,10 +356,57 @@ function coreSymbolAdjustment(row: CandidateRow): { score: number; reason: strin
   return { score, reason: "core symbol match" };
 }
 
+function methodOwnerNameAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  if (row.kind !== "method") {
+    return { score: 0, reason: "method owner/name match" };
+  }
+
+  const queryTokenSet = new Set(rankedQueryTokens(question));
+  const ownerName = row.qualified_name.includes(".") ? row.qualified_name.slice(0, row.qualified_name.lastIndexOf(".")) : "";
+  const ownerTokens = normalize(ownerName)
+    .split(/\s+/)
+    .filter(Boolean);
+  const methodTokens = normalize(row.symbol_name)
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (
+    ownerTokens.length > 0 &&
+    methodTokens.length > 0 &&
+    ownerTokens.some((token) => queryTokenSet.has(token)) &&
+    methodTokens.some((token) => queryTokenSet.has(token))
+  ) {
+    return { score: 3, reason: "method owner/name match" };
+  }
+
+  return { score: 0, reason: "method owner/name match" };
+}
+
 function intentRulesForQuestion(question: string): IntentRule[] {
   const normalizedQuestion = normalize(question);
   const tokens = new Set(queryTokens(question).flatMap((token) => [token, stemToken(token)]));
   const rules: IntentRule[] = [];
+  const dottedReferences = dottedApiReferences(question);
+
+  for (const reference of dottedReferences) {
+    rules.push({
+      reason: "dotted API reference match",
+      boost: 12,
+      score: (row) => {
+        if (row.symbol_name !== reference.member) {
+          return 0;
+        }
+
+        let score = 18;
+        if (row.file_path.startsWith(`${reference.packageName}/`)) score += 8;
+        if (normalizedQuestion.includes("module level") && row.kind === "function") score += 8;
+        if (tokens.has("function") && row.kind === "function") score += 6;
+        if (tokens.has("defined") || tokens.has("definition")) score += 4;
+        if (row.kind === "method" && normalizedQuestion.includes("module level")) score -= 10;
+        return score;
+      }
+    });
+  }
 
   if (
     normalizedQuestion.includes("entry point") ||
@@ -502,6 +555,18 @@ function intentRulesForQuestion(question: string): IntentRule[] {
   }
 
   return rules;
+}
+
+function dottedApiReferences(question: string): Array<{ packageName: string; member: string }> {
+  const references = new Map<string, { packageName: string; member: string }>();
+  for (const match of question.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b/g)) {
+    const packageName = match[1];
+    const member = match[2];
+    if (packageName && member) {
+      references.set(`${packageName}.${member}`, { packageName, member });
+    }
+  }
+  return [...references.values()];
 }
 
 function normalize(value: string): string {

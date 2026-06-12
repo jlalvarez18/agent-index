@@ -260,6 +260,79 @@ def save_manifest(files):
 
     await expectTopHybridSymbol(root, "where does incremental indexing decide what changed?", "detect_incremental");
   });
+
+  test("symbol mode adds exact dotted API references as candidates", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-dotted-api-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "api.py"),
+      `def request(method, url):
+    return send(method, url)
+
+def get(url):
+    return request("GET", url)
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "transport.py"),
+      `class BaseTransport:
+    def handle_request(self, request):
+        request_metadata = "request handling"
+        return request_metadata
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where is the module-level pkg.request convenience function defined?", {
+      target: root,
+      limit: 5,
+      mode: "symbol"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "request",
+      kind: "function",
+      file: "pkg/api.py"
+    });
+    expect(result.matches[0].why).toContain("dotted API reference match");
+  });
+
+  test("symbol mode prefers methods whose owner and name both match the question", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-owner-method-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "models.py"),
+      `class Response:
+    def json(self):
+        return parse_json(self.content)
+
+def _parse_content_type_charset(value):
+    response_parse_content_notes = "parse response content"
+    return response_parse_content_notes
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "content.py"),
+      `def encode_response(response):
+    json_content_notes = "response json content"
+    return json_content_notes
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("where does a response parse JSON content?", {
+      target: root,
+      limit: 5,
+      mode: "symbol"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "Response.json",
+      kind: "method",
+      file: "pkg/models.py"
+    });
+    expect(result.matches[0].why).toContain("method owner/name match");
+  });
 });
 
 async function expectTopHybridSymbol(root: string, question: string, symbol: string): Promise<void> {

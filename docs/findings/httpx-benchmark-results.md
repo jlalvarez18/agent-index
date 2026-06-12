@@ -162,22 +162,75 @@ Avg latency: 56ms
 
 The extractor fix moved `cli-entrypoint` from a partial file hit to an exact symbol hit in both symbol and hybrid mode. It also improved HTTPX exact-symbol recall without changing ranking rules.
 
+## Dotted API And Method Owner Ranking
+
+Run date: 2026-06-12
+
+Two remaining HTTPX misses had different causes:
+
+- `top-level-request-api`: `request` was not in the top-25 symbol candidates, so this needed candidate expansion for exact dotted API references such as `httpx.request`.
+- `response-json`: `Response.json` was present, but broader content helpers tied or outranked it. This needed a method owner/name signal when both the class-like owner and method name appear in the question.
+
+Symbol mode after ranking update:
+
+```text
+Mode: symbol
+Questions: 13
+Symbol Hit@1: 0.69
+Symbol Hit@5: 1.00
+Symbol MRR: 0.83
+File Hit@1: 1.00
+File Hit@5: 1.00
+File MRR: 1.00
+Partial file hits: 0.00
+Avg latency: 12ms
+```
+
+Hybrid mode after ranking update:
+
+```text
+Mode: hybrid
+Questions: 13
+Symbol Hit@1: 0.46
+Symbol Hit@5: 0.62
+Symbol MRR: 0.54
+File Hit@1: 0.85
+File Hit@5: 0.92
+File MRR: 0.88
+Partial file hits: 0.31
+Avg latency: 12ms
+```
+
+Graphify preservation check:
+
+```text
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+Avg latency: 55ms
+```
+
+Graphify symbol mode stayed at Symbol Hit@1 `0.90` and Symbol Hit@5 `1.00`; plain FTS stayed at Symbol Hit@5 `0.40`.
+
 ## Per-Question Detail
 
 Latest symbol mode detail:
 
 ```text
 cli-entrypoint          symbolRank=1     fileRank=1     top=main                       file=httpx/_main.py
-top-level-request-api   symbolRank=null  fileRank=1     top=httpx/_api.py               file=httpx/_api.py
+top-level-request-api   symbolRank=1     fileRank=1     top=request                    file=httpx/_api.py
 sync-client-send        symbolRank=1     fileRank=1     top=Client.send                 file=httpx/_client.py
-async-client-send       symbolRank=2     fileRank=1     top=AsyncClient                 file=httpx/_client.py
+async-client-send       symbolRank=1     fileRank=1     top=AsyncClient.send           file=httpx/_client.py
 redirect-handling       symbolRank=1     fileRank=1     top=BaseClient._build_redirect_request file=httpx/_client.py
 basic-auth              symbolRank=1     fileRank=1     top=BasicAuth                   file=httpx/_auth.py
 timeout-config          symbolRank=2     fileRank=1     top=httpx/_config.py            file=httpx/_config.py
 proxy-routing           symbolRank=1     fileRank=1     top=get_environment_proxies     file=httpx/_utils.py
 asgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/asgi.py   file=httpx/_transports/asgi.py
 wsgi-transport          symbolRank=2     fileRank=1     top=httpx/_transports/wsgi.py   file=httpx/_transports/wsgi.py
-response-json           symbolRank=4     fileRank=3     top=httpx/_content.py           file=httpx/_content.py
+response-json           symbolRank=1     fileRank=1     top=Response.json              file=httpx/_models.py
 response-status-errors  symbolRank=1     fileRank=1     top=Response.raise_for_status   file=httpx/_models.py
 multipart-encoding      symbolRank=3     fileRank=1     top=encode_urlencoded_data      file=httpx/_content.py
 ```
@@ -186,7 +239,7 @@ Latest hybrid mode detail:
 
 ```text
 cli-entrypoint          symbolRank=1     fileRank=1     top=main                       file=httpx/_main.py
-top-level-request-api   symbolRank=null  fileRank=null  top=httpx/__init__.py            file=httpx/__init__.py
+top-level-request-api   symbolRank=1     fileRank=1     top=request                    file=httpx/_api.py
 sync-client-send        symbolRank=null  fileRank=2     top=Auth                        file=httpx/_auth.py
 async-client-send       symbolRank=null  fileRank=1     top=AsyncClient                 file=httpx/_client.py
 redirect-handling       symbolRank=null  fileRank=1     top=BaseClient.build_request    file=httpx/_client.py
@@ -206,11 +259,11 @@ multipart-encoding      symbolRank=1     fileRank=1     top=MultipartStream     
 - Symbol mode is the best current HTTPX mode for exact symbols, while hybrid is competitive for file-level retrieval.
 - Several misses are exact-symbol ordering problems rather than file-retrieval failures.
 - `cli-entrypoint` now hits `main` after decorated functions are extracted.
-- `top-level-request-api` is now clearer, and symbol mode finds the right file, but both symbol and hybrid still miss the `request` function itself.
-- `response-json` shows a real limitation: the query lands near content encoding instead of `Response.json`, while `response-status-errors` cleanly hits `Response.raise_for_status`.
+- `top-level-request-api` now hits `request` after exact dotted API references are added as intent candidates.
+- `response-json` now hits `Response.json` in symbol mode after adding a method owner/name signal.
 
 ## Next HTTPX Work
 
-- Improve intra-file symbol ordering so module/class containers do not hide exact functions such as `request` and `Response.json`.
+- Investigate why hybrid still misses several method-specific HTTPX questions even though symbol mode now has Symbol Hit@5 `1.00`.
 - Keep HTTPX results separate from Graphify results so cross-corpus changes stay visible.
 - Compare symbol mode and hybrid mode per question before changing hybrid candidate protection.

@@ -41,6 +41,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - HTTPX is now the second corpus. Its first baseline reverses the Graphify conclusion: symbol mode beats hybrid on exact symbol retrieval, with Symbol Hit@5 0.83 vs hybrid 0.42. This is useful evidence that the hybrid strategy is corpus-sensitive.
 - Auditing the HTTPX truth set preserved that conclusion. The cleaned 13-question set gives symbol mode Symbol Hit@5 0.85 and File Hit@5 1.00, while hybrid gives Symbol Hit@5 0.46 and File Hit@5 0.85. The remaining symbol-mode misses are mostly module/class containers outranking exact functions, such as `main`, `request`, and `Response.json`.
 - Inspecting the HTTPX index showed `main` was absent from `httpx/_main.py`, not merely under-ranked. Tree-sitter wraps decorated functions and methods in `decorated_definition`; adding extraction for that wrapper increased HTTPX source-only coverage from 466 to 544 symbols and moved symbol-mode Hit@5 from 0.85 to 0.92.
+- Adding exact dotted API reference candidates and method owner/name ranking moved HTTPX symbol mode to Symbol Hit@1 0.69 / Hit@5 1.00 while preserving Graphify hybrid at 1.00. The remaining cross-corpus question is hybrid strategy, not symbol-mode recall.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 
 ## Rejected Ideas
@@ -57,7 +58,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Does normalized lexical search cover enough natural-language phrasing before embeddings are added?
 - How large can the SQLite-only approach get before query latency or index time becomes a problem?
 - Should the default scanner include tests, or should benchmark/query modes support source-only filtering?
-- Which hybrid ranking signals can improve Symbol Hit@1 without reducing protected FTS top-five recall?
+- Which hybrid strategy can keep FTS as the recall backbone without excluding strong intent candidates that appear outside the protected FTS set?
 - Can query-intent terms like "entrypoint", "export", and "report" be mapped to likely file/symbol patterns without overfitting to Graphify?
 - Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?
-- Should query mode prefer exact function/method matches over module/class containers when both are in the same high-confidence file, after confirming the function/method is actually extracted?
+- Should symbol mode become the default for agent code navigation while hybrid is redesigned, given HTTPX symbol mode now reaches Hit@5 1.00 and hybrid lags at 0.62?

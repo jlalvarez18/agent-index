@@ -84,16 +84,18 @@ Hybrid mode:
 Mode: hybrid
 Questions: 14
 Symbol Hit@1: 0.36
-Symbol Hit@5: 0.79
-Symbol MRR: 0.52
+Symbol Hit@5: 0.86
+Symbol MRR: 0.54
 File Hit@1: 0.86
 File Hit@5: 1.00
 File MRR: 0.91
-Partial file hits: 0.21
-Avg latency: 18ms
+Partial file hits: 0.14
+Avg latency: 17ms
 ```
 
 Click supports the soft-hybrid direction. Hybrid beats FTS and symbol mode on Symbol Hit@5, while matching FTS on Symbol Hit@1 and matching symbol mode on File Hit@5. The tradeoff is latency: FTS is much faster.
+
+After the first Click baseline, the entrypoint intent trigger was narrowed so ordinary "command line value" wording no longer counts as an entrypoint query. This moved `option-value-source` from a partial file hit to a top-five exact symbol hit without changing the answer key.
 
 ## Per-Question Detail
 
@@ -106,7 +108,7 @@ option-decorator            symbolRank=3  fileRank=1  top=command               
 context-callback-invoke     symbolRank=1  fileRank=1  top=Context.invoke                  file=src/click/core.py
 command-main                symbolRank=1  fileRank=1  top=Command.main                    file=src/click/core.py
 group-subcommand-dispatch   symbolRank=1  fileRank=1  top=Group.invoke                    file=src/click/core.py
-option-value-source         symbolRank=-  fileRank=1  top=Command.main                    file=src/click/core.py
+option-value-source         symbolRank=4  fileRank=1  top=Command                         file=src/click/core.py
 choice-type-conversion      symbolRank=2  fileRank=1  top=Choice._normalized_mapping      file=src/click/types.py
 path-type-validation        symbolRank=4  fileRank=1  top=src/click/types.py              file=src/click/types.py
 echo-output                 symbolRank=1  fileRank=1  top=echo                            file=src/click/utils.py
@@ -121,7 +123,7 @@ usage-formatting            symbolRank=2  fileRank=1  top=src/click/formatting.p
 - Good: `command-decorator` lands directly on `command` in `src/click/decorators.py`. This is the ideal case: lexical terms, symbol name, and source text all agree.
 - Good: `command-main` lands on `Command.main`, which shows that the existing entrypoint intent can help outside Graphify and HTTPX.
 - Mixed: `choice-type-conversion` lands in the right class neighborhood, with `Choice._normalized_mapping` first and `Choice.convert` second. This is useful for navigation but not exact top-one.
-- Bad: `option-value-source` lands in `src/click/core.py` but puts `Command.main` first. The likely cause is that the entrypoint intent overreacts to "command line" language in a non-entrypoint question.
+- Mixed: `option-value-source` now finds `Option.consume_value` at rank 4 after narrowing the entrypoint trigger. The file is right and the exact symbol is visible, but `Command` still ranks first.
 - Bad: `group-decorator` lands in `src/click/decorators.py` but misses the `group` function in top five. The correct file is obvious, but exact wrapper functions are still hard when nearby decorator helpers share the same vocabulary.
 - Bad: `shell-completion` lands in the right file but ranks `ShellComplete.format_completion` above the dispatch function. This looks like class-neighborhood success with method-level ordering failure.
 
@@ -132,7 +134,7 @@ Latest comparable hybrid results:
 ```text
 Graphify: Symbol Hit@1 1.00, Symbol Hit@5 1.00, File Hit@5 1.00
 HTTPX:    Symbol Hit@1 0.77, Symbol Hit@5 1.00, File Hit@5 1.00
-Click:    Symbol Hit@1 0.36, Symbol Hit@5 0.79, File Hit@5 1.00
+Click:    Symbol Hit@1 0.36, Symbol Hit@5 0.86, File Hit@5 1.00
 ```
 
 Click lowers confidence in the current exact-symbol ranking. The system is good at finding files and neighborhoods, but exact method/function ordering still struggles in dense framework code.
@@ -143,13 +145,12 @@ The third corpus does not reverse the soft-hybrid conclusion. It makes the claim
 
 - Click validates the need for cross-corpus testing. Graphify is saturated and HTTPX is strong, but Click exposes new exact-symbol misses.
 - File-level retrieval is strong: hybrid and symbol mode both reach File Hit@5 `1.00`.
-- Plain FTS remains a strong baseline. It reaches Symbol Hit@5 `0.71` at `4ms`, close to hybrid's `0.79` at `18ms`.
+- Plain FTS remains a strong baseline. It reaches Symbol Hit@5 `0.71` at `3ms`, close to hybrid's `0.86` at `17ms`.
 - Symbol mode alone underperforms hybrid on this corpus. It often promotes module/class containers over exact methods.
-- The entrypoint intent is useful but too broad. It helps `Command.main`, but hurts `option-value-source` and `cli-runner-invoke` by over-ranking `Command.main`.
-- The next ranking work should be conservative: reduce false-positive intent triggers and improve container-vs-method ordering without sacrificing HTTPX or Graphify.
+- The entrypoint intent is useful but must stay narrowly scoped. Removing the broad `command` + `line` trigger improved Click Symbol Hit@5 from `0.79` to `0.86` while preserving Graphify and HTTPX.
+- The next ranking work should be conservative: improve container-vs-method ordering without sacrificing HTTPX or Graphify.
 
 ## Next Click Work
 
-- Add a focused regression test showing that "command line values" should not trigger entrypoint intent by itself.
 - Explore a container-child rerank where exact matching methods inside a top-ranked class/module can rise above the container.
 - Keep Click as a validation corpus and rerun all three corpora after any ranking change.

@@ -444,12 +444,7 @@ function intentRulesForQuestion(question: string): IntentRule[] {
     });
   }
 
-  if (
-    normalizedQuestion.includes("entry point") ||
-    tokens.has("entrypoint") ||
-    (tokens.has("command") && tokens.has("line")) ||
-    tokens.has("cli")
-  ) {
+  if (isEntrypointQuestion(normalizedQuestion, tokens)) {
     rules.push({
       reason: "entrypoint intent match",
       boost: 12,
@@ -591,6 +586,10 @@ function intentRulesForQuestion(question: string): IntentRule[] {
   }
 
   return rules;
+}
+
+function isEntrypointQuestion(normalizedQuestion: string, tokens: Set<string>): boolean {
+  return normalizedQuestion.includes("entry point") || tokens.has("entrypoint") || tokens.has("cli");
 }
 
 function dottedApiReferences(question: string): Array<{ packageName: string; member: string }> {

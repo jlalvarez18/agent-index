@@ -46,6 +46,7 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Click is now the third corpus. Its source-only index at `8a1b1a3` has 18 files, 609 symbols, and 2379 edges. The audited 14-question benchmark gives hybrid Symbol Hit@1 0.36 / Hit@5 0.79 and File Hit@5 1.00.
 - Click makes the current claim more precise: hybrid is the strongest current mode across the three corpora, but the remaining problem is often choosing the exact method after the right file or class neighborhood is already found.
 - Click also exposed an over-broad intent rule. The entrypoint prior helps `Command.main`, but terms like "command line values" can wrongly pull `Command.main` above option parsing methods.
+- Narrowing the entrypoint trigger to explicit `entry point`, `entrypoint`, and `cli` terms moved Click hybrid Symbol Hit@5 from 0.79 to 0.86 while preserving Graphify and HTTPX. This is a useful example of pruning an intent rule instead of adding another special case.
 - When invoking the CLI through npm, pass arguments after `--`; otherwise npm may consume options such as `--target`.
 - In the current sandbox, running `tsx` through the CLI may fail with `listen EPERM` on a temp IPC pipe. The same command works when run outside the sandbox.
 
@@ -66,5 +67,5 @@ The working analogy is a library catalog. Text search finds pages with matching 
 - Which top-one ranking signals can improve remaining HTTPX hybrid misses without turning the benchmark into a rule-list for specific questions?
 - Can query-intent terms like "entrypoint", "export", and "report" be mapped to likely file/symbol patterns without overfitting to Graphify?
 - Should the intent layer be rule-based, learned from repo structure, or supplied by the calling agent as explicit search hints?
-- How should the ranker distinguish "command entrypoint" from ordinary "command line value" phrasing?
 - Can container-vs-method ordering improve Click without regressing Graphify or HTTPX?
+- Should intent rules be split into trigger detection and scoring explanations so broad phrases are easier to audit?

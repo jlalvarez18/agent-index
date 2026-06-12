@@ -127,6 +127,41 @@ def run_app():
     expect(hybrid.matches[0].why).toContain("entrypoint intent match");
   });
 
+  test("hybrid mode does not treat command line value handling as an entrypoint query", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-command-line-values-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "core.py"),
+      `class Command:
+    def main(self):
+        command_line_entrypoint = "main command line entrypoint"
+        return command_line_entrypoint
+
+class Option:
+    def consume_value(self, opts):
+        command_line_values_defaults_prompts_environment_variables = opts
+        return command_line_values_defaults_prompts_environment_variables
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex(
+      "where does an option consume command line values, defaults, prompts, and environment variables?",
+      {
+        target: root,
+        limit: 5,
+        mode: "hybrid"
+      }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "Option.consume_value",
+      kind: "method",
+      file: "pkg/core.py"
+    });
+    expect(result.matches[0].why).not.toContain("entrypoint intent match");
+  });
+
   test("hybrid mode boosts high-signal implementation intents", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-intents-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

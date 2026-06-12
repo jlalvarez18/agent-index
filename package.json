@@ -2,9 +2,18 @@
   "name": "agent-index",
   "version": "0.1.0",
   "description": "Symbol-first local code index prototype for coding agents.",
+  "license": "UNLICENSED",
   "type": "module",
   "bin": {
     "agent-index": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "benchmarks",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",

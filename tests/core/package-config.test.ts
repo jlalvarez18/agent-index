@@ -3,6 +3,14 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 describe("package configuration", () => {
+  test("declares local package metadata for a controlled dry run package", async () => {
+    const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+
+    expect(packageJson.engines).toEqual(expect.objectContaining({ node: ">=20" }));
+    expect(packageJson.files).toEqual(["dist", "benchmarks", "README.md"]);
+    expect(packageJson.license).toBe("UNLICENSED");
+  });
+
   test("build removes stale dist files before emitting package artifacts", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 

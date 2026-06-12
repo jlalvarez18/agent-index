@@ -33,6 +33,12 @@ After building, the package bin points at:
 dist/cli.js
 ```
 
+The npm package allowlist includes the built CLI, benchmark JSON files, and this README. Check it with:
+
+```bash
+npm pack --dry-run
+```
+
 You can run the development CLI with:
 
 ```bash

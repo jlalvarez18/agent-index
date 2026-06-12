@@ -10,7 +10,7 @@ Last audit: 2026-06-12
 - `npm run build`: passes and emits `dist/cli.js`.
 - Built CLI help: `node dist/cli.js --help` exits successfully.
 - `git diff --check`: passes.
-- `npm pack --dry-run`: passes and includes README, benchmark JSON, built `dist` files, and package metadata.
+- `npm pack --dry-run`: passes and includes README, benchmark JSON, docs, built `dist` files, and package metadata.
 - Hybrid Graphify benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `54ms`.
 - Hybrid HTTPX benchmark: Symbol Hit@1 `0.77`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `13ms`.
 - Hybrid Click benchmark: Symbol Hit@1 `0.79`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `18ms`.
@@ -24,7 +24,7 @@ Last audit: 2026-06-12
 | Packaging/release hygiene | Build output could retain stale files from the old layout. | `prebuild` runs a dependency-free `clean` script before TypeScript emits artifacts. |
 | Documentation/publishing | There was no README entrypoint for local users. | Added `README.md` with install, build, index, query, benchmark, limits, and findings links. |
 | CLI/user experience | `query` did not expose `--mode`, while `benchmark` did. | `query` now accepts `--mode <fts\|symbol\|hybrid>` and passes it to the core query API. |
-| Packaging/release hygiene | Package contents and runtime metadata were implicit. | Added `files`, `engines.node`, and conservative `UNLICENSED` metadata; verified package contents with `npm pack --dry-run`. |
+| Packaging/release hygiene | Package contents and runtime metadata were implicit. | Added `files`, `engines.node`, and conservative `UNLICENSED` metadata; verified package contents with `npm pack --dry-run`. The package includes docs so README links resolve. |
 | CLI/user experience | `index` reported counts but not whether support code was included or skipped. | The success line now includes `(mode: source-only)` or `(mode: all-files)`. |
 | Indexing robustness | CLI did not expose `--index-path` even though core APIs supported it. | `index`, `query`, and `benchmark` now accept `--index-path <path>`. |
 

@@ -7,7 +7,7 @@ describe("package configuration", () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 
     expect(packageJson.engines).toEqual(expect.objectContaining({ node: ">=20" }));
-    expect(packageJson.files).toEqual(["dist", "benchmarks", "README.md"]);
+    expect(packageJson.files).toEqual(["dist", "benchmarks", "docs", "README.md"]);
     expect(packageJson.license).toBe("UNLICENSED");
   });
 

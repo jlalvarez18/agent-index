@@ -1,61 +1,77 @@
 [
   {
     "id": "networkx-path-weight-default",
-    "task": "Fix path cost behavior so missing edge weight attributes default to 1 while invalid paths still raise.",
+    "task": "Fix path cost behavior so missing edge weight attributes default to 1 while invalid paths still raise, without naming the implementation function or test.",
     "kind": "bugfix",
     "agentIndexSteps": [
       {
         "type": "query",
         "query": {
-          "terms": ["path_weight", "path", "edge", "weight", "missing", "attribute"],
+          "terms": ["path", "cost", "edge", "weight", "missing", "default", "invalid"],
           "symbolKinds": ["function"],
           "roles": ["source"],
-          "pathHints": ["networkx/classes/function.py"],
+          "pathHints": ["networkx/classes"],
           "limit": 1
         }
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
-        "symbol": "path_weight",
+        "terms": ["path", "cost", "edge", "weight", "missing", "default", "invalid"],
         "limit": 5
       }
     ],
     "rgQueries": [
-      ["path_weight", "is_path", "weight"],
-      ["path_weight", "missing", "weight", "test"]
+      ["path", "cost", "edge", "weight", "missing", "default", "invalid"],
+      ["path", "cost", "edge", "weight", "missing", "default", "invalid", "test"]
     ],
-    "rgOptimizedSteps": [
-      {
-        "type": "files",
-        "terms": ["path_weight"],
-        "paths": ["networkx"],
-        "globs": ["*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["path_weight"],
-        "fromStep": 1,
-        "limit": 5
-      },
-      {
-        "type": "files",
-        "terms": ["path_weight"],
-        "paths": ["networkx"],
-        "globs": ["*test*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["path_weight"],
-        "fromStep": 3,
-        "limit": 5
-      }
-    ],
+    "searchTerms": {
+      "seed": ["path", "cost", "edge", "weight", "missing", "default", "invalid"],
+      "forbiddenExact": ["path_weight", "test_pathweight"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["path", "cost", "edge", "weight", "missing", "default", "invalid"],
+          "scope": "source",
+          "paths": ["networkx/classes"],
+          "globs": ["*.py", "!**/tests/**"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["path", "cost", "edge", "weight", "missing", "default", "invalid"],
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["NetworkXNoPath", "cost", "dist", "weight", "valid_path"],
+          "scope": "test",
+          "paths": ["networkx/classes/tests"],
+          "globs": ["*test*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["NetworkXNoPath", "cost", "dist", "weight", "valid_path"],
+          "before": 4,
+          "after": 4,
+          "limit": 8
+        }
+      ]
+    },
     "expected": {
       "files": ["networkx/classes/function.py", "networkx/classes/tests/test_function.py"],
-      "symbols": ["path_weight", "test_pathweight"]
+      "symbols": ["path_weight", "test_pathweight"],
+      "requiredFiles": ["networkx/classes/function.py", "networkx/classes/tests/test_function.py"],
+      "requiredSymbols": ["path_weight", "test_pathweight"]
     }
   },
   {

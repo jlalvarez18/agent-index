@@ -24,36 +24,46 @@
       ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
       ["streaming", "async", "cleanup", "iterator", "resources", "test"]
     ],
-    "rgOptimizedSteps": [
-      {
-        "type": "files",
-        "terms": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
-        "paths": ["django"],
-        "globs": ["*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
-        "fromStep": 1,
-        "before": 20,
-        "after": 12,
-        "limit": 5
-      },
-      {
-        "type": "files",
-        "terms": ["streaming", "async", "cleanup", "iterator", "resources"],
-        "paths": ["tests"],
-        "globs": ["*test*.py", "tests.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["streaming", "async", "cleanup", "iterator", "resources"],
-        "fromStep": 3,
-        "limit": 5
-      }
-    ],
+    "searchTerms": {
+      "seed": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+      "forbiddenExact": ["close"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+          "scope": "source",
+          "paths": ["django"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+          "before": 20,
+          "after": 12,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["streaming", "async", "iterator", "response", "resources"],
+          "scope": "test",
+          "paths": ["tests"],
+          "globs": ["*test*.py", "tests.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["streaming", "async", "iterator", "response", "resources"],
+          "limit": 5
+        }
+      ]
+    },
     "expected": {
       "files": ["django/http/response.py", "tests/httpwrappers/tests.py"],
       "symbols": [

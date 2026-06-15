@@ -90,6 +90,11 @@ export function createSchema(db: Database.Database): void {
       symbol_name,
       file_path
     );
+
+    create index idx_files_role on files(role);
+    create index idx_chunks_file_id on chunks(file_id);
+    create index idx_symbols_file_id on symbols(file_id);
+    create index idx_edges_source_symbol_id on edges(source_symbol_id);
   `);
 }
 

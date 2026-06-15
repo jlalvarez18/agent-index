@@ -23,9 +23,26 @@ export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResu
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
   try {
-    const rows = db
-      .prepare(
-        `
+    const rows = queryTestRows(db);
+    const matches = rows
+      .map((row) => scoreTestFile(row, options.sourceFile, options.symbol, options.terms ?? []))
+      .filter((match): match is RelatedTestMatch => match !== undefined)
+      .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file))
+      .slice(0, options.limit ?? 5);
+    return {
+      sourceFile: normalizeSourceFile(options.sourceFile),
+      symbol: options.symbol,
+      matches
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function queryTestRows(db: Database.Database): TestFileRow[] {
+  return db
+    .prepare(
+      `
         with test_text as (
           select file_id, group_concat(text, char(10)) as text
           from chunks
@@ -54,21 +71,8 @@ export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResu
         where f.role = 'test'
         order by f.path
         `
-      )
-      .all() as TestFileRow[];
-    const matches = rows
-      .map((row) => scoreTestFile(row, options.sourceFile, options.symbol, options.terms ?? []))
-      .filter((match): match is RelatedTestMatch => match !== undefined)
-      .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file))
-      .slice(0, options.limit ?? 5);
-    return {
-      sourceFile: normalizeSourceFile(options.sourceFile),
-      symbol: options.symbol,
-      matches
-    };
-  } finally {
-    db.close();
-  }
+    )
+    .all() as TestFileRow[];
 }
 
 function scoreTestFile(
@@ -83,11 +87,13 @@ function scoreTestFile(
   const sourceTokens = pathTokens(normalizedSource);
   const normalizedTestPath = normalize(row.path);
   const normalizedText = normalize(row.text);
-  const fixtureArgs = testFixtureArgs(row.text);
-  const parametrizeBlocks = testParametrizeBlocks(row.text);
-  const normalizedParametrizeText = normalize(parametrizeBlocks.join("\n"));
-  const importedModules = uniqueValues([...splitCsv(row.imported_modules).map(normalizeDottedName), ...rustImportedModules(row.text)]);
-  const calledNames = uniqueValues([...splitCsv(row.called_names).map(normalize), ...calledNamesFromText(row.text)]);
+  let fixtureArgs: string[] | undefined;
+  let parametrizeBlocks: string[] | undefined;
+  const importedModules = uniqueValues([
+    ...splitCsv(row.imported_modules).map(normalizeDottedName),
+    ...(row.text.includes("use ") ? rustImportedModules(row.text) : [])
+  ]);
+  const calledNames = symbol ? uniqueValues([...splitCsv(row.called_names).map(normalize), ...calledNamesFromText(row.text)]) : [];
   const why: string[] = [];
   let score = 0;
 
@@ -113,20 +119,27 @@ function scoreTestFile(
     why.push("test imports source module");
   }
 
-  if (usesRelatedFixture(fixtureArgs, sourceStem, symbol)) {
+  if (mayUseRelatedFixture(row.text, normalizedText, sourceStem, symbol)) {
+    fixtureArgs = testFixtureArgs(row.text);
+  }
+  if (fixtureArgs && usesRelatedFixture(fixtureArgs, sourceStem, symbol)) {
     score += 18;
     why.push("test uses related fixture");
   }
 
-  const parametrizeTermMatches = terms.map(normalize).filter((term) => term.length >= 2 && normalizedParametrizeText.includes(term));
-  if (parametrizeTermMatches.length > 0) {
-    score += Math.min(parametrizeTermMatches.length * 12, 36);
-    why.push("parametrized cases match task terms");
-  }
+  if (row.text.includes("parametrize")) {
+    parametrizeBlocks = testParametrizeBlocks(row.text);
+    const normalizedParametrizeText = normalize(parametrizeBlocks.join("\n"));
+    const parametrizeTermMatches = terms.map(normalize).filter((term) => term.length >= 2 && normalizedParametrizeText.includes(term));
+    if (parametrizeTermMatches.length > 0) {
+      score += Math.min(parametrizeTermMatches.length * 12, 36);
+      why.push("parametrized cases match task terms");
+    }
 
-  if (parametrizeMentionsTarget(parametrizeBlocks, sourceStem, symbol)) {
-    score += 16;
-    why.push("parametrized cases mention source target");
+    if (parametrizeMentionsTarget(parametrizeBlocks, sourceStem, symbol)) {
+      score += 16;
+      why.push("parametrized cases mention source target");
+    }
   }
 
   const matchedTerms = terms.map(normalize).filter((term) => term.length >= 2 && normalizedText.includes(term));
@@ -160,9 +173,16 @@ function scoreTestFile(
     file: row.path,
     score,
     why,
-    firstLine: firstUsefulLine(row.text, sourceStem, sourceModules, symbol, terms, fixtureArgs, parametrizeBlocks),
+    firstLine: firstUsefulLine(row.text, sourceStem, sourceModules, symbol, terms, fixtureArgs ?? [], parametrizeBlocks ?? []),
     symbols: splitCsv(row.symbols)
   };
+}
+
+function mayUseRelatedFixture(text: string, normalizedText: string, sourceStem: string, symbol: string | undefined): boolean {
+  if (!text.includes("def test")) {
+    return false;
+  }
+  return fixtureNameCandidates(sourceStem, symbol).some((candidate) => normalizedText.includes(candidate));
 }
 
 function firstUsefulLine(

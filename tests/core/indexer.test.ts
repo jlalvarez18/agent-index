@@ -33,6 +33,10 @@ describe("indexTarget", () => {
     const files = db.prepare("select path, language, role from files").all();
     const symbols = db.prepare("select name, qualified_name, kind from symbols order by id").all();
     const fts = db.prepare("select chunk_id, symbol_name, file_path from chunk_fts").all();
+    const indexes = db
+      .prepare("select name from sqlite_master where type = 'index' and name like 'idx_%' order by name")
+      .all()
+      .map((row) => (row as { name: string }).name);
     db.close();
 
     expect(files).toEqual([{ path: "pkg/cache.py", language: "python", role: "source" }]);
@@ -48,6 +52,7 @@ describe("indexTarget", () => {
         expect.objectContaining({ symbol_name: "load_value", file_path: "pkg/cache.py" })
       ])
     );
+    expect(indexes).toEqual(["idx_chunks_file_id", "idx_edges_source_symbol_id", "idx_files_role", "idx_symbols_file_id"]);
   });
 
   test("writes file roles into the local index", async () => {

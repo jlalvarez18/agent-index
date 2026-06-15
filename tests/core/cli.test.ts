@@ -49,6 +49,33 @@ async function writeGraphifyResults(root: string) {
   return graphifyResultsPath;
 }
 
+async function writeNavigationEval(root: string) {
+  const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-cli-navigation-eval-"));
+  const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+  await writeFile(
+    navigationEvalPath,
+    JSON.stringify([
+      {
+        id: "semantic-cache-navigation",
+        task: "Find the semantic cache implementation for a bug fix.",
+        kind: "bugfix",
+        agentIndexQueries: [
+          {
+            terms: ["semantic", "cache", "load"],
+            symbolKinds: ["function"],
+            roles: ["source"],
+            pathHints: ["cache"],
+            expand: []
+          }
+        ],
+        rgQueries: [["semantic", "cache", "load"]],
+        expected: { files: ["pkg/cache.py"], symbols: ["load_value"] }
+      }
+    ])
+  );
+  return navigationEvalPath;
+}
+
 describe("runCli", () => {
   test("detects npm bin symlinks as CLI entrypoints", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-cli-entrypoint-"));
@@ -132,6 +159,224 @@ describe("runCli", () => {
     expect(output[2]).not.toContain("why");
     expect(output[2]).not.toContain("neighbors");
     expect(output[2].length).toBeLessThan(output[1].length);
+  });
+
+  test("supports file-cluster summaries for low-token repository mapping", async () => {
+    const { root } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(
+      [
+        "file-clusters",
+        "semantic cache",
+        "--target",
+        root,
+        "--term",
+        "load_value",
+        "--role",
+        "source",
+        "--path",
+        "pkg/cache.py"
+      ],
+      { write: (line) => output.push(line) }
+    );
+    await runCli(
+      [
+        "file-clusters",
+        "semantic cache",
+        "--target",
+        root,
+        "--term",
+        "load_value",
+        "--role",
+        "source",
+        "--path",
+        "pkg/cache.py",
+        "--json"
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    expect(output[1]).toContain("1 pkg/cache.py role=source");
+    expect(output[1]).toContain("tokens=");
+    const json = JSON.parse(output[2]);
+    expect(json.clusters[0]).toMatchObject({
+      file: "pkg/cache.py",
+      role: "source"
+    });
+  });
+
+  test("supports navigation workflow evaluation through the public command", async () => {
+    const { root } = await fixtureProject();
+    const navigationEvalPath = await writeNavigationEval(root);
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["nav-eval", navigationEvalPath, "--target", root, "--cases"], {
+      write: (line) => output.push(line)
+    });
+    await runCli(["nav-eval", navigationEvalPath, "--target", root, "--json"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Cases: 1");
+    expect(output[1]).toContain("agent-index useful rate: 1.00");
+    expect(output[1]).toContain("rg useful rate: 1.00");
+    expect(output[1]).toContain("agent-index completion rate: 1.00");
+    expect(output[1]).toContain("rg completion rate: 1.00");
+    expect(output[1]).toContain("semantic-cache-navigation");
+    expect(output[1]).toContain("agentComplete=yes");
+    const json = JSON.parse(output[2]);
+    expect(json.caseResults[0]).toMatchObject({
+      id: "semantic-cache-navigation",
+      agentIndex: {
+        foundUseful: true,
+        taskComplete: true,
+        firstUsefulCommand: 1
+      },
+      rg: {
+        foundUseful: true,
+        taskComplete: true
+      }
+    });
+  });
+
+  test("supports navigation suite evaluation through the public command", async () => {
+    const { root } = await fixtureProject();
+    const navigationEvalPath = await writeNavigationEval(root);
+    const suiteRoot = await mkdtemp(path.join(tmpdir(), "agent-index-cli-navigation-suite-"));
+    const suitePath = path.join(suiteRoot, "suite.json");
+    const indexRoot = path.join(suiteRoot, "indexes");
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await writeFile(
+      suitePath,
+      JSON.stringify([
+        {
+          name: "fixture",
+          evalPath: navigationEvalPath,
+          target: root
+        }
+      ])
+    );
+    await runCli(["nav-suite", suitePath, "--repos", "--reindex"], {
+      write: (line) => output.push(line)
+    });
+    await runCli(["nav-suite", suitePath, "--json"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Repos: 1");
+    expect(output[1]).toContain("Cases: 1");
+    expect(output[1]).toContain("agent-index completion rate: 1.00");
+    expect(output[1]).toContain("fixture");
+    expect(output[1]).toContain("indexed=1files/");
+    const json = JSON.parse(output[2]);
+    expect(json.repoResults[0]).toMatchObject({
+      name: "fixture",
+      result: {
+        cases: 1,
+        agentIndexCompletionRate: 1
+      }
+    });
+  });
+
+  test("supports portable navigation suite manifests with repo-root and index-root", async () => {
+    const repoRoot = await mkdtemp(path.join(tmpdir(), "agent-index-cli-navigation-suite-repos-"));
+    const root = path.join(repoRoot, "fixture");
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "cache.py"), "def load_value(key):\n    return key\n");
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-cli-navigation-suite-portable-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    const suitePath = path.join(evalRoot, "suite.json");
+    const indexRoot = path.join(evalRoot, "indexes");
+    const output: string[] = [];
+
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify([
+        {
+          id: "semantic-cache",
+          task: "Find semantic cache implementation.",
+          kind: "bugfix",
+          agentIndexQueries: [
+            {
+              terms: ["load_value"],
+              roles: ["source"],
+              pathHints: ["pkg/cache.py"]
+            }
+          ],
+          rgQueries: [["load_value"]],
+          expected: {
+            files: ["pkg/cache.py"],
+            symbols: ["load_value"]
+          }
+        }
+      ])
+    );
+    await writeFile(
+      suitePath,
+      JSON.stringify([
+        {
+          name: "fixture",
+          evalPath: path.basename(navigationEvalPath),
+          target: "fixture"
+        }
+      ])
+    );
+
+    await runCli(["nav-suite", suitePath, "--repo-root", repoRoot, "--index-root", indexRoot, "--reindex", "--repos"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[0]).toContain("Repos: 1");
+    expect(output[0]).toContain("indexed=1files/");
+  });
+
+  test("supports related test discovery from a source file and symbol", async () => {
+    const { root } = await fixtureProject();
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "tests", "test_cache.py"),
+      `def test_load_value():
+    assert load_value("x") == "x"
+`
+    );
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(
+      [
+        "related-tests",
+        "--target",
+        root,
+        "--source",
+        "pkg/cache.py",
+        "--symbol",
+        "load_value"
+      ],
+      { write: (line) => output.push(line) }
+    );
+    await runCli(
+      [
+        "related-tests",
+        "--target",
+        root,
+        "--source",
+        "pkg/cache.py",
+        "--symbol",
+        "load_value",
+        "--json"
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    expect(output[1]).toContain("1 tests/test_cache.py:1");
+    expect(output[1]).toContain("test body mentions source symbol");
+    const json = JSON.parse(output[2]);
+    expect(json.matches[0]).toMatchObject({ file: "tests/test_cache.py" });
   });
 
   test("supports structured agent query JSON through the public query command", async () => {

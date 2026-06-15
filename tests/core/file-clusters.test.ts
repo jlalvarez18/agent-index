@@ -1,0 +1,83 @@
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { describe, expect, test } from "vitest";
+import { findFileClusters } from "../../src/core/file-clusters.js";
+import { indexTarget } from "../../src/core/indexer.js";
+
+async function fixtureProject() {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-"));
+  await mkdir(path.join(root, "pkg"), { recursive: true });
+  await mkdir(path.join(root, "tests"), { recursive: true });
+  await writeFile(
+    path.join(root, "pkg", "cache.py"),
+    `def load_value(key):
+    semantic_cache = {"hit": key}
+    return semantic_cache["hit"]
+
+def save_value(key, value):
+    semantic_cache = {"saved": value}
+    return semantic_cache
+`
+  );
+  await writeFile(
+    path.join(root, "pkg", "noise.py"),
+    Array.from(
+      { length: 30 },
+      (_, index) => `def semantic_cache_noise_${index}():\n    return "semantic cache noise"\n`
+    ).join("\n")
+  );
+  await writeFile(
+    path.join(root, "tests", "test_cache.py"),
+    `def test_load_value():
+    assert load_value("x") == "x"
+`
+  );
+  await indexTarget(root);
+  return root;
+}
+
+describe("findFileClusters", () => {
+  test("groups matching symbols into ranked low-token file clusters", async () => {
+    const root = await fixtureProject();
+
+    const result = findFileClusters(
+      {
+        terms: ["load_value", "semantic", "cache"],
+        roles: ["source"],
+        pathHints: ["pkg/cache.py"]
+      },
+      { target: root, limit: 3 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "pkg/cache.py",
+      role: "source",
+      matchedChunks: expect.any(Number)
+    });
+    expect(result.clusters[0].symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "load_value",
+          kind: "function"
+        })
+      ])
+    );
+    expect(result.clusters[0].why).toEqual(expect.arrayContaining(["path hint match", "symbol name match", "role match"]));
+    expect(result.clusters[0].contextTokens).toBeLessThan(80);
+  });
+
+  test("can cluster only test files for test-discovery navigation", async () => {
+    const root = await fixtureProject();
+
+    const result = findFileClusters(
+      {
+        terms: ["load_value", "cache"],
+        roles: ["test"]
+      },
+      { target: root, limit: 3 }
+    );
+
+    expect(result.clusters.map((cluster) => cluster.file)).toEqual(["tests/test_cache.py"]);
+  });
+});

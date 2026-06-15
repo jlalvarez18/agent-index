@@ -1,0 +1,57 @@
+[
+  {
+    "id": "click-no-color-source",
+    "task": "Add NO_COLOR handling as a default color-disabling signal without overriding explicit color=True.",
+    "kind": "bugfix",
+    "agentIndexQueries": [
+      {
+        "terms": ["resolve_color_default", "NO_COLOR", "color", "env"],
+        "symbolKinds": ["function"],
+        "roles": ["source"],
+        "pathHints": ["globals", "color"],
+        "expand": ["callers"]
+      },
+      {
+        "terms": ["CliRunner", "color", "NO_COLOR", "strip_ansi"],
+        "symbolKinds": ["method", "function"],
+        "roles": ["source"],
+        "pathHints": ["testing", "utils"],
+        "expand": ["callers"]
+      }
+    ],
+    "rgQueries": [
+      ["NO_COLOR", "resolve_color_default", "color=True", "strip_ansi"],
+      ["CliRunner", "color", "strip_ansi", "invoke"]
+    ],
+    "expected": {
+      "files": ["src/click/globals.py", "src/click/testing.py", "src/click/utils.py"],
+      "symbols": ["resolve_color_default", "CliRunner.invoke"],
+      "requiredFiles": ["src/click/globals.py"],
+      "requiredSymbols": ["resolve_color_default"]
+    }
+  },
+  {
+    "id": "click-no-color-tests",
+    "task": "Find tests that should cover NO_COLOR defaults and explicit color behavior.",
+    "kind": "test-discovery",
+    "agentIndexQueries": [
+      {
+        "terms": ["resolve_color_default", "NO_COLOR", "color"],
+        "symbolKinds": ["function"],
+        "roles": ["test"],
+        "pathHints": ["tests/test_globals.py", "tests/test_testing.py", "tests/test_utils.py"],
+        "pathMode": "filter",
+        "expand": []
+      }
+    ],
+    "rgQueries": [
+      ["resolve_color_default", "NO_COLOR", "color=True", "strip_ansi"]
+    ],
+    "expected": {
+      "files": ["tests/test_globals.py", "tests/test_testing.py", "tests/test_utils.py"],
+      "symbols": [],
+      "requiredFiles": ["tests/test_globals.py"],
+      "requiredSymbols": []
+    }
+  }
+]

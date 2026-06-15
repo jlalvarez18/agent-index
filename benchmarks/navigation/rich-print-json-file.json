@@ -1,0 +1,35 @@
+[
+  {
+    "id": "rich-print-json-file-stream",
+    "task": "Add top-level rich.print_json(..., file=stream) support while preserving Console.print_json delegation.",
+    "kind": "feature",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["print_json", "JSON", "file", "stream", "sort_keys"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source"],
+          "pathHints": ["rich/__init__.py", "rich/console.py", "rich/json.py"]
+        },
+        "limit": 6
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "print_json",
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["def print_json", "print_json(", "file=", "sort_keys"],
+      ["print_json", "file", "StringIO", "test"]
+    ],
+    "expected": {
+      "files": ["rich/__init__.py", "rich/console.py", "rich/json.py", "tests/test_rich_print.py", "tests/test_console.py"],
+      "symbols": ["print_json", "Console.print_json", "JSON.from_data", "test_rich_print_json", "test_print_json"],
+      "requiredFiles": ["rich/__init__.py", "tests/test_rich_print.py"],
+      "requiredSymbols": ["print_json"]
+    }
+  }
+]

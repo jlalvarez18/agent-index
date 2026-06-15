@@ -1,0 +1,53 @@
+[
+  {
+    "id": "pydantic-computed-fields-python-api",
+    "task": "Find the Python API surface for computed-field serialization and exclude_computed_fields behavior.",
+    "kind": "test-discovery",
+    "agentIndexQueries": [
+      {
+        "terms": ["model_dump", "model_dump_json", "exclude_computed_fields", "computed_field"],
+        "symbolKinds": ["method", "function"],
+        "roles": ["source"],
+        "pathHints": ["pydantic/main.py", "pydantic/fields.py"],
+        "expand": ["callees"]
+      },
+      {
+        "terms": ["exclude_computed_fields", "computed_field", "model_dump", "model_dump_json"],
+        "symbolKinds": ["function"],
+        "roles": ["test"],
+        "pathHints": ["tests/test_computed_fields.py"],
+        "pathMode": "filter",
+        "expand": []
+      }
+    ],
+    "rgQueries": [
+      ["exclude_computed_fields", "computed_field", "model_dump", "model_dump_json"],
+      ["exclude_computed_fields", "test_computed", "model_dump_json"]
+    ],
+    "expected": {
+      "files": ["pydantic/main.py", "pydantic/fields.py", "tests/test_computed_fields.py"],
+      "symbols": ["BaseModel.model_dump", "BaseModel.model_dump_json", "computed_field"]
+    }
+  },
+  {
+    "id": "pydantic-computed-fields-rust-core",
+    "task": "Find the Rust serializer implementation that controls computed-field serialization.",
+    "kind": "maintenance",
+    "agentIndexQueries": [
+      {
+        "terms": ["ComputedFields.serialize", "computed_fields", "exclude_computed_fields"],
+        "symbolKinds": ["method"],
+        "roles": ["source"],
+        "pathHints": ["pydantic-core/src/serializers"],
+        "expand": []
+      }
+    ],
+    "rgQueries": [
+      ["ComputedFields", "serialize", "exclude_computed_fields", "computed_fields"]
+    ],
+    "expected": {
+      "files": ["pydantic-core/src/serializers/computed_fields.rs"],
+      "symbols": ["ComputedFields.serialize"]
+    }
+  }
+]

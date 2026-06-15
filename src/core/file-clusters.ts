@@ -1,0 +1,225 @@
+import Database from "better-sqlite3";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import type { AgentQuery, FileClusterMatch, FileClusterResult, FileRole, Language, SymbolKind } from "./schema.js";
+
+export interface FileClusterOptions {
+  target: string;
+  indexPath?: string;
+  limit?: number;
+}
+
+interface ClusterRow {
+  chunk_text: string;
+  symbol_name: string;
+  kind: SymbolKind;
+  start_line: number;
+  end_line: number;
+  file_path: string;
+  file_role: FileRole;
+  language: Language;
+  rank: number;
+}
+
+interface MutableCluster {
+  file: string;
+  role: FileRole;
+  language: Language;
+  score: number;
+  matchedChunks: number;
+  contextChars: number;
+  symbols: FileClusterMatch["symbols"];
+  why: Set<string>;
+}
+
+export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOptions): FileClusterResult {
+  const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
+  if (!existsSync(dbPath)) {
+    throw new Error(
+      `No agent-index database found at ${dbPath}. Run "agent-index index ${path.resolve(options.target)} --index-path ${dbPath}" first.`
+    );
+  }
+
+  const queryText = agentQuery.terms.map((term) => term.trim()).filter(Boolean).join(" ");
+  const match = ftsMatchQuery(queryText);
+  if (!match) {
+    return { query: queryText, clusters: [] };
+  }
+
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const filter = clusterSqlFilter(agentQuery);
+    const rows = db
+      .prepare(
+        `
+        select
+          c.text as chunk_text,
+          s.qualified_name as symbol_name,
+          s.kind as kind,
+          s.start_line as start_line,
+          s.end_line as end_line,
+          f.path as file_path,
+          f.role as file_role,
+          f.language as language,
+          bm25(chunk_fts) as rank
+        from chunk_fts
+        join chunks c on c.id = chunk_fts.chunk_id
+        join symbols s on s.id = c.symbol_id
+        join files f on f.id = c.file_id
+        where chunk_fts match @match
+          ${filter.sql}
+        order by rank
+        limit 250
+        `
+      )
+      .all({ match, ...filter.params }) as ClusterRow[];
+
+    return {
+      query: queryText,
+      clusters: clusterRows(rows, agentQuery).slice(0, options.limit ?? 8)
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMatch[] {
+  const clusters = new Map<string, MutableCluster>();
+  for (const row of rows) {
+    const cluster = clusters.get(row.file_path) ?? {
+      file: row.file_path,
+      role: row.file_role,
+      language: row.language,
+      score: 0,
+      matchedChunks: 0,
+      contextChars: 0,
+      symbols: [],
+      why: new Set<string>()
+    };
+    cluster.score = Math.max(cluster.score, scoreRow(row, agentQuery));
+    cluster.matchedChunks += 1;
+    cluster.contextChars += compactSymbolLine(row).length + 1;
+    if (!cluster.symbols.some((symbol) => symbol.name === row.symbol_name)) {
+      cluster.symbols.push({
+        name: row.symbol_name,
+        kind: row.kind,
+        lines: [row.start_line, row.end_line]
+      });
+    }
+    reasonsForRow(row, agentQuery).forEach((reason) => cluster.why.add(reason));
+    clusters.set(row.file_path, cluster);
+  }
+
+  return [...clusters.values()]
+    .map((cluster) => ({
+      file: cluster.file,
+      role: cluster.role,
+      language: cluster.language,
+      score: Number((cluster.score + Math.min(cluster.matchedChunks, 5)).toFixed(2)),
+      matchedChunks: cluster.matchedChunks,
+      contextChars: cluster.contextChars,
+      contextTokens: approximateTokens(cluster.contextChars),
+      symbols: cluster.symbols.slice(0, 5),
+      why: [...cluster.why]
+    }))
+    .sort((a, b) => b.score - a.score || b.matchedChunks - a.matchedChunks || a.file.localeCompare(b.file));
+}
+
+function scoreRow(row: ClusterRow, agentQuery: AgentQuery): number {
+  let score = Math.max(1, -row.rank * 10);
+  const normalizedFile = normalize(row.file_path);
+  const normalizedSymbol = normalize(row.symbol_name);
+  const normalizedText = normalize(row.chunk_text);
+  for (const term of agentQuery.terms.map(normalize).filter(Boolean)) {
+    if (normalizedSymbol.includes(term)) score += 8;
+    if (normalizedFile.includes(term)) score += 4;
+    if (normalizedText.includes(term)) score += 2;
+  }
+  for (const hint of agentQuery.pathHints ?? []) {
+    if (normalizedFile.includes(normalize(hint))) score += 10;
+  }
+  return score;
+}
+
+function reasonsForRow(row: ClusterRow, agentQuery: AgentQuery): string[] {
+  const reasons = new Set<string>(["matched query terms"]);
+  const normalizedFile = normalize(row.file_path);
+  const normalizedSymbol = normalize(row.symbol_name);
+  if ((agentQuery.pathHints ?? []).some((hint) => normalizedFile.includes(normalize(hint)))) {
+    reasons.add("path hint match");
+  }
+  if (agentQuery.terms.map(normalize).some((term) => normalizedSymbol.includes(term))) {
+    reasons.add("symbol name match");
+  }
+  if (agentQuery.roles?.includes(row.file_role)) {
+    reasons.add("role match");
+  }
+  return [...reasons];
+}
+
+function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {
+  const clauses: string[] = [];
+  const params: Record<string, unknown> = {};
+
+  if (agentQuery.symbolKinds && agentQuery.symbolKinds.length > 0) {
+    const placeholders = agentQuery.symbolKinds.map((kind, index) => {
+      const key = `kind${index}`;
+      params[key] = kind;
+      return `@${key}`;
+    });
+    clauses.push(`and s.kind in (${placeholders.join(", ")})`);
+  }
+
+  if (agentQuery.roles && agentQuery.roles.length > 0) {
+    const placeholders = agentQuery.roles.map((role, index) => {
+      const key = `role${index}`;
+      params[key] = role;
+      return `@${key}`;
+    });
+    clauses.push(`and f.role in (${placeholders.join(", ")})`);
+  }
+
+  if (agentQuery.excludeSupportCode) {
+    clauses.push("and f.role = @sourceRole");
+    params.sourceRole = "source";
+  }
+
+  if (agentQuery.pathMode === "filter" && agentQuery.pathHints && agentQuery.pathHints.length > 0) {
+    const placeholders = agentQuery.pathHints.map((hint, index) => {
+      const key = `pathHint${index}`;
+      params[key] = `%${normalizePathHint(hint)}%`;
+      return `lower(f.path) like @${key}`;
+    });
+    clauses.push(`and (${placeholders.join(" or ")})`);
+  }
+
+  return { sql: clauses.length > 0 ? clauses.join("\n          ") : "", params };
+}
+
+function ftsMatchQuery(question: string): string | undefined {
+  const terms = question
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 2)
+    .map((term) => `"${term.replace(/"/gu, '""')}"`);
+  return terms.length === 0 ? undefined : terms.join(" OR ");
+}
+
+function compactSymbolLine(row: ClusterRow): string {
+  return `${row.file_path}:${row.start_line}-${row.end_line} ${row.kind} ${row.symbol_name}`;
+}
+
+function normalizePathHint(hint: string): string {
+  return hint.trim().toLowerCase().replace(/\\/gu, "/");
+}
+
+function normalize(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_\-.\/]+/g, " ")
+    .toLowerCase();
+}
+
+function approximateTokens(chars: number): number {
+  return Math.ceil(chars / 4);
+}

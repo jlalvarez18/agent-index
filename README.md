@@ -279,6 +279,53 @@ npm run agent-index -- benchmark ./benchmarks/graphify-python.json \
 
 Benchmark output includes average context-token estimates. These are deterministic `ceil(chars / 4)` estimates of what an agent would need to read from the ranked `agent-index` matches versus baseline matched-line output.
 
+For agent workflow comparisons, use `nav-eval`. This evaluates scripted, realistic navigation tasks as small sequences of compact `agent-index` queries versus real `rg` commands:
+
+```bash
+npm run agent-index -- nav-eval ./path/to/navigation-eval.json \
+  --target /path/to/repo \
+  --mode hybrid \
+  --cases
+```
+
+Navigation eval reports useful-hit rate, task-completion coverage, command count, latency, and approximate context-token payload for both workflows. This is the main product metric: helping agents find useful code with much less reading, not beating `rg` at raw exact-string scanning.
+New navigation fixtures should use `agentIndexSteps` to model realistic workflows with `query`, `file-clusters`, and `related-tests` steps. Older `agentIndexQueries` fixtures still work as direct query steps.
+
+To run several real repos as one benchmark suite, use a manifest:
+
+```bash
+npm run agent-index -- nav-suite ./benchmarks/navigation/suite.json \
+  --repo-root /path/to/local/repos \
+  --index-root /tmp/agent-index-nav-suite \
+  --repos \
+  --reindex
+```
+
+When the agent needs a low-token map before choosing a symbol, use file clusters:
+
+```bash
+npm run agent-index -- file-clusters "weighted mixing expansion" \
+  --target /path/to/repo \
+  --term mixing_expansion \
+  --role source \
+  --path algorithms/cuts.py
+```
+
+This groups matching chunks by file and returns top files with representative symbols, matched chunk counts, and compact token estimates.
+
+After finding a likely source file, agents can ask for related tests without handcrafting a second search:
+
+```bash
+npm run agent-index -- related-tests \
+  --target /path/to/repo \
+  --source pkg/cache.py \
+  --symbol load_value \
+  --term cache \
+  --term stale
+```
+
+`related-tests` uses path, symbol, import, call-name, and optional task-term evidence to keep source-to-test navigation compact. Add `--term` values when many tests import the same source module and the agent needs behavior-specific tests. In navigation fixtures, prefer `sourceFromStep` when a prior `file-clusters` or `query` step already found the source file.
+
 Available benchmark modes:
 
 - `fts`: plain SQLite FTS ranking.

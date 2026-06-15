@@ -1,0 +1,36 @@
+[
+  {
+    "id": "httpx-redirect-history-manual-next-request",
+    "task": "Fix manual next_request redirect handling so prior redirect responses are preserved in response.history.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["next_request", "redirect_history", "history", "follow_redirects"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"],
+          "pathHints": ["httpx/_client.py", "httpx/_models.py"]
+        },
+        "limit": 6
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "Client._send_handling_redirects",
+        "terms": ["next_request", "redirect", "history"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["next_request", "redirect_history", "history", "follow_redirects"],
+      ["next_request", "history", "test"]
+    ],
+    "expected": {
+      "files": ["httpx/_client.py", "tests/client/test_redirects.py"],
+      "symbols": ["Client._send_handling_redirects", "AsyncClient._send_handling_redirects", "test_next_request_preserves_redirect_history", "test_async_next_request_preserves_redirect_history"],
+      "requiredFiles": ["httpx/_client.py", "tests/client/test_redirects.py"],
+      "requiredSymbols": ["Client._send_handling_redirects"]
+    }
+  }
+]

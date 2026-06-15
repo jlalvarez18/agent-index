@@ -1,0 +1,32 @@
+[
+  {
+    "name": "click",
+    "evalPath": "click-no-color.json",
+    "target": "click",
+    "mode": "hybrid"
+  },
+  {
+    "name": "networkx",
+    "evalPath": "networkx-path-and-cuts.json",
+    "target": "networkx",
+    "mode": "hybrid"
+  },
+  {
+    "name": "pydantic",
+    "evalPath": "pydantic-computed-fields.json",
+    "target": "pydantic",
+    "mode": "hybrid"
+  },
+  {
+    "name": "httpx",
+    "evalPath": "httpx-redirect-history.json",
+    "target": "httpx",
+    "mode": "hybrid"
+  },
+  {
+    "name": "rich",
+    "evalPath": "rich-print-json-file.json",
+    "target": "rich",
+    "mode": "hybrid"
+  }
+]

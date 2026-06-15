@@ -4,14 +4,21 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { runAgentEval } from "./core/agent-eval.js";
 import { runBenchmark } from "./core/benchmark.js";
+import { findFileClusters } from "./core/file-clusters.js";
 import { indexTarget } from "./core/indexer.js";
+import { runNavigationEval } from "./core/navigation-eval.js";
+import { runNavigationSuite } from "./core/navigation-suite.js";
 import { queryAgentIndex, queryIndex } from "./core/query.js";
+import { findRelatedTests } from "./core/related-tests.js";
 import { appendLessonTrace, appendQueryTrace, buildTraceReport, formatTraceReport } from "./core/tracing.js";
 import type {
   AgentEvalResult,
   AgentQuery,
   BenchmarkQueryStyle,
+  FileClusterResult,
   FileRole,
+  NavigationEvalResult,
+  NavigationSuiteResult,
   QueryResponse,
   QueryExpansion,
   QueryMode,
@@ -133,6 +140,51 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     );
 
   program
+    .command("file-clusters")
+    .argument("[query]", "free-text query refined by shorthand flags")
+    .requiredOption("--target <target>", "target repository or directory")
+    .option("--agent-query <json>", "structured agent query JSON")
+    .option("--index-path <path>", "SQLite index path")
+    .option("--term <term>", "structured query term; repeat or comma-separate", collectOption, [])
+    .option("--kind <kind>", "symbol kind: function, method, class, or module; repeat or comma-separate", collectOption, [])
+    .option("--path <hint>", "path hint; repeat or comma-separate", collectOption, [])
+    .option("--path-filter", "treat --path values as hard file-path filters instead of ranking hints")
+    .option("--role <role>", "file role: source, test, docs, example, fixture, tool, or benchmark; repeat or comma-separate", collectOption, [])
+    .option("--exclude-support-code", "filter tests, docs, examples, fixtures, and tools from structured results")
+    .option("--limit <limit>", "maximum file clusters to return", "8")
+    .option("--json", "write full file-cluster result as JSON")
+    .action(
+      (
+        query: string | undefined,
+        options: {
+          target: string;
+          agentQuery?: string;
+          indexPath?: string;
+          term?: string[];
+          kind?: string[];
+          path?: string[];
+          pathFilter?: boolean;
+          role?: string[];
+          excludeSupportCode?: boolean;
+          limit: string;
+          json?: boolean;
+        }
+      ) => {
+        const shorthandQuery = parseShorthandAgentQuery(query, { ...options, expand: [] });
+        const agentQuery = options.agentQuery ? parseAgentQueryWithoutShorthand(options.agentQuery, shorthandQuery) : shorthandQuery;
+        if (!agentQuery) {
+          throw new Error("Missing query. Provide a query, --agent-query JSON, or shorthand flags such as --term semantic --term cache.");
+        }
+        const result = findFileClusters(agentQuery, {
+          target: options.target,
+          indexPath: options.indexPath,
+          limit: Number.parseInt(options.limit, 10)
+        });
+        io.write(options.json ? JSON.stringify(result, null, 2) : formatFileClusters(result));
+      }
+    );
+
+  program
     .command("benchmark")
     .argument("<benchmark-json>", "golden benchmark file")
     .requiredOption("--target <target>", "target repository or directory")
@@ -192,7 +244,97 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           queryStyle,
           graphifyResultsPath: options.graphifyResults
         });
-        io.write(options.json ? JSON.stringify(result, null, 2) : formatAgentEval(result, Boolean(options.misses)));
+      io.write(options.json ? JSON.stringify(result, null, 2) : formatAgentEval(result, Boolean(options.misses)));
+      }
+    );
+
+  program
+    .command("nav-eval")
+    .argument("<navigation-eval-json>", "real-world navigation workflow evaluation file")
+    .requiredOption("--target <target>", "target repository or directory")
+    .option("--index-path <path>", "SQLite index path")
+    .option("--mode <mode>", "agent-index query mode: symbol, fts, or hybrid", "hybrid")
+    .option("--json", "write full navigation evaluation result as JSON")
+    .option("--cases", "append per-case navigation results to text output")
+    .action(
+      async (
+        navigationEvalJson: string,
+        options: {
+          target: string;
+          indexPath?: string;
+          mode: string;
+          json?: boolean;
+          cases?: boolean;
+        }
+      ) => {
+        const result = await runNavigationEval(navigationEvalJson, {
+          target: options.target,
+          indexPath: options.indexPath,
+          mode: parseMode(options.mode)
+        });
+        io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationEval(result, Boolean(options.cases)));
+      }
+    );
+
+  program
+    .command("nav-suite")
+    .argument("<manifest-json>", "multi-repository navigation evaluation manifest")
+    .option("--mode <mode>", "override agent-index query mode for every suite entry: symbol, fts, or hybrid")
+    .option("--reindex", "rebuild each suite entry index before running navigation evals")
+    .option("--repo-root <path>", "resolve relative suite targets under this local repository root")
+    .option("--index-root <path>", "write default suite index files under this directory")
+    .option("--json", "write full navigation suite result as JSON")
+    .option("--repos", "append per-repository results to text output")
+    .action(
+      async (
+        manifestJson: string,
+        options: {
+          mode?: string;
+          reindex?: boolean;
+          repoRoot?: string;
+          indexRoot?: string;
+          json?: boolean;
+          repos?: boolean;
+        }
+      ) => {
+        const result = await runNavigationSuite(manifestJson, {
+          mode: options.mode ? parseMode(options.mode) : undefined,
+          reindex: Boolean(options.reindex),
+          repoRoot: options.repoRoot,
+          indexRoot: options.indexRoot
+        });
+        io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationSuite(result, Boolean(options.repos)));
+      }
+    );
+
+  program
+    .command("related-tests")
+    .requiredOption("--target <target>", "target repository or directory")
+    .requiredOption("--source <file>", "source file path relative to the target repository")
+    .option("--symbol <symbol>", "source symbol name or qualified name")
+    .option("--term <term>", "task term for test disambiguation; repeat or comma-separate", collectOption, [])
+    .option("--index-path <path>", "SQLite index path")
+    .option("--limit <limit>", "maximum test files to return", "5")
+    .option("--json", "write full related-tests result as JSON")
+    .action(
+      (options: {
+        target: string;
+        source: string;
+        symbol?: string;
+        term?: string[];
+        indexPath?: string;
+        limit: string;
+        json?: boolean;
+      }) => {
+        const result = findRelatedTests({
+          target: options.target,
+          indexPath: options.indexPath,
+          sourceFile: options.source,
+          symbol: options.symbol,
+          terms: splitOptionValues(options.term),
+          limit: Number.parseInt(options.limit, 10)
+        });
+        io.write(options.json ? JSON.stringify(result, null, 2) : formatRelatedTests(result));
       }
     );
 
@@ -285,6 +427,19 @@ function formatQueryCompact(response: QueryResponse): string {
     .join("\n");
 }
 
+function formatFileClusters(result: FileClusterResult): string {
+  if (result.clusters.length === 0) {
+    return "No file clusters";
+  }
+
+  return result.clusters
+    .map((cluster, index) => {
+      const symbols = cluster.symbols.map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
+      return `${index + 1} ${cluster.file} role=${cluster.role} score=${cluster.score} chunks=${cluster.matchedChunks} tokens=${cluster.contextTokens} symbols=${symbols} why=${cluster.why.join(", ")}`;
+    })
+    .join("\n");
+}
+
 function formatAgentEval(result: AgentEvalResult, includeMisses = false): string {
   const lines = [
     `Mode: ${result.mode}`,
@@ -331,6 +486,106 @@ function formatAgentEvalMisses(result: AgentEvalResult): string[] {
       ].join("  ")
     )
   ];
+}
+
+function formatNavigationEval(result: NavigationEvalResult, includeCases = false): string {
+  const lines = [
+    `Cases: ${result.cases}`,
+    `agent-index useful rate: ${result.agentIndexUsefulRate.toFixed(2)}`,
+    `rg useful rate: ${result.rgUsefulRate.toFixed(2)}`,
+    `agent-index completion rate: ${result.agentIndexCompletionRate.toFixed(2)}`,
+    `rg completion rate: ${result.rgCompletionRate.toFixed(2)}`,
+    `agent-index avg commands: ${result.agentIndexAvgCommands.toFixed(2)}`,
+    `rg avg commands: ${result.rgAvgCommands.toFixed(2)}`,
+    `agent-index avg latency: ${Math.round(result.agentIndexAvgLatencyMs)}ms`,
+    `rg avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
+    `agent-index avg context tokens: ${Math.round(result.agentIndexAvgContextTokens)}`,
+    `rg avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
+    `avg token savings: ${Math.round(result.avgTokenSavings)}`,
+    `agent-index wins: ${result.agentIndexWins}`,
+    `rg wins: ${result.rgWins}`,
+    `ties: ${result.ties}`,
+    `inconclusive: ${result.inconclusive}`
+  ];
+
+  if (includeCases) {
+    lines.push(
+      "",
+      "Cases:",
+      ...result.caseResults.map((navigationCase) =>
+        [
+          navigationCase.id,
+          `winner=${navigationCase.winner}`,
+          `agentTokens=${navigationCase.agentIndex.contextTokens}`,
+          `rgTokens=${navigationCase.rg.contextTokens}`,
+          `savings=${navigationCase.tokenSavings}`,
+          `agentComplete=${navigationCase.agentIndex.taskComplete ? "yes" : "no"}`,
+          `rgComplete=${navigationCase.rg.taskComplete ? "yes" : "no"}`,
+          `agentUseful=${formatRank(navigationCase.agentIndex.firstUsefulCommand)}`,
+          `rgUseful=${formatRank(navigationCase.rg.firstUsefulCommand)}`
+        ].join("  ")
+      )
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = false): string {
+  const lines = [
+    `Repos: ${result.repos}`,
+    `Cases: ${result.cases}`,
+    `agent-index useful rate: ${result.agentIndexUsefulRate.toFixed(2)}`,
+    `rg useful rate: ${result.rgUsefulRate.toFixed(2)}`,
+    `agent-index completion rate: ${result.agentIndexCompletionRate.toFixed(2)}`,
+    `rg completion rate: ${result.rgCompletionRate.toFixed(2)}`,
+    `agent-index avg commands: ${result.agentIndexAvgCommands.toFixed(2)}`,
+    `rg avg commands: ${result.rgAvgCommands.toFixed(2)}`,
+    `agent-index avg latency: ${Math.round(result.agentIndexAvgLatencyMs)}ms`,
+    `rg avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
+    `agent-index avg context tokens: ${Math.round(result.agentIndexAvgContextTokens)}`,
+    `rg avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
+    `avg token savings: ${Math.round(result.avgTokenSavings)}`,
+    `agent-index wins: ${result.agentIndexWins}`,
+    `rg wins: ${result.rgWins}`,
+    `ties: ${result.ties}`,
+    `inconclusive: ${result.inconclusive}`
+  ];
+
+  if (includeRepos) {
+    lines.push(
+      "",
+      "Repos:",
+      ...result.repoResults.map((repo) =>
+        [
+          repo.name,
+          `cases=${repo.result.cases}`,
+          `agentComplete=${repo.result.agentIndexCompletionRate.toFixed(2)}`,
+          `rgComplete=${repo.result.rgCompletionRate.toFixed(2)}`,
+          `agentTokens=${Math.round(repo.result.agentIndexAvgContextTokens)}`,
+          `rgTokens=${Math.round(repo.result.rgAvgContextTokens)}`,
+          repo.indexStats ? `indexed=${repo.indexStats.files}files/${repo.indexStats.symbols}symbols` : "indexed=prebuilt",
+          `agentWins=${repo.result.agentIndexWins}`,
+          `rgWins=${repo.result.rgWins}`
+        ].join("  ")
+      )
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function formatRelatedTests(result: ReturnType<typeof findRelatedTests>): string {
+  if (result.matches.length === 0) {
+    return `No related tests found for ${result.sourceFile}`;
+  }
+
+  return result.matches
+    .map((match, index) => {
+      const line = match.firstLine === null ? "" : `:${match.firstLine}`;
+      return `${index + 1} ${match.file}${line} score=${match.score} why=${match.why.join(", ")}`;
+    })
+    .join("\n");
 }
 
 function formatBenchmarkMisses(result: Awaited<ReturnType<typeof runBenchmark>>): string[] {
@@ -592,7 +847,9 @@ function suggestQuerySubcommand(argv: string[]): void {
     "--agent-query",
     "--exclude-support-code",
     "--trace",
-    "--trace-task"
+    "--trace-task",
+    "--agent-query",
+    "--exclude-support-code"
   ]);
   if (argv[0] && queryLikeFlags.has(argv[0])) {
     throw new Error(`Did you mean: agent-index query ${argv.join(" ")}`);

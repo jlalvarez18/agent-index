@@ -1,0 +1,64 @@
+[
+  {
+    "id": "networkx-path-weight-default",
+    "task": "Fix path cost behavior so missing edge weight attributes default to 1 while invalid paths still raise.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["path_weight", "path", "edge", "weight", "missing", "attribute"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["networkx/classes/function.py"]
+        },
+        "limit": 5
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "path_weight",
+        "limit": 5
+      }
+    ],
+    "rgQueries": [
+      ["path_weight", "is_path", "weight"],
+      ["path_weight", "missing", "weight", "test"]
+    ],
+    "expected": {
+      "files": ["networkx/classes/function.py", "networkx/classes/tests/test_function.py"],
+      "symbols": ["path_weight", "test_pathweight"]
+    }
+  },
+  {
+    "id": "networkx-weighted-mixing-expansion",
+    "task": "Fix weighted group-mixing expansion so the denominator uses weighted total graph size.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["mixing_expansion", "weighted", "cut_size", "size", "weight"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["networkx/algorithms/cuts.py"]
+        },
+        "limit": 5
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "mixing_expansion",
+        "limit": 5
+      }
+    ],
+    "rgQueries": [
+      ["mixing_expansion", "cut_size", "number_of_edges", "size("],
+      ["mixing_expansion", "weighted", "cut_size", "test"]
+    ],
+    "expected": {
+      "files": ["networkx/algorithms/cuts.py", "networkx/algorithms/tests/test_cuts.py"],
+      "symbols": ["mixing_expansion"]
+    }
+  }
+]

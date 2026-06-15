@@ -239,6 +239,176 @@ export interface AgentEvalResult {
   cases: AgentEvalCaseResult[];
 }
 
+export type NavigationTaskKind = "bugfix" | "feature" | "test-discovery" | "maintenance";
+
+export type NavigationAgentStep =
+  | {
+      type: "query";
+      query: AgentQuery;
+    }
+  | {
+      type: "file-clusters";
+      query: AgentQuery;
+      limit?: number;
+    }
+  | {
+      type: "related-tests";
+      sourceFile?: string;
+      sourceFromStep?: number;
+      symbol?: string;
+      terms?: string[];
+      limit?: number;
+    };
+
+export interface NavigationEvalCase {
+  id: string;
+  task: string;
+  kind?: NavigationTaskKind;
+  agentIndexQueries?: AgentQuery[];
+  agentIndexSteps?: NavigationAgentStep[];
+  rgQueries: string[][];
+  expected: {
+    files: string[];
+    symbols?: string[];
+    requiredFiles?: string[];
+    requiredSymbols?: string[];
+  };
+}
+
+export interface NavigationEvalStepResult {
+  type: "query" | "file-clusters" | "related-tests" | "rg";
+  command: string;
+  latencyMs: number;
+  contextChars: number;
+  contextTokens: number;
+  usefulRank: number | null;
+  usefulFile: string | null;
+  usefulSymbol?: string | null;
+  foundFiles: string[];
+  foundSymbols: string[];
+  outputFiles?: string[];
+  outputSymbols?: string[];
+}
+
+export interface NavigationEvalWorkflowResult {
+  commands: number;
+  foundUseful: boolean;
+  taskComplete: boolean;
+  firstUsefulCommand: number | null;
+  firstUsefulRank: number | null;
+  foundFiles: string[];
+  foundSymbols: string[];
+  missingFiles: string[];
+  missingSymbols: string[];
+  latencyMs: number;
+  contextChars: number;
+  contextTokens: number;
+  steps: NavigationEvalStepResult[];
+}
+
+export interface NavigationEvalCaseResult {
+  id: string;
+  task: string;
+  kind: NavigationTaskKind;
+  expectedFiles: string[];
+  expectedSymbols: string[];
+  agentIndex: NavigationEvalWorkflowResult;
+  rg: NavigationEvalWorkflowResult;
+  tokenSavings: number;
+  tokenSavingsRatio: number | null;
+  commandSavings: number;
+  winner: "agent-index" | "rg" | "tie" | "inconclusive";
+}
+
+export interface NavigationEvalResult {
+  cases: number;
+  agentIndexUsefulRate: number;
+  rgUsefulRate: number;
+  agentIndexCompletionRate: number;
+  rgCompletionRate: number;
+  agentIndexAvgCommands: number;
+  rgAvgCommands: number;
+  agentIndexAvgLatencyMs: number;
+  rgAvgLatencyMs: number;
+  agentIndexAvgContextTokens: number;
+  rgAvgContextTokens: number;
+  avgTokenSavings: number;
+  agentIndexWins: number;
+  rgWins: number;
+  ties: number;
+  inconclusive: number;
+  caseResults: NavigationEvalCaseResult[];
+}
+
+export interface NavigationSuiteEntry {
+  name: string;
+  evalPath: string;
+  target: string;
+  indexPath?: string;
+  mode?: QueryMode;
+}
+
+export interface NavigationSuiteRepoResult extends NavigationSuiteEntry {
+  indexStats?: IndexStats;
+  result: NavigationEvalResult;
+}
+
+export interface NavigationSuiteResult {
+  repos: number;
+  cases: number;
+  agentIndexUsefulRate: number;
+  rgUsefulRate: number;
+  agentIndexCompletionRate: number;
+  rgCompletionRate: number;
+  agentIndexAvgCommands: number;
+  rgAvgCommands: number;
+  agentIndexAvgLatencyMs: number;
+  rgAvgLatencyMs: number;
+  agentIndexAvgContextTokens: number;
+  rgAvgContextTokens: number;
+  avgTokenSavings: number;
+  agentIndexWins: number;
+  rgWins: number;
+  ties: number;
+  inconclusive: number;
+  repoResults: NavigationSuiteRepoResult[];
+}
+
+export interface RelatedTestMatch {
+  file: string;
+  score: number;
+  why: string[];
+  firstLine: number | null;
+  symbols: string[];
+}
+
+export interface RelatedTestsResult {
+  sourceFile: string;
+  symbol?: string;
+  matches: RelatedTestMatch[];
+}
+
+export interface FileClusterMatch {
+  file: string;
+  role: FileRole;
+  language: Language;
+  score: number;
+  matchedChunks: number;
+  contextChars: number;
+  contextTokens: number;
+  symbols: Array<{
+    name: string;
+    kind: SymbolKind;
+    lines: [number, number];
+  }>;
+  why: string[];
+}
+
+export interface FileClusterResult {
+  query: string;
+  clusters: FileClusterMatch[];
+}
+
 export type DogfoodTraceEventType = "agent-index-query" | "rg-fallback" | "code-change" | "verification" | "lesson";
 
 export type QueryTraceOutcome = "unreviewed" | "useful" | "bad-result";

@@ -302,6 +302,13 @@ npm run agent-index -- nav-suite ./benchmarks/navigation/suite.json \
   --reindex
 ```
 
+To fail CI when a new run regresses completion, wins, or context-token budget, compare artifact summaries:
+
+```bash
+npm run agent-index -- nav-compare /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
+  --max-agent-token-increase-percent 5
+```
+
 When the agent needs a low-token map before choosing a symbol, use file clusters:
 
 ```bash

@@ -356,6 +356,58 @@ describe("runCli", () => {
     expect(output[0]).toContain("indexed=1files/");
   });
 
+  test("compares navigation suite artifacts through the public command", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-cli-navigation-compare-"));
+    const baseline = path.join(root, "baseline");
+    const current = path.join(root, "current");
+    await mkdir(baseline);
+    await mkdir(current);
+    const summary = {
+      repos: 1,
+      cases: 1,
+      agentIndexUsefulRate: 1,
+      rgUsefulRate: 1,
+      rgOptimizedUsefulRate: 1,
+      agentIndexCompletionRate: 1,
+      rgCompletionRate: 0,
+      rgOptimizedCompletionRate: 0,
+      agentIndexAvgCommands: 1,
+      rgAvgCommands: 1,
+      rgOptimizedAvgCommands: 2,
+      agentIndexAvgLatencyMs: 10,
+      rgAvgLatencyMs: 5,
+      rgOptimizedAvgLatencyMs: 4,
+      agentIndexAvgContextTokens: 100,
+      rgAvgContextTokens: 1000,
+      rgOptimizedAvgContextTokens: 200,
+      avgTokenSavings: 900,
+      avgOptimizedRgTokenSavings: 100,
+      agentIndexWins: 1,
+      rgWins: 0,
+      ties: 0,
+      inconclusive: 0,
+      agentIndexWinsVsOptimizedRg: 1,
+      rgOptimizedWins: 0,
+      optimizedRgTies: 0,
+      optimizedRgInconclusive: 0,
+      repoResults: []
+    };
+    await writeFile(path.join(baseline, "summary.json"), JSON.stringify(summary));
+    await writeFile(path.join(current, "summary.json"), JSON.stringify({ ...summary, agentIndexAvgContextTokens: 104 }));
+    const output: string[] = [];
+
+    await runCli(["nav-compare", baseline, current, "--max-agent-token-increase", "5"], {
+      write: (line) => output.push(line)
+    });
+    expect(output[0]).toContain("Navigation artifact comparison: pass");
+
+    await writeFile(path.join(current, "summary.json"), JSON.stringify({ ...summary, agentIndexCompletionRate: 0 }));
+    await expect(runCli(["nav-compare", baseline, current], { write: (line) => output.push(line) })).rejects.toThrow(
+      "Navigation artifact comparison failed with 1 regression(s)."
+    );
+    expect(output.at(-1)).toContain("agentIndexCompletionRate dropped");
+  });
+
   test("supports related test discovery from a source file and symbol", async () => {
     const { root } = await fixtureProject();
     await mkdir(path.join(root, "tests"), { recursive: true });

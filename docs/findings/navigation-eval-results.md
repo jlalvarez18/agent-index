@@ -115,6 +115,7 @@ Per-repo results:
 - Pytest is a good stress case for token efficiency: broad `rg` finds useful lines but emits more than a million estimated tokens per behavior-only task, while optimized `rg` keeps snippets smaller but misses required source/test completion. The index behaves more like a table of contents plus cross-reference map: it first narrows to the right source cluster, then jumps to tests through `related-tests`.
 - A fairness audit caught that some behavior-only drafts passed exact symbols into the second `related-tests` step. The HTTPX, Rich, and Pytest behavior-only cases now omit those symbols and rely on the previous map/query step to infer them. `nav-eval` also rejects behavior-only fixtures that pass explicit related-test symbols.
 - `nav-suite` can now persist `summary.json` plus per-repository JSON under an artifacts directory, so regression checks can compare full case-level evidence without scraping terminal output.
+- `nav-compare` now compares saved suite artifacts and fails on agent-index completion drops, win-count drops, or context-token increases beyond an explicit allowance.
 
 ## Next Retrieval Improvements
 
@@ -122,5 +123,5 @@ Per-repo results:
 - Add benchmark cases where the correct test file is selected by behavior terms but the exact source symbol is absent from test bodies.
 - Add more blind intent-only fixtures in new repositories where the task does not include an exact symbol name, especially broad bug reports that require `file-clusters` before any direct `query` is possible. For pytest, good next symptom-shaped cases are `-k` unexpectedly including marker names, or captured setup/call/teardown output landing in the wrong report section.
 - Add more benchmark fairness guards, especially checks that broad and optimized rg baselines get comparable task terms and that behavior-only cases do not include exact target names in query terms.
-- Add a regression comparator for saved navigation artifacts so CI can fail on completion drops or token-budget regressions.
+- Add CI wiring around `nav-suite --artifacts-dir` and `nav-compare` once a checked-in or release-published baseline artifact is chosen.
 - Add more real-world fixtures beyond Python/Rust once the Python suite remains stable across repeated runs.

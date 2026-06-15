@@ -6,6 +6,8 @@ import { runAgentEval } from "./core/agent-eval.js";
 import { runBenchmark } from "./core/benchmark.js";
 import { findFileClusters } from "./core/file-clusters.js";
 import { indexTarget } from "./core/indexer.js";
+import { compareNavigationArtifacts } from "./core/navigation-artifacts.js";
+import type { NavigationArtifactCompareResult } from "./core/navigation-artifacts.js";
 import { runNavigationEval } from "./core/navigation-eval.js";
 import { runNavigationSuite } from "./core/navigation-suite.js";
 import { queryAgentIndex, queryIndex } from "./core/query.js";
@@ -311,6 +313,37 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     );
 
   program
+    .command("nav-compare")
+    .argument("<baseline>", "baseline navigation artifact directory or summary.json")
+    .argument("<current>", "current navigation artifact directory or summary.json")
+    .option("--max-agent-token-increase <tokens>", "allowed absolute increase in average agent-index context tokens", "0")
+    .option("--max-agent-token-increase-percent <percent>", "allowed percentage increase in average agent-index context tokens", "0")
+    .option("--json", "write full comparison result as JSON")
+    .action(
+      async (
+        baseline: string,
+        current: string,
+        options: {
+          maxAgentTokenIncrease: string;
+          maxAgentTokenIncreasePercent: string;
+          json?: boolean;
+        }
+      ) => {
+        const result = await compareNavigationArtifacts(baseline, current, {
+          maxAgentTokenIncrease: parseNonNegativeNumber(options.maxAgentTokenIncrease, "--max-agent-token-increase"),
+          maxAgentTokenIncreasePercent: parseNonNegativeNumber(
+            options.maxAgentTokenIncreasePercent,
+            "--max-agent-token-increase-percent"
+          )
+        });
+        io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationArtifactComparison(result));
+        if (!result.passed) {
+          throw new Error(`Navigation artifact comparison failed with ${result.regressions.length} regression(s).`);
+        }
+      }
+    );
+
+  program
     .command("related-tests")
     .requiredOption("--target <target>", "target repository or directory")
     .requiredOption("--source <file>", "source file path relative to the target repository")
@@ -604,6 +637,24 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
   return lines.join("\n");
 }
 
+function formatNavigationArtifactComparison(result: NavigationArtifactCompareResult): string {
+  if (result.passed) {
+    return [
+      "Navigation artifact comparison: pass",
+      `baseline: ${result.baselinePath}`,
+      `current: ${result.currentPath}`
+    ].join("\n");
+  }
+
+  return [
+    "Navigation artifact comparison: fail",
+    `baseline: ${result.baselinePath}`,
+    `current: ${result.currentPath}`,
+    "Regressions:",
+    ...result.regressions.map((regression) => `- ${regression.message}`)
+  ].join("\n");
+}
+
 function formatRelatedTests(result: ReturnType<typeof findRelatedTests>): string {
   if (result.matches.length === 0) {
     return `No related tests found for ${result.sourceFile}`;
@@ -840,6 +891,14 @@ function parseSymbolKinds(values: string[]): SymbolKind[] {
     }
     return value as SymbolKind;
   });
+}
+
+function parseNonNegativeNumber(value: string, flag: string): number {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Invalid ${flag} value: ${value}. Expected a non-negative number.`);
+  }
+  return parsed;
 }
 
 function parseExpansions(values: string[]): QueryExpansion[] {

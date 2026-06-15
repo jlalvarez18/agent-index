@@ -54,6 +54,15 @@ Use `--reindex` when you want one command to rebuild every suite index before me
 Use `--repo-root` with portable suite manifests whose `target` values are repo directory names. Use `--index-root` to write generated SQLite indexes outside the evaluated repositories.
 Use `--artifacts-dir` to persist `summary.json` and one JSON file per repository under `repos/`, which makes CI comparisons and regression diffs easier than scraping terminal output.
 
+Compare two saved suite runs with `nav-compare`:
+
+```bash
+npm run agent-index -- nav-compare /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
+  --max-agent-token-increase-percent 5
+```
+
+The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance.
+
 Relative `evalPath`, `target`, and `indexPath` values resolve relative to the manifest file.
 
 ## Input Shape

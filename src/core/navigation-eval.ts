@@ -42,6 +42,7 @@ export async function runNavigationEval(
   options: NavigationEvalOptions
 ): Promise<NavigationEvalResult> {
   const cases = JSON.parse(await readFile(navigationEvalPath, "utf8")) as NavigationEvalCase[];
+  validateNavigationEvalCases(cases, navigationEvalPath);
   const caseResults: NavigationEvalCaseResult[] = [];
 
   for (const navigationCase of cases) {
@@ -52,6 +53,32 @@ export async function runNavigationEval(
   }
 
   return summarizeNavigationCases(caseResults);
+}
+
+export function validateNavigationEvalCases(cases: NavigationEvalCase[], source = "navigation eval"): void {
+  const errors: string[] = [];
+
+  for (const navigationCase of cases) {
+    if (!isBehaviorOnlyCase(navigationCase)) {
+      continue;
+    }
+
+    for (const [index, step] of agentSteps(navigationCase).entries()) {
+      if (step.type === "related-tests" && step.symbol) {
+        errors.push(
+          `${navigationCase.id}: behavior-only step ${index + 1} must infer related-tests symbol from prior output, not pass explicit symbol "${step.symbol}"`
+        );
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`${source} has unfair navigation benchmark cases:\n${errors.join("\n")}`);
+  }
+}
+
+function isBehaviorOnlyCase(navigationCase: NavigationEvalCase): boolean {
+  return navigationCase.id.includes("behavior-only") || /\bwithout (?:using|naming)\b/i.test(navigationCase.task);
 }
 
 async function runAgentIndexWorkflow(

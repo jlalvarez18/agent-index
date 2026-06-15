@@ -129,7 +129,6 @@ describe("runNavigationEval", () => {
               {
                 type: "related-tests",
                 sourceFromStep: 1,
-                symbol: "load_value",
                 limit: 3
               }
             ],
@@ -193,7 +192,7 @@ describe("runNavigationEval", () => {
     });
     expect(result.caseResults[0].agentIndex.steps.map((step) => step.type)).toEqual(["file-clusters", "related-tests"]);
     expect(result.caseResults[0].agentIndex.steps[1]).toMatchObject({
-      command: "agent-index related-tests --source step:1 --symbol load_value",
+      command: "agent-index related-tests --source step:1",
       usefulRank: 1,
       usefulFile: "tests/test_cache.py"
     });
@@ -209,5 +208,50 @@ describe("runNavigationEval", () => {
       "rg-optimized"
     ]);
     expect(result.caseResults[0].agentIndex.contextTokens).toBeLessThan(result.caseResults[0].rg.contextTokens);
+  });
+
+  test("rejects behavior-only workflows that pass exact related-test symbols", async () => {
+    const { root } = await fixtureProject();
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-fairness-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "semantic-cache-behavior-only",
+            task: "Find semantic cache source and tests without naming the function.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["semantic", "cache"],
+                  roles: ["source"]
+                },
+                limit: 3
+              },
+              {
+                type: "related-tests",
+                sourceFromStep: 1,
+                symbol: "load_value",
+                limit: 3
+              }
+            ],
+            rgQueries: [["semantic", "cache"]],
+            expected: {
+              files: ["pkg/cache.py", "tests/test_cache.py"],
+              symbols: ["load_value"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    await expect(runNavigationEval(navigationEvalPath, { target: root, mode: "hybrid" })).rejects.toThrow(
+      /behavior-only step 2 must infer related-tests symbol/
+    );
   });
 });

@@ -143,7 +143,6 @@
       {
         "type": "related-tests",
         "sourceFromStep": 1,
-        "symbol": "Client._send_handling_redirects",
         "terms": ["redirect", "history", "response"],
         "limit": 6
       }

@@ -138,7 +138,6 @@
       {
         "type": "related-tests",
         "sourceFromStep": 1,
-        "symbol": "print_json",
         "terms": ["file", "StringIO", "json"],
         "limit": 6
       }

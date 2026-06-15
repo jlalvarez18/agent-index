@@ -118,5 +118,65 @@
       "requiredFiles": ["src/_pytest/mark/__init__.py", "testing/test_mark.py"],
       "requiredSymbols": ["deselect_by_keyword"]
     }
+  },
+  {
+    "id": "pytest-k-marker-keyword-selection-symptom",
+    "task": "Investigate why selecting tests with -k can unexpectedly include tests because marker names are treated as keywords, and find the related tests.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["-k", "keyword", "marker", "selected", "unexpected", "include"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["keyword", "marker", "selected"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["-k", "keyword", "marker", "selected", "unexpected", "include"],
+      ["keyword", "marker", "selected", "test"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["-k", "keyword", "marker", "selected", "unexpected", "include"],
+        "paths": ["src"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["-k", "keyword", "marker", "selected", "unexpected", "include"],
+        "fromStep": 1,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["keyword", "marker", "selected"],
+        "paths": ["testing"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["keyword", "marker", "selected"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["src/_pytest/mark/__init__.py", "src/_pytest/mark/structures.py", "testing/test_mark.py"],
+      "symbols": ["deselect_by_keyword", "KeywordMatcher.__call__"],
+      "requiredFiles": ["src/_pytest/mark/__init__.py", "testing/test_mark.py"],
+      "requiredSymbols": ["deselect_by_keyword"]
+    }
   }
 ]

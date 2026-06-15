@@ -19,6 +19,17 @@ describe("package configuration", () => {
     expect(packageJson.scripts.prebuild).toBe("npm run clean");
   });
 
+  test("build marks the emitted CLI as executable for direct agent use", async () => {
+    const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+    const chmodScript = await readFile("scripts/make-cli-executable.mjs", "utf8");
+
+    expect(packageJson.scripts.postbuild).toBe("node scripts/make-cli-executable.mjs");
+    expect(chmodScript).toContain("dist");
+    expect(chmodScript).toContain("cli.js");
+    expect(chmodScript).toContain("chmod");
+    expect(chmodScript).toContain("0o755");
+  });
+
   test("published CLI bin matches the TypeScript build output path", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
     const tsconfig = JSON.parse(await readFile("tsconfig.json", "utf8"));
@@ -33,5 +44,16 @@ describe("package configuration", () => {
 
     expect(packageJson.bin["agent-index"]).toBe(emittedCli);
     expect(tsconfig.include.every((pattern: string) => pattern.startsWith(`${rootDir}/`))).toBe(true);
+  });
+
+  test("npm package ignore rules allow built dist artifacts", async () => {
+    const npmIgnore = await readFile(".npmignore", "utf8");
+    const ignored = npmIgnore
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    expect(ignored).not.toContain("dist/");
+    expect(ignored).not.toContain("dist");
   });
 });

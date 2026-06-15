@@ -20,6 +20,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prebuild": "npm run clean",
     "build": "tsc -p tsconfig.json",
+    "postbuild": "node scripts/make-cli-executable.mjs",
     "test": "vitest run",
     "agent-index": "tsx src/cli.ts"
   },

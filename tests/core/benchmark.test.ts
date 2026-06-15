@@ -24,6 +24,12 @@ async function fixtureProject() {
         {
           id: "semantic-cache",
           question: "where is semantic cache loaded?",
+          agentQuery: {
+            terms: ["semantic", "cache", "load"],
+            symbolKinds: ["function"],
+            pathHints: ["cache"],
+            excludeSupportCode: true
+          },
           expected: {
             files: ["pkg/cache.py"],
             symbols: ["load_value"]
@@ -115,5 +121,52 @@ describe("runBenchmark", () => {
 
     expect(result.mode).toBe("hybrid");
     expect(result.questions).toBe(2);
+  });
+
+  test("can include query debug diagnostics in benchmark matches", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+
+    const result = await runBenchmark(benchmarkPath, { target: root, mode: "hybrid", debug: true });
+
+    expect(result.cases[0].topMatches[0]).toMatchObject({
+      symbol: "load_value",
+      debug: {
+        candidateSources: expect.arrayContaining(["fts"]),
+        ftsPosition: expect.any(Number),
+        hybrid: {
+          adjustedScore: expect.any(Number),
+          lexicalBoost: expect.any(Number),
+          specificityBoost: expect.any(Number),
+          containerAdjustment: expect.any(Number)
+        }
+      }
+    });
+  });
+
+  test("can benchmark structured agent queries and include an rg-style lexical file baseline", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+
+    const result = await runBenchmark(benchmarkPath, {
+      target: root,
+      mode: "hybrid",
+      queryStyle: "agent",
+      includeRgBaseline: true
+    });
+
+    expect(result.queryStyle).toBe("agent");
+    expect(result.cases[0]).toMatchObject({
+      id: "semantic-cache",
+      symbolRank: 1,
+      fileRank: 1
+    });
+    expect(result.rgBaseline).toMatchObject({
+      questions: 2,
+      fileHitAt1: 1,
+      fileHitAt5: 1
+    });
+    expect(result.rgBaseline?.cases[0].topFiles[0]).toMatchObject({
+      file: "pkg/cache.py",
+      rank: 1
+    });
   });
 });

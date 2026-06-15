@@ -50,7 +50,8 @@ export function createSchema(db: Database.Database): void {
       id integer primary key,
       path text not null unique,
       hash text not null,
-      language text not null
+      language text not null,
+      role text not null
     );
 
     create table symbols(
@@ -93,8 +94,8 @@ export function createSchema(db: Database.Database): void {
 
 function writeExtractions(db: Database.Database, extractions: ExtractionResult[]): Omit<IndexStats, "indexPath"> {
   const insertFile = db.prepare(`
-    insert into files(path, hash, language)
-    values (@path, @hash, @language)
+    insert into files(path, hash, language, role)
+    values (@path, @hash, @language, @role)
   `);
   const insertSymbol = db.prepare(`
     insert into symbols(file_id, name, qualified_name, kind, start_line, end_line, parent_symbol_id)
@@ -123,7 +124,8 @@ function writeExtractions(db: Database.Database, extractions: ExtractionResult[]
       const fileResult = insertFile.run({
         path: extraction.file.relativePath,
         hash: hashText(extraction.file.text),
-        language: extraction.file.language
+        language: extraction.file.language,
+        role: extraction.file.role
       });
       const fileId = Number(fileResult.lastInsertRowid);
       const symbolIds = new Map<string, number>();

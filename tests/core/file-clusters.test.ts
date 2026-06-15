@@ -80,4 +80,41 @@ describe("findFileClusters", () => {
 
     expect(result.clusters.map((cluster) => cluster.file)).toEqual(["tests/test_cache.py"]);
   });
+
+  test("prefers files with broader task-term coverage over repeated partial noise", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-coverage-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "redirects.py"),
+      `def preserve_redirect_history(response):
+    history = response.history
+    return history
+
+def build_manual_next_request(request):
+    next_request = request.copy()
+    return next_request
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "noise.py"),
+      Array.from(
+        { length: 24 },
+        (_, index) => `def redirect_history_noise_${index}(response):\n    return response.history\n`
+      ).join("\n")
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["redirect", "history", "next_request"],
+        roles: ["source"]
+      },
+      { target: root, limit: 2 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "pkg/redirects.py"
+    });
+    expect(result.clusters[0].why).toContain("broader task-term coverage");
+  });
 });

@@ -327,4 +327,50 @@ def test_runtime_factory(kind):
 
     expect(result.matches).toEqual([]);
   });
+
+  test("uses Rust integration-test imports and calls", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-rust-"));
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "cache.rs"),
+      `pub fn load_value(key: &str) -> String {
+    key.to_string()
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "cache_integration.rs"),
+      `use crate::cache::load_value;
+
+#[test]
+fn preserves_loaded_value() {
+    assert_eq!(load_value("x"), "x");
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "noise.rs"),
+      `#[test]
+fn mentions_cache_without_calling_source() {
+    let cache_label = "cache";
+    assert_eq!(cache_label, "cache");
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/cache.rs",
+      symbol: "load_value",
+      terms: ["loaded", "value"]
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/cache_integration.rs",
+      firstLine: 1
+    });
+    expect(result.matches[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
+  });
 });

@@ -27,6 +27,7 @@ interface MutableCluster {
   language: Language;
   score: number;
   matchedChunks: number;
+  matchedTerms: Set<string>;
   contextChars: number;
   symbols: FileClusterMatch["symbols"];
   why: Set<string>;
@@ -92,12 +93,14 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       language: row.language,
       score: 0,
       matchedChunks: 0,
+      matchedTerms: new Set<string>(),
       contextChars: 0,
       symbols: [],
       why: new Set<string>()
     };
     cluster.score = Math.max(cluster.score, scoreRow(row, agentQuery));
     cluster.matchedChunks += 1;
+    rowMatchedTerms(row, agentQuery).forEach((term) => cluster.matchedTerms.add(term));
     cluster.contextChars += compactSymbolLine(row).length + 1;
     if (!cluster.symbols.some((symbol) => symbol.name === row.symbol_name)) {
       cluster.symbols.push({
@@ -110,18 +113,25 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
     clusters.set(row.file_path, cluster);
   }
 
+  const queryTerms = normalizedQueryTerms(agentQuery);
   return [...clusters.values()]
-    .map((cluster) => ({
-      file: cluster.file,
-      role: cluster.role,
-      language: cluster.language,
-      score: Number((cluster.score + Math.min(cluster.matchedChunks, 5)).toFixed(2)),
-      matchedChunks: cluster.matchedChunks,
-      contextChars: cluster.contextChars,
-      contextTokens: approximateTokens(cluster.contextChars),
-      symbols: cluster.symbols.slice(0, 5),
-      why: [...cluster.why]
-    }))
+    .map((cluster) => {
+      const coverageBoost = taskTermCoverageBoost(cluster, queryTerms);
+      if (coverageBoost > 0) {
+        cluster.why.add("broader task-term coverage");
+      }
+      return {
+        file: cluster.file,
+        role: cluster.role,
+        language: cluster.language,
+        score: Number((cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost).toFixed(2)),
+        matchedChunks: cluster.matchedChunks,
+        contextChars: cluster.contextChars,
+        contextTokens: approximateTokens(cluster.contextChars),
+        symbols: cluster.symbols.slice(0, 5),
+        why: [...cluster.why]
+      };
+    })
     .sort((a, b) => b.score - a.score || b.matchedChunks - a.matchedChunks || a.file.localeCompare(b.file));
 }
 
@@ -155,6 +165,29 @@ function reasonsForRow(row: ClusterRow, agentQuery: AgentQuery): string[] {
     reasons.add("role match");
   }
   return [...reasons];
+}
+
+function rowMatchedTerms(row: ClusterRow, agentQuery: AgentQuery): string[] {
+  const haystack = normalize([row.file_path, row.symbol_name, row.chunk_text].join(" "));
+  return normalizedQueryTerms(agentQuery).filter((term) => haystack.includes(term));
+}
+
+function normalizedQueryTerms(agentQuery: AgentQuery): string[] {
+  return uniqueValues(agentQuery.terms.flatMap((term) => normalize(term).split(/\s+/)).filter((term) => term.length >= 3));
+}
+
+function taskTermCoverageBoost(cluster: MutableCluster, queryTerms: string[]): number {
+  if (queryTerms.length < 2) {
+    return 0;
+  }
+
+  const coverage = [...cluster.matchedTerms].filter((term) => queryTerms.includes(term)).length;
+  if (coverage < 2) {
+    return 0;
+  }
+
+  const completeCoverageBonus = coverage === queryTerms.length ? 4 : 0;
+  return Math.min(coverage * 3 + completeCoverageBonus, 16);
 }
 
 function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {
@@ -218,6 +251,10 @@ function normalize(value: string): string {
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_\-.\/]+/g, " ")
     .toLowerCase();
+}
+
+function uniqueValues<T>(values: T[]): T[] {
+  return values.filter((value, index) => values.indexOf(value) === index);
 }
 
 function approximateTokens(chars: number): number {

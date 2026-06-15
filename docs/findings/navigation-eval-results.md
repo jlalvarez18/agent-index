@@ -37,8 +37,8 @@ node dist/cli.js nav-eval benchmarks/navigation/pytest-behavior-navigation.json 
 
 node dist/cli.js nav-suite benchmarks/navigation/suite.json \
   --repo-root /Users/juan/Repos \
-  --index-root /tmp/agent-index-nav-suite-layout-related-tests \
-  --artifacts-dir /tmp/agent-index-nav-artifacts-layout-related-tests \
+  --index-root /tmp/agent-index-nav-suite-term-rust-links \
+  --artifacts-dir /tmp/agent-index-nav-artifacts-term-rust-links \
   --repos \
   --reindex
 ```
@@ -49,7 +49,7 @@ Multi-repo `nav-suite` result:
 
 | Repos | Cases | agent-index useful | rg broad useful | rg optimized useful | agent-index complete | rg broad complete | rg optimized complete | agent-index avg tokens | rg broad avg tokens | rg optimized avg tokens | agent wins vs broad | agent wins vs optimized |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 6 | 19 | 1.00 | 1.00 | 1.00 | 1.00 | 0.63 | 0.16 | 168 | 355,670 | 870 | 19 | 19 |
+| 6 | 19 | 1.00 | 1.00 | 1.00 | 1.00 | 0.63 | 0.21 | 167 | 355,670 | 872 | 19 | 19 |
 
 The current suite was run with `--reindex`, rebuilding:
 
@@ -66,10 +66,10 @@ Per-repo results:
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Click | 4 | 1.00 | 1.00 | 0.50 | 124 | 30,065 | 449 | 4 |
 | NetworkX | 2 | 1.00 | 1.00 | 0.50 | 93 | 472,427 | 268 | 2 |
-| Pydantic | 4 | 1.00 | 0.25 | 0.00 | 141 | 106,118 | 1,231 | 4 |
-| HTTPX | 3 | 1.00 | 0.00 | 0.00 | 190 | 48,793 | 1,417 | 3 |
-| Rich | 3 | 1.00 | 1.00 | 0.00 | 121 | 536,114 | 719 | 3 |
-| Pytest | 3 | 1.00 | 0.67 | 0.00 | 336 | 1,171,143 | 958 | 3 |
+| Pydantic | 4 | 1.00 | 0.25 | 0.00 | 141 | 106,118 | 1,200 | 4 |
+| HTTPX | 3 | 1.00 | 0.00 | 0.00 | 185 | 48,793 | 1,417 | 3 |
+| Rich | 3 | 1.00 | 1.00 | 0.33 | 121 | 536,114 | 744 | 3 |
+| Pytest | 3 | 1.00 | 0.67 | 0.00 | 337 | 1,171,143 | 981 | 3 |
 
 ## Per-Case Notes
 
@@ -100,7 +100,7 @@ Per-repo results:
 - `nav-eval` now reports required task completion in addition to first useful hit: each workflow includes found/missing required files and symbols, plus `taskComplete` and suite-level completion rates. Fixtures still keep broader `expected` files/symbols for useful-hit credit.
 - The NetworkX multi-step workflow now has `agent-index completion rate: 1.00` and `rg completion rate: 1.00`, so the token win is no longer just first-hit evidence; both workflows found the required source/test locations and symbols.
 - Click completion is 1.00 for agent-index, broad rg, and optimized rg, but agent-index uses 91 average tokens vs 25,271 broad rg tokens and 443 optimized rg tokens after adding the blind case. Pydantic exposes a mixed-language advantage: agent-index completion is 1.00 while broad rg completion is 0.33 and optimized rg completion is 0.00 because the Rust core symbol is surfaced structurally by the index.
-- `nav-suite` now runs six real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.63 and optimized rg 0.16. Agent-index averages 168 context tokens vs 355,670 broad rg tokens and 870 optimized rg tokens, with 19 wins vs broad rg and 19 wins vs optimized rg.
+- `nav-suite` now runs six real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.63 and optimized rg 0.21. Agent-index averages 167 context tokens vs 355,670 broad rg tokens and 872 optimized rg tokens, with 19 wins vs broad rg and 19 wins vs optimized rg.
 - The new `file-clusters` map view put `networkx/algorithms/cuts.py` first for weighted mixing expansion and `httpx/_client.py` first for redirect-history handling, keeping broad behavior prompts under 150 tokens before the test follow-up.
 - Path-filtered test discovery matters for keeping test-navigation output small.
 - Minimal Rust indexing is enough to make the Pydantic Rust serializer case visible to `agent-index`.
@@ -113,6 +113,8 @@ Per-repo results:
 - `related-tests` now also scores pytest-style fixture arguments that match the source file stem or noun-like source symbol suffix, so tests can be connected even when they exercise source behavior through fixtures rather than direct calls.
 - `related-tests` now scores `@pytest.mark.parametrize` values and ids separately from generic test body text, which helps task-term disambiguation when behavior appears in parametrized cases.
 - `related-tests` now recognizes mirrored source/test package layout tokens while filtering generic layout words such as `src`, `tests`, `core`, and `utils`, which helps nested test files without letting common directory names dominate.
+- `file-clusters` now adds aggregate task-term coverage evidence across all matched symbols in a file, so a source file that collectively covers the behavior prompt can outrank repeated partial-match noise.
+- `related-tests` now extracts Rust `use crate::...` style imports and call names from test text, giving mixed-language workflows a source-to-test link even before Rust edge extraction grows parity with Python.
 - The optimized rg baseline changed the best agent workflow for exact API-name tasks: NetworkX now uses direct `query` followed by `related-tests`, cutting agent context from 360 average tokens to 96.
 - Eleven blind, behavior-only, or symptom-shaped cases now exercise real agent navigation pressure: Click color environment defaults, HTTPX redirect history, Rich JSON stream output, Pydantic computed-field serialization, and Pytest capture/marker behavior. Seven of those avoid exact target symbol names; agent-index completed all seven behavior/symptom cases in 109-331 tokens.
 - The Click behavior-only miss showed a useful workflow lesson: broad behavior wording should use `file-clusters` as a map layer. A direct `query` found useful color helpers but did not complete the task; switching to file clusters surfaced `src/click/globals.py` and `resolve_color_default` without adding a ranking special case.
@@ -124,6 +126,7 @@ Per-repo results:
 ## Next Retrieval Improvements
 
 - Expand `related-tests` with more framework conventions beyond pytest-style tests.
+- Add the proposed Django streaming response cleanup benchmark next: it stresses behavior-only source discovery plus non-mirrored test discovery in `tests/httpwrappers/tests.py`.
 - Add benchmark cases where the correct test file is selected by behavior terms but the exact source symbol is absent from test bodies.
 - Add more blind intent-only fixtures in new repositories where the task does not include an exact symbol name, especially broad bug reports that require `file-clusters` before any direct `query` is possible. For pytest, captured setup/call/teardown output landing in the wrong report section remains a good next symptom-shaped case.
 - Add more benchmark fairness guards, especially checks that broad and optimized rg baselines get comparable task terms.

@@ -86,8 +86,8 @@ function scoreTestFile(
   const fixtureArgs = testFixtureArgs(row.text);
   const parametrizeBlocks = testParametrizeBlocks(row.text);
   const normalizedParametrizeText = normalize(parametrizeBlocks.join("\n"));
-  const importedModules = splitCsv(row.imported_modules).map(normalizeDottedName);
-  const calledNames = splitCsv(row.called_names).map(normalize);
+  const importedModules = uniqueValues([...splitCsv(row.imported_modules).map(normalizeDottedName), ...rustImportedModules(row.text)]);
+  const calledNames = uniqueValues([...splitCsv(row.called_names).map(normalize), ...calledNamesFromText(row.text)]);
   const why: string[] = [];
   let score = 0;
 
@@ -300,6 +300,46 @@ function importsSourceModule(
     const parentModule = sourceModule.includes(".") ? sourceModule.slice(0, sourceModule.lastIndexOf(".")) : "";
     return Boolean(parentModule && importedModules.includes(parentModule) && normalizedText.includes(sourceStem));
   });
+}
+
+function rustImportedModules(text: string): string[] {
+  const modules: string[] = [];
+  const usePattern = /^\s*use\s+([^;]+);/gmu;
+  for (const match of text.matchAll(usePattern)) {
+    modules.push(...rustUsePathVariants(match[1]));
+  }
+  return uniqueValues(modules);
+}
+
+function rustUsePathVariants(usePath: string): string[] {
+  const expanded = usePath
+    .replace(/\{([^{}]+)\}/gu, (_, inner: string) => inner.split(",").map((part) => part.trim()).join(" "))
+    .split(/\s+/)
+    .map((part) => part.trim().replace(/,$/u, ""))
+    .filter(Boolean);
+  const variants: string[] = [];
+  for (const part of expanded) {
+    const normalized = normalizeDottedName(part.replace(/::/gu, "."));
+    if (!normalized) {
+      continue;
+    }
+    variants.push(normalized);
+    const withoutRoot = normalized.replace(/^(?:crate|self|super)\./u, "");
+    variants.push(withoutRoot);
+    if (withoutRoot.includes(".")) {
+      variants.push(withoutRoot.slice(0, withoutRoot.lastIndexOf(".")));
+    }
+  }
+  return uniqueValues(variants.filter(Boolean));
+}
+
+function calledNamesFromText(text: string): string[] {
+  const names: string[] = [];
+  const callPattern = /\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:::<[^>]+>\s*)?\(/gu;
+  for (const match of text.matchAll(callPattern)) {
+    names.push(normalize(match[1]));
+  }
+  return uniqueValues(names);
 }
 
 function pathTokens(file: string): string[] {

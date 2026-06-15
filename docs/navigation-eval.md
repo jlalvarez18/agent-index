@@ -94,6 +94,23 @@ Relative `evalPath`, `target`, and `indexPath` values resolve relative to the ma
       ["NO_COLOR", "resolve_color_default", "color=True", "strip_ansi"],
       ["resolve_color_default", "test_with_color", "CliRunner"]
     ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["NO_COLOR", "resolve_color_default"],
+        "paths": ["src"],
+        "globs": ["*.py"],
+        "limit": 20
+      },
+      {
+        "type": "snippets",
+        "terms": ["NO_COLOR", "resolve_color_default"],
+        "fromStep": 1,
+        "before": 2,
+        "after": 2,
+        "limit": 5
+      }
+    ],
     "expected": {
       "files": ["src/click/globals.py", "tests/test_globals.py"],
       "symbols": ["resolve_color_default"],
@@ -118,6 +135,7 @@ Use `expected.files` and `expected.symbols` for acceptable useful hits. Use `exp
 
 Older fixtures may still use `agentIndexQueries`; the runner treats each query as a `query` step. New fixtures should prefer `agentIndexSteps` so they can measure realistic map -> source -> tests workflows.
 For `related-tests`, either pass `sourceFile` explicitly or use `sourceFromStep` with a 1-based prior step number. `sourceFromStep` derives the source file from the actual prior output, which is better for blind map -> test workflows.
+Use `rgOptimizedSteps` to model a stronger rg workflow explicitly. A `files` step runs filename narrowing like `rg --files-with-matches`; a `snippets` step reads bounded context from explicit files or from a prior file-list step. Keep these steps authored in the fixture rather than inferred from expected files.
 
 ## Source To Test Follow-Up
 
@@ -146,7 +164,7 @@ npm run agent-index -- related-tests \
 
 The current scorer ranks test files by source path tokens, source file stem, source symbol mentions, import edges, call-name edges, and optional task terms. It is still heuristic, but it can now find tests whose filenames do not mirror the source filename when they import or call the source module/symbol. Use task terms for behavior-specific follow-ups when many tests share the same imports.
 
-The current rg comparison intentionally measures broad matched-line output because that is a common first pass for agents. It does not yet model every optimized human-style rg strategy such as `rg -l`, globs, staged narrowing, or opening only selected files after a filename search.
+Navigation eval reports both broad matched-line rg output and the explicit optimized rg workflow when `rgOptimizedSteps` are present. The optimized baseline is closer to how agents conserve context with rg: first find candidate files, then read selected snippets.
 
 ## Starter Real-World Cases
 

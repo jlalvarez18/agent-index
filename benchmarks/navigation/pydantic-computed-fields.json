@@ -12,7 +12,7 @@
         "expand": ["callees"]
       },
       {
-        "terms": ["exclude_computed_fields", "computed_field", "model_dump", "model_dump_json"],
+        "terms": ["exclude_computed_fields"],
         "symbolKinds": ["function"],
         "roles": ["test"],
         "pathHints": ["tests/test_computed_fields.py"],
@@ -23,6 +23,34 @@
     "rgQueries": [
       ["exclude_computed_fields", "computed_field", "model_dump", "model_dump_json"],
       ["exclude_computed_fields", "test_computed", "model_dump_json"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["exclude_computed_fields"],
+        "paths": ["pydantic"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["exclude_computed_fields", "computed_field", "model_dump", "model_dump_json"],
+        "fromStep": 1,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["exclude_computed_fields"],
+        "paths": ["tests"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["exclude_computed_fields"],
+        "fromStep": 3,
+        "limit": 5
+      }
     ],
     "expected": {
       "files": ["pydantic/main.py", "pydantic/fields.py", "tests/test_computed_fields.py"],
@@ -44,6 +72,22 @@
     ],
     "rgQueries": [
       ["ComputedFields", "serialize", "exclude_computed_fields", "computed_fields"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["ComputedFields"],
+        "paths": ["pydantic-core/src"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["ComputedFields"],
+        "before": 20,
+        "after": 20,
+        "fromStep": 1,
+        "limit": 5
+      }
     ],
     "expected": {
       "files": ["pydantic-core/src/serializers/computed_fields.rs"],

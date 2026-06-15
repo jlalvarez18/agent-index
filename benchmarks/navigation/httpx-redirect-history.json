@@ -26,6 +26,36 @@
       ["next_request", "redirect_history", "history", "follow_redirects"],
       ["next_request", "history", "test"]
     ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["next_request", "redirect_history", "history", "follow_redirects"],
+        "paths": ["httpx"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["next_request", "redirect_history", "history", "follow_redirects"],
+        "fromStep": 1,
+        "before": 20,
+        "after": 10,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["next_request", "history"],
+        "paths": ["tests"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["next_request", "history"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
     "expected": {
       "files": ["httpx/_client.py", "tests/client/test_redirects.py"],
       "symbols": ["Client._send_handling_redirects", "AsyncClient._send_handling_redirects", "test_next_request_preserves_redirect_history", "test_async_next_request_preserves_redirect_history"],

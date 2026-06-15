@@ -260,6 +260,24 @@ export type NavigationAgentStep =
       limit?: number;
     };
 
+export type NavigationRgOptimizedStep =
+  | {
+      type: "files";
+      terms: string[];
+      globs?: string[];
+      paths?: string[];
+      limit?: number;
+    }
+  | {
+      type: "snippets";
+      terms: string[];
+      fromStep?: number;
+      files?: string[];
+      before?: number;
+      after?: number;
+      limit?: number;
+    };
+
 export interface NavigationEvalCase {
   id: string;
   task: string;
@@ -267,6 +285,7 @@ export interface NavigationEvalCase {
   agentIndexQueries?: AgentQuery[];
   agentIndexSteps?: NavigationAgentStep[];
   rgQueries: string[][];
+  rgOptimizedSteps?: NavigationRgOptimizedStep[];
   expected: {
     files: string[];
     symbols?: string[];
@@ -276,7 +295,7 @@ export interface NavigationEvalCase {
 }
 
 export interface NavigationEvalStepResult {
-  type: "query" | "file-clusters" | "related-tests" | "rg";
+  type: "query" | "file-clusters" | "related-tests" | "rg" | "rg-optimized";
   command: string;
   latencyMs: number;
   contextChars: number;
@@ -314,29 +333,44 @@ export interface NavigationEvalCaseResult {
   expectedSymbols: string[];
   agentIndex: NavigationEvalWorkflowResult;
   rg: NavigationEvalWorkflowResult;
+  rgOptimized: NavigationEvalWorkflowResult;
   tokenSavings: number;
   tokenSavingsRatio: number | null;
+  optimizedRgTokenSavings: number;
+  optimizedRgTokenSavingsRatio: number | null;
   commandSavings: number;
+  optimizedRgCommandSavings: number;
   winner: "agent-index" | "rg" | "tie" | "inconclusive";
+  optimizedRgWinner: "agent-index" | "rg-optimized" | "tie" | "inconclusive";
 }
 
 export interface NavigationEvalResult {
   cases: number;
   agentIndexUsefulRate: number;
   rgUsefulRate: number;
+  rgOptimizedUsefulRate: number;
   agentIndexCompletionRate: number;
   rgCompletionRate: number;
+  rgOptimizedCompletionRate: number;
   agentIndexAvgCommands: number;
   rgAvgCommands: number;
+  rgOptimizedAvgCommands: number;
   agentIndexAvgLatencyMs: number;
   rgAvgLatencyMs: number;
+  rgOptimizedAvgLatencyMs: number;
   agentIndexAvgContextTokens: number;
   rgAvgContextTokens: number;
+  rgOptimizedAvgContextTokens: number;
   avgTokenSavings: number;
+  avgOptimizedRgTokenSavings: number;
   agentIndexWins: number;
   rgWins: number;
   ties: number;
   inconclusive: number;
+  agentIndexWinsVsOptimizedRg: number;
+  rgOptimizedWins: number;
+  optimizedRgTies: number;
+  optimizedRgInconclusive: number;
   caseResults: NavigationEvalCaseResult[];
 }
 
@@ -358,19 +392,29 @@ export interface NavigationSuiteResult {
   cases: number;
   agentIndexUsefulRate: number;
   rgUsefulRate: number;
+  rgOptimizedUsefulRate: number;
   agentIndexCompletionRate: number;
   rgCompletionRate: number;
+  rgOptimizedCompletionRate: number;
   agentIndexAvgCommands: number;
   rgAvgCommands: number;
+  rgOptimizedAvgCommands: number;
   agentIndexAvgLatencyMs: number;
   rgAvgLatencyMs: number;
+  rgOptimizedAvgLatencyMs: number;
   agentIndexAvgContextTokens: number;
   rgAvgContextTokens: number;
+  rgOptimizedAvgContextTokens: number;
   avgTokenSavings: number;
+  avgOptimizedRgTokenSavings: number;
   agentIndexWins: number;
   rgWins: number;
   ties: number;
   inconclusive: number;
+  agentIndexWinsVsOptimizedRg: number;
+  rgOptimizedWins: number;
+  optimizedRgTies: number;
+  optimizedRgInconclusive: number;
   repoResults: NavigationSuiteRepoResult[];
 }
 

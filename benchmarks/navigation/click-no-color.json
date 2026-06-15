@@ -23,6 +23,32 @@
       ["NO_COLOR", "resolve_color_default", "color=True", "strip_ansi"],
       ["CliRunner", "color", "strip_ansi", "invoke"]
     ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["NO_COLOR", "resolve_color_default", "color=True", "strip_ansi"],
+        "paths": ["src"],
+        "limit": 20
+      },
+      {
+        "type": "snippets",
+        "terms": ["NO_COLOR", "resolve_color_default", "color=True", "strip_ansi"],
+        "fromStep": 1,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["CliRunner", "color", "strip_ansi", "invoke"],
+        "paths": ["src"],
+        "limit": 20
+      },
+      {
+        "type": "snippets",
+        "terms": ["CliRunner", "color", "strip_ansi", "invoke"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
     "expected": {
       "files": ["src/click/globals.py", "src/click/testing.py", "src/click/utils.py"],
       "symbols": ["resolve_color_default", "CliRunner.invoke"],
@@ -46,6 +72,21 @@
     ],
     "rgQueries": [
       ["resolve_color_default", "NO_COLOR", "color=True", "strip_ansi"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["resolve_color_default", "NO_COLOR", "color=True", "strip_ansi"],
+        "paths": ["tests"],
+        "globs": ["*.py"],
+        "limit": 20
+      },
+      {
+        "type": "snippets",
+        "terms": ["resolve_color_default", "NO_COLOR", "color=True", "strip_ansi"],
+        "fromStep": 1,
+        "limit": 5
+      }
     ],
     "expected": {
       "files": ["tests/test_globals.py", "tests/test_testing.py", "tests/test_utils.py"],

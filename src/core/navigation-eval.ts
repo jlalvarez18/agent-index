@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import type {
   AgentQuery,
   FileClusterMatch,
@@ -9,6 +10,7 @@ import type {
   NavigationAgentStep,
   NavigationEvalStepResult,
   NavigationEvalWorkflowResult,
+  NavigationRgOptimizedStep,
   QueryMatch,
   QueryMode,
   RelatedTestMatch
@@ -29,6 +31,12 @@ interface RgMatch {
   text: string;
 }
 
+interface RgSnippet {
+  file: string;
+  startLine: number;
+  lines: string[];
+}
+
 export async function runNavigationEval(
   navigationEvalPath: string,
   options: NavigationEvalOptions
@@ -39,7 +47,8 @@ export async function runNavigationEval(
   for (const navigationCase of cases) {
     const agentIndex = await runAgentIndexWorkflow(navigationCase, options);
     const rg = await runRgWorkflow(navigationCase, options.target);
-    caseResults.push(scoreNavigationCase(navigationCase, agentIndex, rg));
+    const rgOptimized = await runOptimizedRgWorkflow(navigationCase, options.target);
+    caseResults.push(scoreNavigationCase(navigationCase, agentIndex, rg, rgOptimized));
   }
 
   return summarizeNavigationCases(caseResults);
@@ -200,12 +209,74 @@ async function runRgWorkflow(navigationCase: NavigationEvalCase, target: string)
   return summarizeWorkflow(steps, navigationCase);
 }
 
+async function runOptimizedRgWorkflow(navigationCase: NavigationEvalCase, target: string): Promise<NavigationEvalWorkflowResult> {
+  const steps: NavigationEvalStepResult[] = [];
+
+  for (const step of optimizedRgSteps(navigationCase)) {
+    const started = performance.now();
+    if (step.type === "files") {
+      const result = await runRgFilesCommand(step.terms, target, step.globs, step.paths);
+      const candidateFiles = parseRgFileList(result.stdout);
+      const visibleFiles = step.limit ? candidateFiles.slice(0, step.limit) : candidateFiles;
+      const context = formatRgFileList(visibleFiles);
+      const useful = usefulRgFileMatch(visibleFiles, navigationCase);
+      steps.push({
+        type: "rg-optimized",
+        command: formatRgFilesCommand(step),
+        latencyMs: performance.now() - started,
+        contextChars: context.length,
+        contextTokens: approximateTokens(context.length),
+        usefulRank: useful?.rank ?? null,
+        usefulFile: useful?.file ?? null,
+        foundFiles: matchingRgCandidateFiles(visibleFiles, navigationCase),
+        foundSymbols: [],
+        outputFiles: visibleFiles,
+        outputSymbols: []
+      });
+      continue;
+    }
+
+    const sourceFiles = step.files ?? steps[(step.fromStep ?? steps.length) - 1]?.outputFiles ?? [];
+    const selectedFiles = sourceFiles.slice(0, step.limit ?? 5);
+    const snippets = await readTopRgSnippets(selectedFiles, step.terms, target, step.before ?? 2, step.after ?? 2);
+    const context = formatRgSnippets(snippets);
+    const useful = usefulRgFileMatch(selectedFiles, navigationCase);
+    steps.push({
+      type: "rg-optimized",
+      command: formatRgSnippetsCommand(step),
+      latencyMs: performance.now() - started,
+      contextChars: context.length,
+      contextTokens: approximateTokens(context.length),
+      usefulRank: useful?.rank ?? null,
+      usefulFile: useful?.file ?? null,
+      foundFiles: matchingRgCandidateFiles(selectedFiles, navigationCase),
+      foundSymbols: matchingRgSnippetSymbols(snippets, navigationCase),
+      outputFiles: selectedFiles,
+      outputSymbols: matchingRgSnippetSymbols(snippets, navigationCase)
+    });
+  }
+
+  return summarizeWorkflow(steps, navigationCase);
+}
+
+function optimizedRgSteps(navigationCase: NavigationEvalCase): NavigationRgOptimizedStep[] {
+  if (navigationCase.rgOptimizedSteps && navigationCase.rgOptimizedSteps.length > 0) {
+    return navigationCase.rgOptimizedSteps;
+  }
+  return navigationCase.rgQueries.flatMap((terms, index): NavigationRgOptimizedStep[] => [
+    { type: "files", terms },
+    { type: "snippets", terms, fromStep: index * 2 + 1, limit: 5 }
+  ]);
+}
+
 function scoreNavigationCase(
   navigationCase: NavigationEvalCase,
   agentIndex: NavigationEvalWorkflowResult,
-  rg: NavigationEvalWorkflowResult
+  rg: NavigationEvalWorkflowResult,
+  rgOptimized: NavigationEvalWorkflowResult
 ): NavigationEvalCaseResult {
   const tokenSavings = rg.contextTokens - agentIndex.contextTokens;
+  const optimizedRgTokenSavings = rgOptimized.contextTokens - agentIndex.contextTokens;
   return {
     id: navigationCase.id,
     task: navigationCase.task,
@@ -214,10 +285,16 @@ function scoreNavigationCase(
     expectedSymbols: navigationCase.expected.symbols ?? [],
     agentIndex,
     rg,
+    rgOptimized,
     tokenSavings,
     tokenSavingsRatio: rg.contextTokens === 0 ? null : Number((tokenSavings / rg.contextTokens).toFixed(4)),
+    optimizedRgTokenSavings,
+    optimizedRgTokenSavingsRatio:
+      rgOptimized.contextTokens === 0 ? null : Number((optimizedRgTokenSavings / rgOptimized.contextTokens).toFixed(4)),
     commandSavings: rg.commands - agentIndex.commands,
-    winner: pickWinner(agentIndex, rg)
+    optimizedRgCommandSavings: rgOptimized.commands - agentIndex.commands,
+    winner: pickWinner(agentIndex, rg),
+    optimizedRgWinner: pickOptimizedRgWinner(agentIndex, rgOptimized)
   };
 }
 
@@ -226,22 +303,38 @@ function summarizeNavigationCases(caseResults: NavigationEvalCaseResult[]): Navi
     cases: caseResults.length,
     agentIndexUsefulRate: ratio(caseResults.filter((result) => result.agentIndex.foundUseful).length, caseResults.length),
     rgUsefulRate: ratio(caseResults.filter((result) => result.rg.foundUseful).length, caseResults.length),
+    rgOptimizedUsefulRate: ratio(caseResults.filter((result) => result.rgOptimized.foundUseful).length, caseResults.length),
     agentIndexCompletionRate: ratio(caseResults.filter((result) => result.agentIndex.taskComplete).length, caseResults.length),
     rgCompletionRate: ratio(caseResults.filter((result) => result.rg.taskComplete).length, caseResults.length),
+    rgOptimizedCompletionRate: ratio(caseResults.filter((result) => result.rgOptimized.taskComplete).length, caseResults.length),
     agentIndexAvgCommands: ratio(caseResults.reduce((sum, result) => sum + result.agentIndex.commands, 0), caseResults.length),
     rgAvgCommands: ratio(caseResults.reduce((sum, result) => sum + result.rg.commands, 0), caseResults.length),
+    rgOptimizedAvgCommands: ratio(caseResults.reduce((sum, result) => sum + result.rgOptimized.commands, 0), caseResults.length),
     agentIndexAvgLatencyMs: ratio(caseResults.reduce((sum, result) => sum + result.agentIndex.latencyMs, 0), caseResults.length),
     rgAvgLatencyMs: ratio(caseResults.reduce((sum, result) => sum + result.rg.latencyMs, 0), caseResults.length),
+    rgOptimizedAvgLatencyMs: ratio(caseResults.reduce((sum, result) => sum + result.rgOptimized.latencyMs, 0), caseResults.length),
     agentIndexAvgContextTokens: ratio(
       caseResults.reduce((sum, result) => sum + result.agentIndex.contextTokens, 0),
       caseResults.length
     ),
     rgAvgContextTokens: ratio(caseResults.reduce((sum, result) => sum + result.rg.contextTokens, 0), caseResults.length),
+    rgOptimizedAvgContextTokens: ratio(
+      caseResults.reduce((sum, result) => sum + result.rgOptimized.contextTokens, 0),
+      caseResults.length
+    ),
     avgTokenSavings: ratio(caseResults.reduce((sum, result) => sum + result.tokenSavings, 0), caseResults.length),
+    avgOptimizedRgTokenSavings: ratio(
+      caseResults.reduce((sum, result) => sum + result.optimizedRgTokenSavings, 0),
+      caseResults.length
+    ),
     agentIndexWins: caseResults.filter((result) => result.winner === "agent-index").length,
     rgWins: caseResults.filter((result) => result.winner === "rg").length,
     ties: caseResults.filter((result) => result.winner === "tie").length,
     inconclusive: caseResults.filter((result) => result.winner === "inconclusive").length,
+    agentIndexWinsVsOptimizedRg: caseResults.filter((result) => result.optimizedRgWinner === "agent-index").length,
+    rgOptimizedWins: caseResults.filter((result) => result.optimizedRgWinner === "rg-optimized").length,
+    optimizedRgTies: caseResults.filter((result) => result.optimizedRgWinner === "tie").length,
+    optimizedRgInconclusive: caseResults.filter((result) => result.optimizedRgWinner === "inconclusive").length,
     caseResults
   };
 }
@@ -291,6 +384,28 @@ function pickWinner(
   }
   if (rg.contextTokens < agentIndex.contextTokens && usefulCommand(rg) <= usefulCommand(agentIndex)) {
     return "rg";
+  }
+  return "tie";
+}
+
+function pickOptimizedRgWinner(
+  agentIndex: NavigationEvalWorkflowResult,
+  rgOptimized: NavigationEvalWorkflowResult
+): NavigationEvalCaseResult["optimizedRgWinner"] {
+  if (agentIndex.taskComplete && !rgOptimized.taskComplete) {
+    return "agent-index";
+  }
+  if (!agentIndex.taskComplete && rgOptimized.taskComplete) {
+    return "rg-optimized";
+  }
+  if (!agentIndex.foundUseful && !rgOptimized.foundUseful) {
+    return "inconclusive";
+  }
+  if (agentIndex.contextTokens < rgOptimized.contextTokens && usefulCommand(agentIndex) <= usefulCommand(rgOptimized)) {
+    return "agent-index";
+  }
+  if (rgOptimized.contextTokens < agentIndex.contextTokens && usefulCommand(rgOptimized) <= usefulCommand(agentIndex)) {
+    return "rg-optimized";
   }
   return "tie";
 }
@@ -386,6 +501,23 @@ function matchingRgSymbols(matches: RgMatch[], navigationCase: NavigationEvalCas
   return expectedSymbols.filter((symbol) => matches.some((match) => match.text.includes(symbol)));
 }
 
+function usefulRgFileMatch(files: string[], navigationCase: NavigationEvalCase): { rank: number; file: string } | undefined {
+  const expectedFiles = new Set(navigationCase.expected.files);
+  const index = files.findIndex((file) => expectedFiles.has(file));
+  return index === -1 ? undefined : { rank: index + 1, file: files[index] };
+}
+
+function matchingRgCandidateFiles(files: string[], navigationCase: NavigationEvalCase): string[] {
+  const expectedFiles = new Set(navigationCase.expected.files);
+  return uniqueValues(files.filter((file) => expectedFiles.has(file)));
+}
+
+function matchingRgSnippetSymbols(snippets: RgSnippet[], navigationCase: NavigationEvalCase): string[] {
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
+  const text = snippets.flatMap((snippet) => snippet.lines).join("\n");
+  return expectedSymbols.filter((symbol) => text.includes(symbol));
+}
+
 function formatCompactMatches(matches: QueryMatch[]): string {
   if (matches.length === 0) {
     return "No matches";
@@ -401,7 +533,7 @@ function formatCompactClusters(clusters: FileClusterMatch[]): string {
   }
   return clusters
     .map((cluster, index) => {
-      const symbols = cluster.symbols.map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
+      const symbols = cluster.symbols.slice(0, 2).map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
       return `${index + 1} ${cluster.file} role=${cluster.role} chunks=${cluster.matchedChunks} symbols=${symbols}`;
     })
     .join("\n");
@@ -413,6 +545,24 @@ function formatCompactRelatedTests(matches: RelatedTestMatch[]): string {
   }
   return matches
     .map((match, index) => `${index + 1} ${match.file}${match.firstLine === null ? "" : `:${match.firstLine}`} score=${match.score}`)
+    .join("\n");
+}
+
+function formatRgFileList(files: string[]): string {
+  return files.length === 0 ? "No matching files" : files.map((file, index) => `${index + 1} ${file}`).join("\n");
+}
+
+function formatRgSnippets(snippets: RgSnippet[]): string {
+  if (snippets.length === 0) {
+    return "No snippets";
+  }
+  return snippets
+    .map((snippet) =>
+      [
+        `--- ${snippet.file}:${snippet.startLine}`,
+        ...snippet.lines.map((line, index) => `${snippet.startLine + index}: ${line}`)
+      ].join("\n")
+    )
     .join("\n");
 }
 
@@ -456,6 +606,99 @@ function runRgCommand(terms: string[], cwd: string): Promise<{ stdout: string; s
       resolve({ stdout, stderr, exitCode: code ?? 1 });
     });
   });
+}
+
+function runRgFilesCommand(
+  terms: string[],
+  cwd: string,
+  globs: string[] = [],
+  paths: string[] = ["."]
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "--files-with-matches",
+      "--color",
+      "never",
+      "-F",
+      ...globs.flatMap((glob) => ["--glob", glob]),
+      ...terms.flatMap((term) => ["-e", term]),
+      ...paths
+    ];
+    const child = spawn("rg", args, { cwd, windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => {
+      reject(error);
+    });
+    child.on("close", (code) => {
+      if (code !== 0 && code !== 1) {
+        reject(new Error(`rg optimized navigation baseline failed with exit code ${code ?? 1}: ${stderr.trim()}`));
+        return;
+      }
+      resolve({ stdout, stderr, exitCode: code ?? 1 });
+    });
+  });
+}
+
+function parseRgFileList(stdout: string): string[] {
+  return stdout.split(/\r?\n/).filter(Boolean).map((file) => file.replace(/^\.\//u, ""));
+}
+
+async function readTopRgSnippets(
+  files: string[],
+  terms: string[],
+  target: string,
+  before: number,
+  after: number
+): Promise<RgSnippet[]> {
+  const snippets: RgSnippet[] = [];
+  for (const file of files) {
+    const text = await readFile(path.join(target, file), "utf8").catch(() => "");
+    if (!text) {
+      continue;
+    }
+    const lines = text.split(/\r?\n/);
+    const index = firstTermLineIndex(lines, terms);
+    const start = Math.max(0, index - before);
+    const end = Math.min(lines.length, index + after + 1);
+    snippets.push({
+      file,
+      startLine: start + 1,
+      lines: lines.slice(start, end)
+    });
+  }
+  return snippets;
+}
+
+function formatRgFilesCommand(step: Extract<NavigationRgOptimizedStep, { type: "files" }>): string {
+  const globs = step.globs?.flatMap((glob) => ["--glob", shellQuote(glob)]).join(" ");
+  const paths = step.paths?.map(shellQuote).join(" ") ?? ".";
+  const limit = step.limit ? ` | head -${step.limit}` : "";
+  return ["rg", "--files-with-matches", "--color", "never", "-F", globs, ...step.terms.flatMap((term) => ["-e", shellQuote(term)]), paths]
+    .filter(Boolean)
+    .join(" ")
+    .concat(limit);
+}
+
+function formatRgSnippetsCommand(step: Extract<NavigationRgOptimizedStep, { type: "snippets" }>): string {
+  const source = step.files ? step.files.map(shellQuote).join(" ") : `step:${step.fromStep ?? "previous"}`;
+  const context = `-C ${Math.max(step.before ?? 2, step.after ?? 2)}`;
+  return ["rg", "--line-number", context, "--color", "never", "-F", ...step.terms.flatMap((term) => ["-e", shellQuote(term)]), source]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function firstTermLineIndex(lines: string[], terms: string[]): number {
+  const index = lines.findIndex((line) => terms.some((term) => line.includes(term)));
+  return index === -1 ? 0 : index;
 }
 
 function parseRgLine(line: string): RgMatch | undefined {

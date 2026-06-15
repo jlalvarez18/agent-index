@@ -222,11 +222,14 @@ describe("runCli", () => {
 
     expect(output[1]).toContain("Cases: 1");
     expect(output[1]).toContain("agent-index useful rate: 1.00");
-    expect(output[1]).toContain("rg useful rate: 1.00");
+    expect(output[1]).toContain("rg broad useful rate: 1.00");
+    expect(output[1]).toContain("rg optimized useful rate: 1.00");
     expect(output[1]).toContain("agent-index completion rate: 1.00");
-    expect(output[1]).toContain("rg completion rate: 1.00");
+    expect(output[1]).toContain("rg broad completion rate: 1.00");
+    expect(output[1]).toContain("rg optimized completion rate: 1.00");
     expect(output[1]).toContain("semantic-cache-navigation");
     expect(output[1]).toContain("agentComplete=yes");
+    expect(output[1]).toContain("rgOptimizedComplete=yes");
     const json = JSON.parse(output[2]);
     expect(json.caseResults[0]).toMatchObject({
       id: "semantic-cache-navigation",
@@ -236,6 +239,10 @@ describe("runCli", () => {
         firstUsefulCommand: 1
       },
       rg: {
+        foundUseful: true,
+        taskComplete: true
+      },
+      rgOptimized: {
         foundUseful: true,
         taskComplete: true
       }
@@ -271,6 +278,7 @@ describe("runCli", () => {
     expect(output[1]).toContain("Repos: 1");
     expect(output[1]).toContain("Cases: 1");
     expect(output[1]).toContain("agent-index completion rate: 1.00");
+    expect(output[1]).toContain("rg optimized completion rate: 1.00");
     expect(output[1]).toContain("fixture");
     expect(output[1]).toContain("indexed=1files/");
     const json = JSON.parse(output[2]);

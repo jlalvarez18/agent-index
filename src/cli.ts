@@ -492,20 +492,29 @@ function formatNavigationEval(result: NavigationEvalResult, includeCases = false
   const lines = [
     `Cases: ${result.cases}`,
     `agent-index useful rate: ${result.agentIndexUsefulRate.toFixed(2)}`,
-    `rg useful rate: ${result.rgUsefulRate.toFixed(2)}`,
+    `rg broad useful rate: ${result.rgUsefulRate.toFixed(2)}`,
+    `rg optimized useful rate: ${result.rgOptimizedUsefulRate.toFixed(2)}`,
     `agent-index completion rate: ${result.agentIndexCompletionRate.toFixed(2)}`,
-    `rg completion rate: ${result.rgCompletionRate.toFixed(2)}`,
+    `rg broad completion rate: ${result.rgCompletionRate.toFixed(2)}`,
+    `rg optimized completion rate: ${result.rgOptimizedCompletionRate.toFixed(2)}`,
     `agent-index avg commands: ${result.agentIndexAvgCommands.toFixed(2)}`,
-    `rg avg commands: ${result.rgAvgCommands.toFixed(2)}`,
+    `rg broad avg commands: ${result.rgAvgCommands.toFixed(2)}`,
+    `rg optimized avg commands: ${result.rgOptimizedAvgCommands.toFixed(2)}`,
     `agent-index avg latency: ${Math.round(result.agentIndexAvgLatencyMs)}ms`,
-    `rg avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
+    `rg broad avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
+    `rg optimized avg latency: ${Math.round(result.rgOptimizedAvgLatencyMs)}ms`,
     `agent-index avg context tokens: ${Math.round(result.agentIndexAvgContextTokens)}`,
-    `rg avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
-    `avg token savings: ${Math.round(result.avgTokenSavings)}`,
-    `agent-index wins: ${result.agentIndexWins}`,
-    `rg wins: ${result.rgWins}`,
-    `ties: ${result.ties}`,
-    `inconclusive: ${result.inconclusive}`
+    `rg broad avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
+    `rg optimized avg context tokens: ${Math.round(result.rgOptimizedAvgContextTokens)}`,
+    `avg broad rg token savings: ${Math.round(result.avgTokenSavings)}`,
+    `avg optimized rg token savings: ${Math.round(result.avgOptimizedRgTokenSavings)}`,
+    `agent-index wins vs broad rg: ${result.agentIndexWins}`,
+    `broad rg wins: ${result.rgWins}`,
+    `agent-index wins vs optimized rg: ${result.agentIndexWinsVsOptimizedRg}`,
+    `optimized rg wins: ${result.rgOptimizedWins}`,
+    `broad rg ties: ${result.ties}`,
+    `optimized rg ties: ${result.optimizedRgTies}`,
+    `inconclusive: ${result.inconclusive + result.optimizedRgInconclusive}`
   ];
 
   if (includeCases) {
@@ -516,13 +525,18 @@ function formatNavigationEval(result: NavigationEvalResult, includeCases = false
         [
           navigationCase.id,
           `winner=${navigationCase.winner}`,
+          `optimizedWinner=${navigationCase.optimizedRgWinner}`,
           `agentTokens=${navigationCase.agentIndex.contextTokens}`,
           `rgTokens=${navigationCase.rg.contextTokens}`,
+          `rgOptimizedTokens=${navigationCase.rgOptimized.contextTokens}`,
           `savings=${navigationCase.tokenSavings}`,
+          `optimizedSavings=${navigationCase.optimizedRgTokenSavings}`,
           `agentComplete=${navigationCase.agentIndex.taskComplete ? "yes" : "no"}`,
           `rgComplete=${navigationCase.rg.taskComplete ? "yes" : "no"}`,
+          `rgOptimizedComplete=${navigationCase.rgOptimized.taskComplete ? "yes" : "no"}`,
           `agentUseful=${formatRank(navigationCase.agentIndex.firstUsefulCommand)}`,
-          `rgUseful=${formatRank(navigationCase.rg.firstUsefulCommand)}`
+          `rgUseful=${formatRank(navigationCase.rg.firstUsefulCommand)}`,
+          `rgOptimizedUseful=${formatRank(navigationCase.rgOptimized.firstUsefulCommand)}`
         ].join("  ")
       )
     );
@@ -536,20 +550,29 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
     `Repos: ${result.repos}`,
     `Cases: ${result.cases}`,
     `agent-index useful rate: ${result.agentIndexUsefulRate.toFixed(2)}`,
-    `rg useful rate: ${result.rgUsefulRate.toFixed(2)}`,
+    `rg broad useful rate: ${result.rgUsefulRate.toFixed(2)}`,
+    `rg optimized useful rate: ${result.rgOptimizedUsefulRate.toFixed(2)}`,
     `agent-index completion rate: ${result.agentIndexCompletionRate.toFixed(2)}`,
-    `rg completion rate: ${result.rgCompletionRate.toFixed(2)}`,
+    `rg broad completion rate: ${result.rgCompletionRate.toFixed(2)}`,
+    `rg optimized completion rate: ${result.rgOptimizedCompletionRate.toFixed(2)}`,
     `agent-index avg commands: ${result.agentIndexAvgCommands.toFixed(2)}`,
-    `rg avg commands: ${result.rgAvgCommands.toFixed(2)}`,
+    `rg broad avg commands: ${result.rgAvgCommands.toFixed(2)}`,
+    `rg optimized avg commands: ${result.rgOptimizedAvgCommands.toFixed(2)}`,
     `agent-index avg latency: ${Math.round(result.agentIndexAvgLatencyMs)}ms`,
-    `rg avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
+    `rg broad avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
+    `rg optimized avg latency: ${Math.round(result.rgOptimizedAvgLatencyMs)}ms`,
     `agent-index avg context tokens: ${Math.round(result.agentIndexAvgContextTokens)}`,
-    `rg avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
-    `avg token savings: ${Math.round(result.avgTokenSavings)}`,
-    `agent-index wins: ${result.agentIndexWins}`,
-    `rg wins: ${result.rgWins}`,
-    `ties: ${result.ties}`,
-    `inconclusive: ${result.inconclusive}`
+    `rg broad avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
+    `rg optimized avg context tokens: ${Math.round(result.rgOptimizedAvgContextTokens)}`,
+    `avg broad rg token savings: ${Math.round(result.avgTokenSavings)}`,
+    `avg optimized rg token savings: ${Math.round(result.avgOptimizedRgTokenSavings)}`,
+    `agent-index wins vs broad rg: ${result.agentIndexWins}`,
+    `broad rg wins: ${result.rgWins}`,
+    `agent-index wins vs optimized rg: ${result.agentIndexWinsVsOptimizedRg}`,
+    `optimized rg wins: ${result.rgOptimizedWins}`,
+    `broad rg ties: ${result.ties}`,
+    `optimized rg ties: ${result.optimizedRgTies}`,
+    `inconclusive: ${result.inconclusive + result.optimizedRgInconclusive}`
   ];
 
   if (includeRepos) {
@@ -561,12 +584,15 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
           repo.name,
           `cases=${repo.result.cases}`,
           `agentComplete=${repo.result.agentIndexCompletionRate.toFixed(2)}`,
-          `rgComplete=${repo.result.rgCompletionRate.toFixed(2)}`,
+          `rgBroadComplete=${repo.result.rgCompletionRate.toFixed(2)}`,
+          `rgOptimizedComplete=${repo.result.rgOptimizedCompletionRate.toFixed(2)}`,
           `agentTokens=${Math.round(repo.result.agentIndexAvgContextTokens)}`,
-          `rgTokens=${Math.round(repo.result.rgAvgContextTokens)}`,
+          `rgBroadTokens=${Math.round(repo.result.rgAvgContextTokens)}`,
+          `rgOptimizedTokens=${Math.round(repo.result.rgOptimizedAvgContextTokens)}`,
           repo.indexStats ? `indexed=${repo.indexStats.files}files/${repo.indexStats.symbols}symbols` : "indexed=prebuilt",
-          `agentWins=${repo.result.agentIndexWins}`,
-          `rgWins=${repo.result.rgWins}`
+          `agentWinsBroad=${repo.result.agentIndexWins}`,
+          `agentWinsOptimized=${repo.result.agentIndexWinsVsOptimizedRg}`,
+          `rgOptimizedWins=${repo.result.rgOptimizedWins}`
         ].join("  ")
       )
     );

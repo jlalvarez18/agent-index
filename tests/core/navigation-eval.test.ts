@@ -137,6 +137,32 @@ describe("runNavigationEval", () => {
               ["load_value", "semantic", "cache"],
               ["load_value", "test"]
             ],
+            rgOptimizedSteps: [
+              {
+                type: "files",
+                terms: ["load_value", "semantic", "cache"],
+                paths: ["pkg"],
+                limit: 10
+              },
+              {
+                type: "snippets",
+                terms: ["load_value", "semantic", "cache"],
+                fromStep: 1,
+                limit: 3
+              },
+              {
+                type: "files",
+                terms: ["load_value", "test"],
+                paths: ["tests"],
+                limit: 10
+              },
+              {
+                type: "snippets",
+                terms: ["load_value", "test"],
+                fromStep: 3,
+                limit: 3
+              }
+            ],
             expected: {
               files: ["pkg/cache.py", "tests/test_cache.py"],
               symbols: ["load_value"]
@@ -171,6 +197,17 @@ describe("runNavigationEval", () => {
       usefulRank: 1,
       usefulFile: "tests/test_cache.py"
     });
+    expect(result.caseResults[0].rgOptimized).toMatchObject({
+      commands: 4,
+      foundUseful: true,
+      taskComplete: true
+    });
+    expect(result.caseResults[0].rgOptimized.steps.map((step) => step.type)).toEqual([
+      "rg-optimized",
+      "rg-optimized",
+      "rg-optimized",
+      "rg-optimized"
+    ]);
     expect(result.caseResults[0].agentIndex.contextTokens).toBeLessThan(result.caseResults[0].rg.contextTokens);
   });
 });

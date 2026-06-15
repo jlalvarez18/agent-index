@@ -288,7 +288,7 @@ npm run agent-index -- nav-eval ./path/to/navigation-eval.json \
   --cases
 ```
 
-Navigation eval reports useful-hit rate, task-completion coverage, command count, latency, and approximate context-token payload for both workflows. This is the main product metric: helping agents find useful code with much less reading, not beating `rg` at raw exact-string scanning.
+Navigation eval reports useful-hit rate, task-completion coverage, command count, latency, and approximate context-token payload for agent-index, broad matched-line `rg`, and optional optimized rg workflows that use filename narrowing plus bounded snippets. This is the main product metric: helping agents find useful code with much less reading, not beating `rg` at raw exact-string scanning.
 New navigation fixtures should use `agentIndexSteps` to model realistic workflows with `query`, `file-clusters`, and `related-tests` steps. Older `agentIndexQueries` fixtures still work as direct query steps.
 
 To run several real repos as one benchmark suite, use a manifest:

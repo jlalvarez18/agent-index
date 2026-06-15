@@ -2,6 +2,13 @@
   {
     "id": "semantic-cache",
     "question": "where is semantic cache handled?",
+    "agentQuery": {
+      "terms": ["semantic", "cache", "check", "save"],
+      "symbolKinds": ["function"],
+      "pathHints": ["cache"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/cache.py"],
       "symbols": ["check_semantic_cache", "save_semantic_cache"]
@@ -10,6 +17,13 @@
   {
     "id": "main-entrypoint",
     "question": "where is the command line entrypoint?",
+    "agentQuery": {
+      "terms": ["main", "entrypoint", "command", "line"],
+      "symbolKinds": ["function"],
+      "pathHints": ["__main__"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "imports"]
+    },
     "expected": {
       "files": ["graphify/__main__.py"],
       "symbols": ["main"]
@@ -18,6 +32,13 @@
   {
     "id": "extract-code",
     "question": "where does code extraction happen?",
+    "agentQuery": {
+      "terms": ["code", "extract", "extraction", "python"],
+      "symbolKinds": ["function"],
+      "pathHints": ["extract"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/extract.py"],
       "symbols": ["extract", "_extract_single_file", "extract_python"]
@@ -26,6 +47,13 @@
   {
     "id": "build-graph",
     "question": "where is the graph built from extracted nodes and edges?",
+    "agentQuery": {
+      "terms": ["graph", "build", "nodes", "edges"],
+      "symbolKinds": ["function"],
+      "pathHints": ["build"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/build.py"],
       "symbols": ["build_from_json", "build"]
@@ -34,6 +62,13 @@
   {
     "id": "incremental-cache",
     "question": "where does incremental indexing decide what changed?",
+    "agentQuery": {
+      "terms": ["incremental", "detect", "changed", "manifest"],
+      "symbolKinds": ["function"],
+      "pathHints": ["detect"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/detect.py"],
       "symbols": ["detect_incremental", "load_manifest", "save_manifest"]
@@ -42,6 +77,13 @@
   {
     "id": "query-seeds",
     "question": "where are query seed nodes selected?",
+    "agentQuery": {
+      "terms": ["query", "seed", "nodes", "score"],
+      "symbolKinds": ["function"],
+      "pathHints": ["serve"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/serve.py"],
       "symbols": ["_pick_seeds", "_score_nodes"]
@@ -50,6 +92,13 @@
   {
     "id": "graph-export",
     "question": "where is graph json exported?",
+    "agentQuery": {
+      "terms": ["graph", "json", "export"],
+      "symbolKinds": ["function"],
+      "pathHints": ["export"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/export.py"],
       "symbols": ["to_json"]
@@ -58,6 +107,13 @@
   {
     "id": "mcp-server",
     "question": "where is the MCP server implemented?",
+    "agentQuery": {
+      "terms": ["mcp", "server", "serve"],
+      "symbolKinds": ["function"],
+      "pathHints": ["serve"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/serve.py"],
       "symbols": ["serve", "_build_server"]
@@ -66,6 +122,13 @@
   {
     "id": "report-generation",
     "question": "where are analysis reports generated?",
+    "agentQuery": {
+      "terms": ["analysis", "report", "generate"],
+      "symbolKinds": ["function"],
+      "pathHints": ["report"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/report.py"],
       "symbols": ["generate"]
@@ -74,6 +137,13 @@
   {
     "id": "community-detection",
     "question": "where does community detection run?",
+    "agentQuery": {
+      "terms": ["community", "detection", "cluster", "partition"],
+      "symbolKinds": ["function"],
+      "pathHints": ["cluster"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["graphify/cluster.py"],
       "symbols": ["cluster", "_partition"]

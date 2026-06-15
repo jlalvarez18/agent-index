@@ -1,0 +1,182 @@
+[
+  {
+    "id": "format-file-in-place",
+    "question": "where does Black format a file from disk, preserve the source header, write changes, or emit a diff?",
+    "agentQuery": {
+      "terms": ["format_file_in_place", "format", "file", "disk", "source", "header", "write", "changes", "diff"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/__init__.py", "black"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/__init__.py"],
+      "symbols": ["format_file_in_place"]
+    }
+  },
+  {
+    "id": "format-string-two-pass",
+    "question": "where does Black reformat a source string and run the forced second formatting pass?",
+    "agentQuery": {
+      "terms": ["format_str", "_format_str_once", "source", "string", "format", "forced second pass", "dst_contents", "adjusted_lines"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/__init__.py", "black"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/__init__.py"],
+      "symbols": ["format_str", "_format_str_once"]
+    }
+  },
+  {
+    "id": "stdin-to-stdout",
+    "question": "where does Black read code from stdin and write formatted output or a diff to stdout?",
+    "agentQuery": {
+      "terms": ["format_stdin_to_stdout", "stdin", "stdout", "formatted", "output", "diff", "read", "write"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/__init__.py", "black"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/__init__.py"],
+      "symbols": ["format_stdin_to_stdout"]
+    }
+  },
+  {
+    "id": "source-discovery",
+    "question": "where does Black collect input sources and recursively generate Python files while applying include exclude force-exclude and gitignore rules?",
+    "agentQuery": {
+      "terms": ["get_sources", "gen_python_files", "sources", "recursive", "Python", "files", "include", "exclude", "force_exclude", "gitignore"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/__init__.py", "src/black/files.py", "files"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/__init__.py", "src/black/files.py"],
+      "symbols": ["get_sources", "gen_python_files"]
+    }
+  },
+  {
+    "id": "project-config-root",
+    "question": "where does Black find the project root and parse pyproject toml configuration including inferred target versions?",
+    "agentQuery": {
+      "terms": ["find_project_root", "find_pyproject_toml", "parse_pyproject_toml", "read_pyproject_toml", "project", "root", "pyproject", "toml", "target_version"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/files.py", "src/black/__init__.py", "files"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/files.py", "src/black/__init__.py"],
+      "symbols": ["find_project_root", "find_pyproject_toml", "parse_pyproject_toml", "read_pyproject_toml"]
+    }
+  },
+  {
+    "id": "cache-read-change-write",
+    "question": "where does Black read the formatting cache, check if a file changed, and write updated cache metadata?",
+    "agentQuery": {
+      "terms": ["Cache.read", "Cache.is_changed", "Cache.write", "Cache.filtered_cached", "formatting", "cache", "changed", "metadata"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/black/cache.py", "cache"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/black/cache.py"],
+      "symbols": ["Cache.read", "Cache.is_changed", "Cache.write", "Cache.filtered_cached"]
+    }
+  },
+  {
+    "id": "jupyter-format-cell",
+    "question": "where does Black format a Jupyter notebook cell by removing trailing semicolons masking IPython magics formatting and unmasking?",
+    "agentQuery": {
+      "terms": ["format_cell", "remove_trailing_semicolon", "mask_cell", "unmask_cell", "put_trailing_semicolon_back", "Jupyter", "notebook", "cell", "IPython", "magics"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/__init__.py", "src/black/handle_ipynb_magics.py", "ipynb", "magics"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/__init__.py", "src/black/handle_ipynb_magics.py"],
+      "symbols": ["format_cell", "remove_trailing_semicolon", "mask_cell", "unmask_cell", "put_trailing_semicolon_back"]
+    }
+  },
+  {
+    "id": "ipython-magic-masking",
+    "question": "where does Black replace line magics and cell magics with temporary tokens before formatting a notebook cell?",
+    "agentQuery": {
+      "terms": ["mask_cell", "replace_cell_magics", "replace_magics", "get_token", "create_token", "line", "cell", "magics", "temporary", "tokens"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/handle_ipynb_magics.py", "ipynb", "magics"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/handle_ipynb_magics.py"],
+      "symbols": ["mask_cell", "replace_cell_magics", "replace_magics", "get_token", "create_token"]
+    }
+  },
+  {
+    "id": "blackd-request-handler",
+    "question": "where does blackd handle an HTTP request, parse headers, format the request body, and return the response?",
+    "agentQuery": {
+      "terms": ["handle", "format_code", "parse_mode", "blackd", "HTTP", "request", "headers", "body", "response"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/blackd/__init__.py", "blackd"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/blackd/__init__.py"],
+      "symbols": ["handle", "format_code", "parse_mode"]
+    }
+  },
+  {
+    "id": "blackd-python-variant-header",
+    "question": "where does blackd parse the X-Python-Variant header into pyi mode or target Python versions?",
+    "agentQuery": {
+      "terms": ["parse_python_variant_header", "parse_mode", "X-Python-Variant", "header", "pyi", "target", "Python", "versions"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/blackd/__init__.py", "blackd"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/blackd/__init__.py"],
+      "symbols": ["parse_python_variant_header", "parse_mode"]
+    }
+  },
+  {
+    "id": "line-transformer-selection",
+    "question": "where does Black choose line transformers such as string merging splitting right hand split and delimiter split for long lines?",
+    "agentQuery": {
+      "terms": ["transform_line", "right_hand_split", "delimiter_split", "run_transformer", "line", "transformers", "string", "merge", "split", "delimiter"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/black/linegen.py", "linegen"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/black/linegen.py"],
+      "symbols": ["transform_line", "right_hand_split", "delimiter_split", "run_transformer"]
+    }
+  },
+  {
+    "id": "mode-feature-cache-key",
+    "question": "where does Black decide whether preview or unstable features are enabled and build the formatting mode cache key?",
+    "agentQuery": {
+      "terms": ["Mode.__contains__", "Mode.get_cache_key", "supports_feature", "preview", "unstable", "features", "formatting", "mode", "cache", "key"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["src/black/mode.py", "mode"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/black/mode.py"],
+      "symbols": ["Mode.__contains__", "Mode.get_cache_key", "supports_feature"]
+    }
+  }
+]

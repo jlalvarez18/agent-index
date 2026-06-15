@@ -1,0 +1,182 @@
+[
+  {
+    "id": "factory-create-poetry",
+    "question": "where does Poetry create the Poetry object by reading pyproject local config sources repositories locker and package data?",
+    "agentQuery": {
+      "terms": ["Factory", "create_poetry", "pyproject", "local_config", "sources", "repositories", "locker", "package"],
+      "symbolKinds": ["method"],
+      "pathHints": ["factory"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/factory.py"],
+      "symbols": ["Factory.create_poetry"]
+    }
+  },
+  {
+    "id": "installer-run",
+    "question": "where does Poetry installer decide whether to refresh the lock file force update dry run and run installation?",
+    "agentQuery": {
+      "terms": ["Installer", "run", "refresh", "lock", "force", "update", "dry_run", "_do_install", "_do_refresh"],
+      "symbolKinds": ["method"],
+      "pathHints": ["installation", "installer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "children"]
+    },
+    "expected": {
+      "files": ["src/poetry/installation/installer.py"],
+      "symbols": ["Installer.run", "Installer._do_install", "Installer._do_refresh"]
+    }
+  },
+  {
+    "id": "installer-do-install",
+    "question": "where does Poetry perform installation by resolving dependencies from locked repository installed packages extras and operations?",
+    "agentQuery": {
+      "terms": ["Installer", "_do_install", "resolve", "dependencies", "locked_repository", "installed", "extras", "operations"],
+      "symbolKinds": ["method"],
+      "pathHints": ["installation", "installer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/installation/installer.py"],
+      "symbols": ["Installer._do_install"]
+    }
+  },
+  {
+    "id": "locker-locked-repository",
+    "question": "where does Poetry read poetry.lock package entries and build a lockfile repository of locked packages?",
+    "agentQuery": {
+      "terms": ["Locker", "locked_repository", "poetry.lock", "package", "entries", "lockfile", "repository"],
+      "symbolKinds": ["method"],
+      "pathHints": ["packages", "locker"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/packages/locker.py"],
+      "symbols": ["Locker.locked_repository"]
+    }
+  },
+  {
+    "id": "solver-solve",
+    "question": "where does Poetry solve dependencies using provider progress use_latest overrides marker simplification and return a transaction?",
+    "agentQuery": {
+      "terms": ["Solver", "solve", "dependencies", "provider", "progress", "use_latest", "overrides", "marker", "transaction"],
+      "symbolKinds": ["method"],
+      "pathHints": ["puzzle", "solver"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/puzzle/solver.py"],
+      "symbols": ["Solver.solve"]
+    }
+  },
+  {
+    "id": "provider-search-for",
+    "question": "where does Poetry provider search for dependency package candidates including root direct origin cached packages and repository pool results?",
+    "agentQuery": {
+      "terms": ["Provider", "search_for", "dependency", "candidates", "root", "direct_origin", "cached", "repository_pool"],
+      "symbolKinds": ["method"],
+      "pathHints": ["puzzle", "provider"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/puzzle/provider.py"],
+      "symbols": ["Provider.search_for"]
+    }
+  },
+  {
+    "id": "repository-pool-find-packages",
+    "question": "where does Poetry repository pool find packages across repositories and stop at supplemental priority once candidates exist?",
+    "agentQuery": {
+      "terms": ["RepositoryPool", "find_packages", "repositories", "supplemental", "priority", "candidates", "package"],
+      "symbolKinds": ["method"],
+      "pathHints": ["repositories", "repository_pool"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/repositories/repository_pool.py"],
+      "symbols": ["RepositoryPool.find_packages"]
+    }
+  },
+  {
+    "id": "env-manager-create-venv",
+    "question": "where does Poetry create or reuse a virtualenv, choose compatible Python, in-project env path and generated env name?",
+    "agentQuery": {
+      "terms": ["EnvManager", "create_venv", "virtualenv", "compatible", "python", "in_project", "env", "generated", "name"],
+      "symbolKinds": ["method"],
+      "pathHints": ["utils", "env", "env_manager"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/utils/env/env_manager.py"],
+      "symbols": ["EnvManager.create_venv"]
+    }
+  },
+  {
+    "id": "build-command-build",
+    "question": "where does Poetry build a package distribution by checking package mode cleaning dist directory and running builders for formats?",
+    "agentQuery": {
+      "terms": ["BuildHandler", "build", "package_mode", "clean", "dist", "builders", "formats", "distribution"],
+      "symbolKinds": ["method"],
+      "pathHints": ["console", "commands", "build"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/console/commands/build.py"],
+      "symbols": ["BuildHandler.build"]
+    }
+  },
+  {
+    "id": "application-main",
+    "question": "where is Poetry's command line application entry point that creates the console application and runs it?",
+    "agentQuery": {
+      "terms": ["main", "Application", "command", "line", "console", "entry", "run"],
+      "symbolKinds": ["function"],
+      "pathHints": ["console", "application"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/poetry/console/application.py"],
+      "symbols": ["main"]
+    }
+  },
+  {
+    "id": "install-command-apply-installer-options",
+    "question": "where does Poetry install command apply dry run extras activated groups sync compile and extras options to the installer before running it?",
+    "agentQuery": {
+      "terms": ["InstallCommand", "handle", "installer", "dry_run", "extras", "groups", "sync", "compile", "run"],
+      "symbolKinds": ["method"],
+      "pathHints": ["console", "commands", "install"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/console/commands/install.py"],
+      "symbols": ["InstallCommand.handle"]
+    }
+  },
+  {
+    "id": "plugin-manager-activate",
+    "question": "where does Poetry plugin manager activate loaded plugins by calling plugin activate with poetry and io arguments?",
+    "agentQuery": {
+      "terms": ["PluginManager.activate", "plugin.activate", "activate", "poetry", "io", "args"],
+      "symbolKinds": ["method"],
+      "pathHints": ["plugins", "plugin_manager"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/poetry/plugins/plugin_manager.py"],
+      "symbols": ["PluginManager.activate"]
+    }
+  }
+]

@@ -1,0 +1,152 @@
+[
+  {
+    "id": "class-builder-finalize",
+    "question": "where does attrs build the final transformed class?",
+    "agentQuery": {
+      "terms": ["_ClassBuilder.build_class", "build_class", "transformed", "class", "attrs", "finalize"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/attr/_make.py", "_make"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/attr/_make.py"],
+      "symbols": ["_ClassBuilder.build_class"]
+    }
+  },
+  {
+    "id": "classic-attrs-decorator",
+    "question": "where is the classic attrs class decorator implemented?",
+    "agentQuery": {
+      "terms": ["attr.s", "attrs", "class decorator", "dunder methods", "maybe_cls", "wrap"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/attr/_make.py", "_make"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/attr/_make.py"],
+      "symbols": ["attrs"]
+    }
+  },
+  {
+    "id": "next-gen-define",
+    "question": "where is the next generation define decorator implemented?",
+    "agentQuery": {
+      "terms": ["define", "attrs.define", "next", "generation", "decorator", "class"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/attr/_next_gen.py", "_next_gen"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/attr/_next_gen.py"],
+      "symbols": ["define"]
+    }
+  },
+  {
+    "id": "field-factory",
+    "question": "where is the attrs field factory implemented?",
+    "agentQuery": {
+      "terms": ["field", "attrs.field", "attribute", "term field", "factory parameter", "kw_only", "alias"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/attr/_next_gen.py", "_next_gen"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/attr/_next_gen.py"],
+      "symbols": ["field"]
+    }
+  },
+  {
+    "id": "asdict-recursion",
+    "question": "where does attrs convert instances to dictionaries recursively?",
+    "agentQuery": {
+      "terms": ["asdict", "_asdict_anything", "dictionary", "dict", "recursive", "instances", "attrs"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/attr/_funcs.py", "_funcs"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/attr/_funcs.py"],
+      "symbols": ["asdict", "_asdict_anything"]
+    }
+  },
+  {
+    "id": "optional-converter",
+    "question": "where does attrs allow converters to accept None without conversion?",
+    "agentQuery": {
+      "terms": ["optional", "converters.optional", "None", "converter", "without conversion", "pass through"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/attr/converters.py", "converters"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/attr/converters.py"],
+      "symbols": ["optional"]
+    }
+  },
+  {
+    "id": "default-if-none-converter",
+    "question": "where does attrs replace None values with a default or factory?",
+    "agentQuery": {
+      "terms": ["default_if_none", "None", "default", "factory", "converter", "replace"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/attr/converters.py", "converters"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/attr/converters.py"],
+      "symbols": ["default_if_none"]
+    }
+  },
+  {
+    "id": "instance-of-validator",
+    "question": "where does attrs validate that a value is an instance of a type?",
+    "agentQuery": {
+      "terms": ["instance_of", "_InstanceOfValidator.__call__", "validator", "instance", "type", "isinstance"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["src/attr/validators.py", "validators"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/attr/validators.py"],
+      "symbols": ["instance_of", "_InstanceOfValidator.__call__"]
+    }
+  },
+  {
+    "id": "deep-iterable-validator",
+    "question": "where does attrs validate iterable members with a nested validator?",
+    "agentQuery": {
+      "terms": ["deep_iterable", "_DeepIterable.__call__", "iterable", "members", "nested", "validator"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["src/attr/validators.py", "validators"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/attr/validators.py"],
+      "symbols": ["deep_iterable", "_DeepIterable.__call__"]
+    }
+  },
+  {
+    "id": "setter-pipeline",
+    "question": "where does attrs compose on_setattr setter hooks into a pipeline?",
+    "agentQuery": {
+      "terms": ["pipe", "on_setattr", "setter", "hooks", "pipeline", "compose"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/attr/setters.py", "setters"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/attr/setters.py"],
+      "symbols": ["pipe"]
+    }
+  }
+]

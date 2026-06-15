@@ -1,0 +1,182 @@
+[
+  {
+    "id": "connection-send-state",
+    "question": "where does wsproto send message ping pong and close events while enforcing connection state transitions?",
+    "agentQuery": {
+      "terms": ["Connection.send", "Message", "Ping", "Pong", "CloseConnection", "ConnectionState", "state transitions", "LocalProtocolError"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/connection.py", "connection"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/connection.py"],
+      "symbols": ["Connection.send"]
+    }
+  },
+  {
+    "id": "connection-events-frames",
+    "question": "where does wsproto convert received WebSocket frames into Ping Pong Close TextMessage and BytesMessage events?",
+    "agentQuery": {
+      "terms": ["Connection.events", "Ping", "Pong", "CloseConnection", "TextMessage", "BytesMessage", "converted into events", "remote close frame", "REMOTE_CLOSING"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/connection.py", "connection"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/connection.py"],
+      "symbols": ["Connection.events"]
+    }
+  },
+  {
+    "id": "server-handshake-request",
+    "question": "where does wsproto validate a server-side WebSocket upgrade request headers method version key upgrade and host?",
+    "agentQuery": {
+      "terms": ["H11Handshake._process_connection_request", "server", "WebSocket", "upgrade", "GET", "Sec-WebSocket-Key", "Sec-WebSocket-Version", "Host", "Connection"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/handshake.py", "handshake"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/handshake.py"],
+      "symbols": ["H11Handshake._process_connection_request"]
+    }
+  },
+  {
+    "id": "server-accept-response",
+    "question": "where does wsproto build the server accept response with Sec-WebSocket-Accept subprotocol and extension headers?",
+    "agentQuery": {
+      "terms": ["H11Handshake._accept", "Sec-WebSocket-Accept", "generate_accept_token", "subprotocol", "extensions", "InformationalResponse", "101"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/handshake.py", "handshake"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/handshake.py"],
+      "symbols": ["H11Handshake._accept"]
+    }
+  },
+  {
+    "id": "client-initiate-upgrade",
+    "question": "where does wsproto initiate a client WebSocket upgrade request with nonce key version subprotocols and extensions?",
+    "agentQuery": {
+      "terms": ["H11Handshake._initiate_connection", "generate_nonce", "Sec-WebSocket-Key", "Sec-WebSocket-Version", "subprotocols", "extensions", "Request", "Upgrade"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/handshake.py", "handshake"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/handshake.py"],
+      "symbols": ["H11Handshake._initiate_connection"]
+    }
+  },
+  {
+    "id": "client-establish-response",
+    "question": "where does wsproto validate the client accept token upgrade headers subprotocol and accepted extensions from a 101 response?",
+    "agentQuery": {
+      "terms": ["H11Handshake._establish_client_connection", "client", "accept token", "101", "Upgrade", "Sec-WebSocket-Accept", "subprotocol", "accepted extensions"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/handshake.py", "handshake"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/handshake.py"],
+      "symbols": ["H11Handshake._establish_client_connection"]
+    }
+  },
+  {
+    "id": "server-extension-negotiation",
+    "question": "where does wsproto agree on requested WebSocket extensions and format the Sec-WebSocket-Extensions response header?",
+    "agentQuery": {
+      "terms": ["server_extensions_handshake", "Extension.offer", "Extension.accept", "Sec-WebSocket-Extensions", "requested", "extensions", "response header"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/wsproto/handshake.py", "handshake"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/wsproto/handshake.py"],
+      "symbols": ["server_extensions_handshake"]
+    }
+  },
+  {
+    "id": "client-extension-negotiation",
+    "question": "where does wsproto finalize accepted client WebSocket extensions and reject unrecognized extension names?",
+    "agentQuery": {
+      "terms": ["client_extensions_handshake", "Extension.finalize", "accepted", "client", "extensions", "unrecognized", "extension names"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/wsproto/handshake.py", "handshake"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/wsproto/handshake.py"],
+      "symbols": ["client_extensions_handshake"]
+    }
+  },
+  {
+    "id": "frame-parse-header",
+    "question": "where does wsproto parse a WebSocket frame header, validate opcodes masking reserved bits and payload lengths?",
+    "agentQuery": {
+      "terms": ["FrameDecoder.parse_header", "FrameDecoder.parse_extended_payload_length", "FrameDecoder.extension_processing", "opcode", "masking", "reserved bits", "payload length", "RSV"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/frame_protocol.py", "frame_protocol"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/frame_protocol.py"],
+      "symbols": ["FrameDecoder.parse_header", "FrameDecoder.parse_extended_payload_length", "FrameDecoder.extension_processing"]
+    }
+  },
+  {
+    "id": "frame-serialize",
+    "question": "where does wsproto serialize outbound WebSocket frames with FIN RSV opcode payload lengths masking and extensions?",
+    "agentQuery": {
+      "terms": ["FrameProtocol._serialize_frame", "FrameProtocol._make_fin_rsv_opcode", "FIN", "RSV", "opcode", "payload length", "masking", "extensions"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/frame_protocol.py", "frame_protocol"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/frame_protocol.py"],
+      "symbols": ["FrameProtocol._serialize_frame", "FrameProtocol._make_fin_rsv_opcode"]
+    }
+  },
+  {
+    "id": "message-decoder-continuation",
+    "question": "where does wsproto decode continuation frames and UTF-8 text payloads across fragmented messages?",
+    "agentQuery": {
+      "terms": ["MessageDecoder.process_frame", "continuation", "UTF-8", "text", "payloads", "fragmented", "messages", "Opcode.CONTINUATION"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/frame_protocol.py", "frame_protocol"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/frame_protocol.py"],
+      "symbols": ["MessageDecoder.process_frame"]
+    }
+  },
+  {
+    "id": "permessage-deflate-inbound",
+    "question": "where does wsproto permessage-deflate decompress inbound payload data and flush compressed message tails?",
+    "agentQuery": {
+      "terms": ["PerMessageDeflate.frame_inbound_payload_data", "PerMessageDeflate.frame_inbound_complete", "permessage-deflate", "decompress", "inbound", "payload", "flush", "tail"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/wsproto/extensions.py", "extensions"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/wsproto/extensions.py"],
+      "symbols": ["PerMessageDeflate.frame_inbound_payload_data", "PerMessageDeflate.frame_inbound_complete"]
+    }
+  }
+]

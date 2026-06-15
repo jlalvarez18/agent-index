@@ -2,6 +2,13 @@
   {
     "id": "cli-entrypoint",
     "question": "where is the Click main function for the httpx CLI defined?",
+    "agentQuery": {
+      "terms": ["click", "main", "cli", "httpx"],
+      "symbolKinds": ["function"],
+      "pathHints": ["_main"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "imports"]
+    },
     "expected": {
       "files": ["httpx/_main.py"],
       "symbols": ["main"]
@@ -10,6 +17,13 @@
   {
     "id": "top-level-request-api",
     "question": "where is the module-level httpx.request convenience function defined?",
+    "agentQuery": {
+      "terms": ["httpx", "request", "convenience", "module"],
+      "symbolKinds": ["function"],
+      "pathHints": ["_api"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "imports"]
+    },
     "expected": {
       "files": ["httpx/_api.py"],
       "symbols": ["request"]
@@ -18,6 +32,13 @@
   {
     "id": "sync-client-send",
     "question": "where does the synchronous client send requests?",
+    "agentQuery": {
+      "terms": ["client", "send", "request", "sync"],
+      "symbolKinds": ["method"],
+      "pathHints": ["_client"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_client.py"],
       "symbols": ["Client.send", "Client.request", "Client._send_single_request"]
@@ -26,6 +47,13 @@
   {
     "id": "async-client-send",
     "question": "where does the async client send requests?",
+    "agentQuery": {
+      "terms": ["async", "client", "send", "request"],
+      "symbolKinds": ["method"],
+      "pathHints": ["_client"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_client.py"],
       "symbols": ["AsyncClient.send", "AsyncClient.request", "AsyncClient._send_single_request"]
@@ -34,6 +62,13 @@
   {
     "id": "redirect-handling",
     "question": "where are redirects followed and redirect requests built?",
+    "agentQuery": {
+      "terms": ["redirect", "follow", "request", "build"],
+      "symbolKinds": ["method"],
+      "pathHints": ["_client"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_client.py"],
       "symbols": ["Client._send_handling_redirects", "AsyncClient._send_handling_redirects", "BaseClient._build_redirect_request"]
@@ -42,6 +77,13 @@
   {
     "id": "basic-auth",
     "question": "where is basic authentication applied to request headers?",
+    "agentQuery": {
+      "terms": ["basic", "auth", "authentication", "header"],
+      "symbolKinds": ["class", "method"],
+      "pathHints": ["_auth"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_auth.py"],
       "symbols": ["BasicAuth", "BasicAuth.auth_flow", "BasicAuth._build_auth_header"]
@@ -50,6 +92,13 @@
   {
     "id": "timeout-config",
     "question": "where is timeout configuration represented?",
+    "agentQuery": {
+      "terms": ["timeout", "configuration", "config"],
+      "symbolKinds": ["class"],
+      "pathHints": ["_config"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_config.py"],
       "symbols": ["Timeout"]
@@ -58,6 +107,13 @@
   {
     "id": "proxy-routing",
     "question": "where are proxies configured and selected for requests?",
+    "agentQuery": {
+      "terms": ["proxy", "proxies", "configure", "transport", "url"],
+      "symbolKinds": ["class", "function", "method"],
+      "pathHints": ["_client", "_config", "_utils"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_client.py", "httpx/_config.py", "httpx/_utils.py"],
       "symbols": ["BaseClient._get_proxy_map", "Client._transport_for_url", "AsyncClient._transport_for_url", "Proxy", "get_environment_proxies"]
@@ -66,6 +122,13 @@
   {
     "id": "asgi-transport",
     "question": "where does HTTPX send requests directly to an ASGI app?",
+    "agentQuery": {
+      "terms": ["asgi", "transport", "request", "app"],
+      "symbolKinds": ["class", "method"],
+      "pathHints": ["_transports", "asgi"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_transports/asgi.py"],
       "symbols": ["ASGITransport", "ASGITransport.handle_async_request"]
@@ -74,6 +137,13 @@
   {
     "id": "wsgi-transport",
     "question": "where does HTTPX send requests directly to a WSGI app?",
+    "agentQuery": {
+      "terms": ["wsgi", "transport", "request", "app"],
+      "symbolKinds": ["class", "method"],
+      "pathHints": ["_transports", "wsgi"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_transports/wsgi.py"],
       "symbols": ["WSGITransport", "WSGITransport.handle_request"]
@@ -82,6 +152,13 @@
   {
     "id": "response-json",
     "question": "where does a response parse JSON content?",
+    "agentQuery": {
+      "terms": ["response", "json", "parse"],
+      "symbolKinds": ["method"],
+      "pathHints": ["_models"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_models.py"],
       "symbols": ["Response.json"]
@@ -90,6 +167,13 @@
   {
     "id": "response-status-errors",
     "question": "where does a response raise HTTP status errors?",
+    "agentQuery": {
+      "terms": ["response", "status", "error", "raise"],
+      "symbolKinds": ["method"],
+      "pathHints": ["_models"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_models.py"],
       "symbols": ["Response.raise_for_status"]
@@ -98,6 +182,13 @@
   {
     "id": "multipart-encoding",
     "question": "where is multipart form data encoded?",
+    "agentQuery": {
+      "terms": ["multipart", "form", "data", "encode"],
+      "symbolKinds": ["class", "function"],
+      "pathHints": ["_multipart", "_content"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["httpx/_multipart.py", "httpx/_content.py"],
       "symbols": ["MultipartStream", "FileField", "DataField", "encode_multipart_data"]

@@ -1,0 +1,106 @@
+[
+  {
+    "id": "bindparam-expression-constructor",
+    "question": "where does SQLAlchemy create a bind parameter expression object with key value type callable expanding and literal_execute options?",
+    "expected": {
+      "files": ["lib/sqlalchemy/sql/_elements_constructors.py", "lib/sqlalchemy/sql/elements.py"],
+      "symbols": ["bindparam", "BindParameter"]
+    }
+  },
+  {
+    "id": "bindparam-compiler-render",
+    "question": "where does SQLAlchemy SQLCompiler render bind parameters into compiled SQL placeholders and track literal execute or expanding parameters?",
+    "expected": {
+      "files": ["lib/sqlalchemy/sql/compiler.py"],
+      "symbols": ["SQLCompiler.visit_bindparam"]
+    }
+  },
+  {
+    "id": "compiler-element-compile",
+    "question": "where does SQLAlchemy compile a SQL expression element into a Compiled object using a bind dialect and compile kwargs?",
+    "expected": {
+      "files": ["lib/sqlalchemy/sql/elements.py"],
+      "symbols": ["CompilerElement.compile"]
+    }
+  },
+  {
+    "id": "session-get-bind-resolution",
+    "question": "where does SQLAlchemy Session resolve the Engine or Connection bind using mapper clause binds metadata and fallback rules?",
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/session.py"],
+      "symbols": ["Session.get_bind"]
+    }
+  },
+  {
+    "id": "session-flush-unit-of-work",
+    "question": "where does SQLAlchemy Session flush pending object changes through the unit of work before database writes?",
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/session.py"],
+      "symbols": ["Session.flush"]
+    }
+  },
+  {
+    "id": "mapper-configure-property",
+    "question": "where does SQLAlchemy Mapper configure an ORM property from a key and MapperProperty while replacing or warning about existing properties?",
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/mapper.py"],
+      "symbols": ["Mapper._configure_property"]
+    }
+  },
+  {
+    "id": "relationship-constructor-vs-automap",
+    "question": "where does SQLAlchemy define the relationship constructor for ORM attributes with secondary joins back_populates cascade and loader options?",
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/_orm_constructors.py"],
+      "symbols": ["relationship"]
+    }
+  },
+  {
+    "id": "joinedload-option-builder",
+    "question": "where does SQLAlchemy build the joinedload loader option for eager loading relationships using a SQL join?",
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/strategy_options.py"],
+      "symbols": ["joinedload", "_AbstractLoad.joinedload"]
+    }
+  },
+  {
+    "id": "event-key-listen-registration",
+    "question": "where does SQLAlchemy event registry attach an event key listener with once named retval propagate insert and wrapper options?",
+    "expected": {
+      "files": ["lib/sqlalchemy/event/registry.py"],
+      "symbols": ["_EventKey.listen"]
+    }
+  },
+  {
+    "id": "url-parse-string",
+    "question": "where does SQLAlchemy parse a database URL string into drivername username password host port database and query fields?",
+    "expected": {
+      "files": ["lib/sqlalchemy/engine/url.py"],
+      "symbols": ["make_url", "_parse_url", "URL.create"]
+    }
+  },
+  {
+    "id": "result-scalar-one",
+    "question": "where does SQLAlchemy Result return exactly one scalar value and raise when there is no row or more than one row?",
+    "expected": {
+      "files": ["lib/sqlalchemy/engine/result.py"],
+      "symbols": ["Result.scalar_one"]
+    }
+  },
+  {
+    "id": "engine-dispose-pool",
+    "question": "where does SQLAlchemy Engine dispose its connection pool and optionally close checked-in connections?",
+    "expected": {
+      "files": ["lib/sqlalchemy/engine/base.py"],
+      "symbols": ["Engine.dispose"]
+    }
+  },
+  {
+    "id": "connection-begin-transaction",
+    "question": "where does SQLAlchemy Connection begin a transaction and return a RootTransaction for commit or rollback?",
+    "expected": {
+      "files": ["lib/sqlalchemy/engine/base.py"],
+      "symbols": ["Connection.begin"]
+    }
+  }
+]

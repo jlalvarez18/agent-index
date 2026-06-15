@@ -1,0 +1,242 @@
+[
+  {
+    "id": "console-main",
+    "question": "where does pytest console main parse config and run the test session?",
+    "agentQuery": {
+      "terms": ["console", "main", "config", "parse", "session", "run", "prepare"],
+      "symbolKinds": ["function"],
+      "pathHints": ["config"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/config/__init__.py"],
+      "symbols": ["console_main", "_console_main", "main", "_main", "_prepareconfig"]
+    }
+  },
+  {
+    "id": "session-collection",
+    "question": "where does pytest perform collection and turn collectors into test items?",
+    "agentQuery": {
+      "terms": ["session", "perform", "collect", "collector", "items", "genitems"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["main"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/main.py"],
+      "symbols": ["Session.perform_collect", "Session.collect", "Session.genitems", "pytest_collection"]
+    }
+  },
+  {
+    "id": "collection-arguments",
+    "question": "where are command line collection arguments normalized and resolved?",
+    "agentQuery": {
+      "terms": ["collection", "argument", "normalize", "resolve", "command", "line"],
+      "symbolKinds": ["function", "class"],
+      "pathHints": ["main"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/main.py"],
+      "symbols": ["resolve_collection_argument", "normalize_collection_arguments", "CollectionArgument"]
+    }
+  },
+  {
+    "id": "python-collection",
+    "question": "where does pytest collect Python modules classes and test functions?",
+    "agentQuery": {
+      "terms": ["python", "collect", "module", "class", "function", "test"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["python"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/python.py"],
+      "symbols": ["pytest_collect_file", "pytest_pycollect_makeitem", "PyCollector.collect", "Module.collect", "Class.collect"]
+    }
+  },
+  {
+    "id": "parametrize-ids",
+    "question": "where does pytest parametrize calls generate parameter set ids?",
+    "agentQuery": {
+      "terms": ["parametrize", "parameter", "set", "ids", "resolve", "unique"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["python", "mark", "structures"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/python.py", "src/_pytest/mark/structures.py"],
+      "symbols": ["Metafunc.parametrize", "Metafunc._resolve_parameter_set_ids", "IdMaker.make_unique_parameterset_ids", "IdMaker._resolve_ids", "ParameterSet._for_parametrize"]
+    }
+  },
+  {
+    "id": "fixture-closure-execution",
+    "question": "where does pytest resolve fixture closure and execute fixture values?",
+    "agentQuery": {
+      "terms": ["fixture", "closure", "resolve", "execute", "value", "fill"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["fixtures"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/fixtures.py"],
+      "symbols": ["FixtureManager.getfixtureclosure", "FixtureRequest._get_active_fixturedef", "FixtureDef.execute", "pytest_fixture_setup", "TopRequest._fillfixtures"]
+    }
+  },
+  {
+    "id": "fixture-registration",
+    "question": "where is the pytest fixture decorator converted into fixture definitions?",
+    "agentQuery": {
+      "terms": ["fixture", "decorator", "definition", "marker", "call", "parsefactories"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["fixtures"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/fixtures.py"],
+      "symbols": ["fixture", "FixtureFunctionMarker.__call__", "FixtureManager._register_fixture", "FixtureManager.parsefactories"]
+    }
+  },
+  {
+    "id": "assertion-rewrite-hook",
+    "question": "where does pytest install the assertion rewriting import hook and rewrite test modules?",
+    "agentQuery": {
+      "terms": ["assertion", "rewrite", "import", "hook", "module", "mark"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["assertion", "rewrite", "config"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/assertion/rewrite.py", "src/_pytest/config/__init__.py"],
+      "symbols": ["AssertionRewritingHook.find_spec", "AssertionRewritingHook.exec_module", "AssertionRewritingHook.mark_rewrite", "AssertionRewritingHook._should_rewrite", "_rewrite_test", "rewrite_asserts", "Config._consider_importhook"]
+    }
+  },
+  {
+    "id": "assertion-explanations",
+    "question": "where does pytest build rich assertion failure explanations and comparison output?",
+    "agentQuery": {
+      "terms": ["assertrepr", "compare", "format_explanation", "call_reprcompare", "failure", "explanation"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["assertion", "util", "rewrite"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/assertion/rewrite.py", "src/_pytest/assertion/util.py"],
+      "symbols": ["AssertionRewriter.visit_Assert", "assertrepr_compare", "format_explanation", "_call_reprcompare"]
+    }
+  },
+  {
+    "id": "capture-manager",
+    "question": "where does pytest start suspend resume and read captured stdout and stderr?",
+    "agentQuery": {
+      "terms": ["capture", "stdout", "stderr", "start", "suspend", "resume", "read"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["capture"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/capture.py"],
+      "symbols": ["CaptureManager.start_global_capturing", "CaptureManager.suspend_global_capture", "CaptureManager.resume_global_capture", "CaptureManager.read_global_capture", "MultiCapture.start_capturing", "MultiCapture.suspend_capturing", "MultiCapture.resume_capturing", "MultiCapture.readouterr", "CaptureFixture.readouterr"]
+    }
+  },
+  {
+    "id": "monkeypatch-undo",
+    "question": "where does monkeypatch set attributes environment variables and undo changes?",
+    "agentQuery": {
+      "terms": ["monkeypatch", "setattr", "setenv", "environment", "undo", "importpath"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["monkeypatch"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/monkeypatch.py"],
+      "symbols": ["monkeypatch", "MonkeyPatch.setattr", "MonkeyPatch.setenv", "MonkeyPatch.undo", "derive_importpath"]
+    }
+  },
+  {
+    "id": "last-failed-cache",
+    "question": "where does pytest cache last failed tests and reorder collection for --lf and --ff?",
+    "agentQuery": {
+      "terms": ["last", "failed", "cache", "lf", "ff", "collection", "reorder"],
+      "symbolKinds": ["method"],
+      "pathHints": ["cacheprovider"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/cacheprovider.py"],
+      "symbols": ["LFPlugin.pytest_collection_modifyitems", "LFPlugin.pytest_runtest_logreport", "LFPlugin.get_last_failed_paths", "NFPlugin.pytest_collection_modifyitems", "Cache.get", "Cache.set"]
+    }
+  },
+  {
+    "id": "terminal-summary",
+    "question": "where does pytest terminal reporter write test progress failures and summary stats?",
+    "agentQuery": {
+      "terms": ["terminal", "reporter", "progress", "failures", "summary", "stats", "write"],
+      "symbolKinds": ["method"],
+      "pathHints": ["terminal"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/terminal.py"],
+      "symbols": ["TerminalReporter.pytest_runtest_logreport", "TerminalReporter.pytest_terminal_summary", "TerminalReporter.summary_failures", "TerminalReporter.short_test_summary", "TerminalReporter.summary_stats", "TerminalReporter.build_summary_stats_line"]
+    }
+  },
+  {
+    "id": "tmp-path-factory",
+    "question": "where does pytest create numbered tmp_path directories and cleanup base temp folders?",
+    "agentQuery": {
+      "terms": ["tmp_path", "temp", "numbered", "directory", "cleanup", "basetemp", "mktemp"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["tmpdir", "pathlib"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/tmpdir.py", "src/_pytest/pathlib.py"],
+      "symbols": ["TempPathFactory.mktemp", "TempPathFactory.getbasetemp", "tmp_path", "make_numbered_dir_with_cleanup", "cleanup_numbered_dir"]
+    }
+  },
+  {
+    "id": "mark-selection",
+    "question": "where does pytest parse -k and -m expressions to deselect tests by keyword or mark?",
+    "agentQuery": {
+      "terms": ["mark", "keyword", "expression", "parse", "deselect", "scanner", "compile"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["mark", "expression"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/mark/__init__.py", "src/_pytest/mark/expression.py"],
+      "symbols": ["deselect_by_keyword", "deselect_by_mark", "_parse_expression", "Expression.compile", "Expression.evaluate", "Scanner.lex"]
+    }
+  },
+  {
+    "id": "junitxml-reporting",
+    "question": "where does pytest write junit xml testcase results failures skipped output and suite properties?",
+    "agentQuery": {
+      "terms": ["junit", "xml", "logreport", "append_failure", "append_skipped", "captured", "suite", "property", "sessionfinish"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["junitxml"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["src/_pytest/junitxml.py"],
+      "symbols": ["LogXML.pytest_runtest_logreport", "LogXML.pytest_sessionfinish", "_NodeReporter.append_failure", "_NodeReporter.append_skipped", "_NodeReporter.write_captured_output", "record_testsuite_property"]
+    }
+  }
+]

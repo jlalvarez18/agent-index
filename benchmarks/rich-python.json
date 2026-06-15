@@ -1,0 +1,182 @@
+[
+  {
+    "id": "console-print-renderables",
+    "question": "where does Rich Console print objects and collect renderables?",
+    "agentQuery": {
+      "terms": ["console", "print", "collect", "renderables", "render"],
+      "symbolKinds": ["method"],
+      "pathHints": ["console"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/console.py"],
+      "symbols": ["Console.print", "Console._collect_renderables", "Console.render"]
+    }
+  },
+  {
+    "id": "console-render-markup-string",
+    "question": "where does Console render a string with markup and highlighting?",
+    "agentQuery": {
+      "terms": ["console", "render", "string", "markup", "highlight"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["console", "markup"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/console.py", "rich/markup.py"],
+      "symbols": ["Console.render_str", "render"]
+    }
+  },
+  {
+    "id": "markup-parse-tags",
+    "question": "where is Rich markup parsed into tags and converted to text?",
+    "agentQuery": {
+      "terms": ["markup", "parse", "tags", "text", "render"],
+      "symbolKinds": ["function"],
+      "pathHints": ["markup"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/markup.py"],
+      "symbols": ["_parse", "render", "escape"]
+    }
+  },
+  {
+    "id": "text-wrap-divide",
+    "question": "where does Rich Text wrap and divide styled text into lines?",
+    "agentQuery": {
+      "terms": ["text", "wrap", "divide", "styled", "lines"],
+      "symbolKinds": ["method"],
+      "pathHints": ["text"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/text.py"],
+      "symbols": ["Text.wrap", "Text.divide", "Text.split"]
+    }
+  },
+  {
+    "id": "table-add-columns-rows",
+    "question": "where does Table add columns and rows?",
+    "agentQuery": {
+      "terms": ["table", "add", "column", "row"],
+      "symbolKinds": ["method"],
+      "pathHints": ["table"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/table.py"],
+      "symbols": ["Table.add_column", "Table.add_row"]
+    }
+  },
+  {
+    "id": "table-column-widths",
+    "question": "where does Table calculate and collapse column widths?",
+    "agentQuery": {
+      "terms": ["table", "calculate", "collapse", "column", "widths", "measure"],
+      "symbolKinds": ["method"],
+      "pathHints": ["table"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/table.py"],
+      "symbols": ["Table._calculate_column_widths", "Table._collapse_widths", "Table._measure_column"]
+    }
+  },
+  {
+    "id": "progress-task-lifecycle",
+    "question": "where does Progress add update advance and remove tasks?",
+    "agentQuery": {
+      "terms": ["progress", "task", "add", "update", "advance", "remove"],
+      "symbolKinds": ["method"],
+      "pathHints": ["progress"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/progress.py"],
+      "symbols": ["Progress.add_task", "Progress.update", "Progress.advance", "Progress.remove_task"]
+    }
+  },
+  {
+    "id": "progress-track-files",
+    "question": "where does Rich track iterables and wrap files with progress?",
+    "agentQuery": {
+      "terms": ["progress", "track", "iterable", "wrap", "file", "open"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["progress"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/progress.py"],
+      "symbols": ["track", "wrap_file", "open", "Progress.track", "Progress.wrap_file", "Progress.open"]
+    }
+  },
+  {
+    "id": "logging-handler-render",
+    "question": "where does Rich logging handler emit and render log records?",
+    "agentQuery": {
+      "terms": ["logging", "handler", "emit", "render", "record", "message", "level"],
+      "symbolKinds": ["method"],
+      "pathHints": ["logging"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/logging.py"],
+      "symbols": ["RichHandler.emit", "RichHandler.render", "RichHandler.render_message", "RichHandler.get_level_text"]
+    }
+  },
+  {
+    "id": "traceback-extract-render",
+    "question": "where does Rich build and render traceback stacks from exceptions?",
+    "agentQuery": {
+      "terms": ["traceback", "extract", "render", "stack", "exception"],
+      "symbolKinds": ["method"],
+      "pathHints": ["traceback"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/traceback.py"],
+      "symbols": ["Traceback.from_exception", "Traceback.extract", "Traceback.__rich_console__", "Traceback._render_stack"]
+    }
+  },
+  {
+    "id": "syntax-highlight-code",
+    "question": "where does Syntax guess lexers highlight code and render syntax?",
+    "agentQuery": {
+      "terms": ["syntax", "guess", "lexer", "highlight", "code", "render"],
+      "symbolKinds": ["method"],
+      "pathHints": ["syntax"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/syntax.py"],
+      "symbols": ["Syntax.guess_lexer", "Syntax.highlight", "Syntax.__rich_console__", "Syntax._get_syntax"]
+    }
+  },
+  {
+    "id": "live-render-refresh",
+    "question": "where does Live update refresh and process live renderables?",
+    "agentQuery": {
+      "terms": ["live", "update", "refresh", "process", "renderables", "start", "stop"],
+      "symbolKinds": ["method"],
+      "pathHints": ["live"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["rich/live.py"],
+      "symbols": ["Live.update", "Live.refresh", "Live.process_renderables", "Live.start", "Live.stop"]
+    }
+  }
+]

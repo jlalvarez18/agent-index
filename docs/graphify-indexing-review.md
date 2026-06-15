@@ -118,7 +118,13 @@ Build this instead:
 
 ```text
 agent-index init
-agent-index query "where are webhook signatures validated?"
+agent-index query --agent-query '{
+  "terms": ["webhook", "signature", "verify"],
+  "symbolKinds": ["function", "method"],
+  "pathHints": ["webhook", "auth", "security"],
+  "excludeSupportCode": true,
+  "expand": ["callers", "callees"]
+}'
 ```
 
 No install hooks. No report generation. No graph visualization by default.
@@ -134,4 +140,3 @@ First version:
 - MCP tool with `search_code`, `get_symbol`, `neighbors`, `path`
 
 Graphify's main lesson is good: agents need a memory layer. But the simpler version should behave like an index, not like a project ceremony.
-

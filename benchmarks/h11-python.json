@@ -1,0 +1,182 @@
+[
+  {
+    "id": "body-framing",
+    "question": "where does h11 decide whether a message body uses content-length chunked transfer encoding or HTTP/1.0 close framing?",
+    "agentQuery": {
+      "terms": ["_body_framing", "content-length", "chunked", "transfer-encoding", "HTTP/1.0", "framing", "SEND_BODY"],
+      "symbolKinds": ["function"],
+      "pathHints": ["h11/_connection.py", "_connection"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["h11/_connection.py"],
+      "symbols": ["_body_framing"]
+    }
+  },
+  {
+    "id": "keep-alive",
+    "question": "where does h11 decide whether an HTTP connection can stay alive based on Connection close and HTTP version?",
+    "agentQuery": {
+      "terms": ["_keep_alive", "Connection close", "HTTP version", "keep alive", "connection", "close", "http_version"],
+      "symbolKinds": ["function"],
+      "pathHints": ["h11/_connection.py", "_connection"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["h11/_connection.py"],
+      "symbols": ["_keep_alive"]
+    }
+  },
+  {
+    "id": "next-event",
+    "question": "where does h11 parse the next received event from the receive buffer and update peer state?",
+    "agentQuery": {
+      "terms": ["Connection.next_event", "_extract_next_receive_event", "_process_event", "receive buffer", "peer state", "NEED_DATA", "PAUSED"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_connection.py", "_connection"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_connection.py"],
+      "symbols": ["Connection.next_event"]
+    }
+  },
+  {
+    "id": "send-passthrough",
+    "question": "where does h11 send an event while preserving Data payload objects for sendfile style passthrough?",
+    "agentQuery": {
+      "terms": ["Connection.send_with_data_passthrough", "send", "Data", "payload", "sendfile", "passthrough", "data_list"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_connection.py", "_connection"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_connection.py"],
+      "symbols": ["Connection.send_with_data_passthrough"]
+    }
+  },
+  {
+    "id": "response-header-cleanup",
+    "question": "where does h11 clean up response headers before sending, including transfer-encoding and connection close handling?",
+    "agentQuery": {
+      "terms": ["Connection._clean_up_response_headers_for_sending", "response", "headers", "transfer-encoding", "Connection close", "Content-Length", "sending"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_connection.py", "_connection"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_connection.py"],
+      "symbols": ["Connection._clean_up_response_headers_for_sending"]
+    }
+  },
+  {
+    "id": "state-event-transition",
+    "question": "where does h11 apply event-triggered connection state transitions and reject illegal events for a role and state?",
+    "agentQuery": {
+      "terms": ["ConnectionState._fire_event_triggered_transitions", "ConnectionState.process_event", "event-triggered", "state transitions", "illegal events", "role", "state"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_state.py", "_state"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_state.py"],
+      "symbols": ["ConnectionState._fire_event_triggered_transitions", "ConnectionState.process_event"]
+    }
+  },
+  {
+    "id": "state-triggered-transition",
+    "question": "where does h11 repeatedly fire state-triggered transitions such as DONE to MUST_CLOSE or protocol switch states?",
+    "agentQuery": {
+      "terms": ["ConnectionState._fire_state_triggered_transitions", "DONE", "MUST_CLOSE", "SWITCHED_PROTOCOL", "state-triggered", "transitions"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_state.py", "_state"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_state.py"],
+      "symbols": ["ConnectionState._fire_state_triggered_transitions"]
+    }
+  },
+  {
+    "id": "request-line-reader",
+    "question": "where does h11 read and validate a request line and headers from an idle client?",
+    "agentQuery": {
+      "terms": ["maybe_read_from_IDLE_client", "request line", "headers", "IDLE", "client", "validate"],
+      "symbolKinds": ["function"],
+      "pathHints": ["h11/_readers.py", "_readers"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["h11/_readers.py"],
+      "symbols": ["maybe_read_from_IDLE_client"]
+    }
+  },
+  {
+    "id": "chunked-reader",
+    "question": "where does h11 parse chunked request or response body data and emit Data events with chunk boundaries?",
+    "agentQuery": {
+      "terms": ["ChunkedReader.__call__", "chunked", "body", "Data", "chunk boundaries", "parse", "chunk_start"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_readers.py", "_readers"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_readers.py"],
+      "symbols": ["ChunkedReader.__call__"]
+    }
+  },
+  {
+    "id": "chunked-writer",
+    "question": "where does h11 write chunked body data with hexadecimal chunk sizes and the terminating zero chunk?",
+    "agentQuery": {
+      "terms": ["ChunkedWriter.send_data", "ChunkedWriter.send_eom", "chunked", "body", "hexadecimal", "chunk sizes", "zero chunk"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_writers.py", "_writers"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_writers.py"],
+      "symbols": ["ChunkedWriter.send_data", "ChunkedWriter.send_eom"]
+    }
+  },
+  {
+    "id": "header-normalization",
+    "question": "where does h11 normalize and validate headers, including content-length and transfer-encoding conflicts?",
+    "agentQuery": {
+      "terms": ["normalize_and_validate", "headers", "content-length", "transfer-encoding", "conflicts", "normalize", "validate"],
+      "symbolKinds": ["function"],
+      "pathHints": ["h11/_headers.py", "_headers"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["h11/_headers.py"],
+      "symbols": ["normalize_and_validate"]
+    }
+  },
+  {
+    "id": "receive-buffer-lines",
+    "question": "where does h11's receive buffer extract complete header lines up to the first blank line?",
+    "agentQuery": {
+      "terms": ["ReceiveBuffer.maybe_extract_lines", "receive buffer", "header lines", "blank line", "complete", "extract"],
+      "symbolKinds": ["method"],
+      "pathHints": ["h11/_receivebuffer.py", "_receivebuffer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["h11/_receivebuffer.py"],
+      "symbols": ["ReceiveBuffer.maybe_extract_lines"]
+    }
+  }
+]

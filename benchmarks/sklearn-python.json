@@ -1,0 +1,242 @@
+[
+  {
+    "id": "base-estimator-get-params",
+    "question": "where does scikit-learn BaseEstimator collect parameter names and nested estimator parameters for get_params?",
+    "agentQuery": {
+      "terms": ["BaseEstimator.get_params", "get_params", "parameter", "names", "nested", "estimator", "deep"],
+      "symbolKinds": ["method"],
+      "pathHints": ["base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/base.py"],
+      "symbols": ["BaseEstimator.get_params"]
+    }
+  },
+  {
+    "id": "base-estimator-set-params",
+    "question": "where does scikit-learn BaseEstimator set nested estimator parameters using double underscore names?",
+    "agentQuery": {
+      "terms": ["BaseEstimator.set_params", "set_params", "nested", "estimator", "parameters", "double", "underscore"],
+      "symbolKinds": ["method"],
+      "pathHints": ["base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/base.py"],
+      "symbols": ["BaseEstimator.set_params"]
+    }
+  },
+  {
+    "id": "pipeline-fit-steps",
+    "question": "where does scikit-learn Pipeline fit each transformer step and then fit the final estimator?",
+    "agentQuery": {
+      "terms": ["Pipeline", "fit", "fit final estimator", "_fit", "call_on_fit_task_begin", "call_on_fit_task_end", "routed_params", "fit-final-estimator"],
+      "symbolKinds": ["method"],
+      "pathHints": ["sklearn/pipeline.py", "pipeline.py"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/pipeline.py"],
+      "symbols": ["Pipeline.fit"]
+    }
+  },
+  {
+    "id": "column-transformer-fit-transform",
+    "question": "where does scikit-learn ColumnTransformer fit and transform selected columns then concatenate transformer outputs?",
+    "agentQuery": {
+      "terms": ["ColumnTransformer.fit_transform", "fit_transform", "columns", "concatenate", "transformer", "outputs"],
+      "symbolKinds": ["method"],
+      "pathHints": ["compose", "_column_transformer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/compose/_column_transformer.py"],
+      "symbols": ["ColumnTransformer.fit_transform"]
+    }
+  },
+  {
+    "id": "train-test-split",
+    "question": "where does scikit-learn split arrays or matrices into random train and test subsets with shuffle stratify and random_state?",
+    "agentQuery": {
+      "terms": ["train_test_split", "arrays", "matrices", "train", "test", "shuffle", "stratify", "random_state"],
+      "symbolKinds": ["function"],
+      "pathHints": ["model_selection", "_split"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["sklearn/model_selection/_split.py"],
+      "symbols": ["train_test_split"]
+    }
+  },
+  {
+    "id": "cross-val-score",
+    "question": "where does scikit-learn evaluate a score by cross validation over estimator splits and scoring?",
+    "agentQuery": {
+      "terms": ["cross_val_score", "cross", "validation", "score", "estimator", "splits", "scoring"],
+      "symbolKinds": ["function"],
+      "pathHints": ["model_selection", "_validation"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["sklearn/model_selection/_validation.py"],
+      "symbols": ["cross_val_score"]
+    }
+  },
+  {
+    "id": "grid-search-fit",
+    "question": "where does scikit-learn fit GridSearchCV by evaluating parameter candidates with cross validation and refitting the best estimator?",
+    "agentQuery": {
+      "terms": ["BaseSearchCV.fit", "GridSearchCV._run_search", "GridSearchCV", "parameter", "candidates", "cross", "validation", "refit", "best_estimator"],
+      "symbolKinds": ["method"],
+      "pathHints": ["model_selection", "_search"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/model_selection/_search.py"],
+      "symbols": ["BaseSearchCV.fit", "GridSearchCV._run_search"]
+    }
+  },
+  {
+    "id": "standard-scaler-fit-transform",
+    "question": "where does scikit-learn StandardScaler compute mean variance scale and transform data by centering and scaling features?",
+    "agentQuery": {
+      "terms": ["StandardScaler.fit", "StandardScaler.transform", "mean", "variance", "scale", "center", "features"],
+      "symbolKinds": ["method"],
+      "pathHints": ["preprocessing", "_data"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/preprocessing/_data.py"],
+      "symbols": ["StandardScaler.fit", "StandardScaler.transform"]
+    }
+  },
+  {
+    "id": "pca-svd-fit",
+    "question": "where does scikit-learn PCA fit data with full or truncated SVD and compute explained variance components?",
+    "agentQuery": {
+      "terms": ["PCA.fit", "PCA._fit_full", "PCA._fit_truncated", "SVD", "explained_variance", "components"],
+      "symbolKinds": ["method"],
+      "pathHints": ["decomposition", "_pca"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/decomposition/_pca.py"],
+      "symbols": ["PCA.fit", "PCA._fit_full", "PCA._fit_truncated"]
+    }
+  },
+  {
+    "id": "kmeans-fit-centers",
+    "question": "where does scikit-learn KMeans fit cluster centers using initialization iterations labels inertia and convergence tolerance?",
+    "agentQuery": {
+      "terms": ["KMeans.fit", "cluster", "centers", "init", "iterations", "labels", "inertia", "tolerance"],
+      "symbolKinds": ["method"],
+      "pathHints": ["cluster", "_kmeans"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/cluster/_kmeans.py"],
+      "symbols": ["KMeans.fit"]
+    }
+  },
+  {
+    "id": "forest-fit-trees",
+    "question": "where does scikit-learn random forest fitting build decision trees in parallel with bootstrap samples and out of bag scoring?",
+    "agentQuery": {
+      "terms": ["BaseForest.fit", "random", "forest", "decision", "trees", "parallel", "bootstrap", "out_of_bag"],
+      "symbolKinds": ["method"],
+      "pathHints": ["ensemble", "_forest"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/ensemble/_forest.py"],
+      "symbols": ["BaseForest.fit"]
+    }
+  },
+  {
+    "id": "decision-tree-fit",
+    "question": "where does scikit-learn DecisionTreeClassifier fit a tree using criterion splitter max_depth and class weights?",
+    "agentQuery": {
+      "terms": ["DecisionTreeClassifier.fit", "DecisionTreeClassifier", "fit", "criterion", "splitter", "max_depth", "class_weight"],
+      "symbolKinds": ["method"],
+      "pathHints": ["tree", "_classes"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/tree/_classes.py"],
+      "symbols": ["DecisionTreeClassifier.fit"]
+    }
+  },
+  {
+    "id": "roc-auc-score",
+    "question": "where does scikit-learn compute ROC AUC score for binary multiclass or multilabel predictions?",
+    "agentQuery": {
+      "terms": ["roc_auc_score", "_binary_roc_auc_score", "_multiclass_roc_auc_score", "ROC", "AUC", "binary", "multiclass", "multilabel"],
+      "symbolKinds": ["function"],
+      "pathHints": ["metrics", "_ranking"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["sklearn/metrics/_ranking.py"],
+      "symbols": ["roc_auc_score", "_binary_roc_auc_score", "_multiclass_roc_auc_score"]
+    }
+  },
+  {
+    "id": "pairwise-distances",
+    "question": "where does scikit-learn compute pairwise distances between samples with metrics n_jobs and missing value support?",
+    "agentQuery": {
+      "terms": ["pairwise_distances", "pairwise", "distances", "samples", "metric", "n_jobs", "missing", "values"],
+      "symbolKinds": ["function"],
+      "pathHints": ["metrics", "pairwise"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["sklearn/metrics/pairwise.py"],
+      "symbols": ["pairwise_distances"]
+    }
+  },
+  {
+    "id": "nearest-neighbors-kneighbors",
+    "question": "where does scikit-learn find k nearest neighbors and optionally return distances using the fitted neighbor search structure?",
+    "agentQuery": {
+      "terms": ["KNeighborsMixin.kneighbors", "kneighbors", "k", "nearest", "neighbors", "distances", "fitted"],
+      "symbolKinds": ["method"],
+      "pathHints": ["neighbors", "_base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["sklearn/neighbors/_base.py"],
+      "symbols": ["KNeighborsMixin.kneighbors"]
+    }
+  },
+  {
+    "id": "check-array-validation",
+    "question": "where does scikit-learn validate input arrays for dtype shape sparsity finite values and minimum samples or features?",
+    "agentQuery": {
+      "terms": ["check_array", "validate", "input", "arrays", "dtype", "shape", "sparse", "finite", "minimum", "samples", "features"],
+      "symbolKinds": ["function"],
+      "pathHints": ["utils", "validation"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["sklearn/utils/validation.py"],
+      "symbols": ["check_array"]
+    }
+  }
+]

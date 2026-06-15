@@ -1,0 +1,182 @@
+[
+  {
+    "id": "environment-load-template-cache",
+    "question": "where does Jinja load a template by name through the loader, reuse the environment cache, check auto reload, and update template globals?",
+    "agentQuery": {
+      "terms": ["Environment._load_template", "Environment.get_template", "template", "name", "loader", "cache", "auto_reload", "globals"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/jinja2/environment.py", "environment"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/environment.py"],
+      "symbols": ["Environment._load_template", "Environment.get_template"]
+    }
+  },
+  {
+    "id": "loader-filesystem-source",
+    "question": "where does Jinja search filesystem template directories, read the source text, and create the uptodate reload check?",
+    "agentQuery": {
+      "terms": ["FileSystemLoader.get_source", "split_template_path", "filesystem", "template", "directories", "source", "uptodate", "reload"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["src/jinja2/loaders.py", "loaders"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/loaders.py"],
+      "symbols": ["FileSystemLoader.get_source", "split_template_path"]
+    }
+  },
+  {
+    "id": "base-loader-bytecode-cache",
+    "question": "where does Jinja loader.load get template source, use the bytecode cache bucket, compile missing code, and store the bucket back?",
+    "agentQuery": {
+      "terms": ["BaseLoader.load", "BytecodeCache.get_bucket", "BytecodeCache.set_bucket", "template", "source", "bytecode", "cache", "bucket", "compile"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/jinja2/loaders.py", "src/jinja2/bccache.py", "loaders", "bccache"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/loaders.py", "src/jinja2/bccache.py"],
+      "symbols": ["BaseLoader.load", "BytecodeCache.get_bucket", "BytecodeCache.set_bucket"]
+    }
+  },
+  {
+    "id": "lexer-tokenize-wrap",
+    "question": "where does Jinja tokenize template source, normalize data, validate identifiers, unescape strings, and wrap raw tokens into Token objects?",
+    "agentQuery": {
+      "terms": ["Lexer.tokenize", "Lexer.wrap", "Lexer.tokeniter", "tokenize", "template", "source", "normalize", "identifiers", "unescape", "Token"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/jinja2/lexer.py", "lexer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/lexer.py"],
+      "symbols": ["Lexer.tokenize", "Lexer.wrap", "Lexer.tokeniter"]
+    }
+  },
+  {
+    "id": "parser-subparse-template",
+    "question": "where does Jinja parse template data variable blocks and statement blocks into a Template node AST?",
+    "agentQuery": {
+      "terms": ["Parser.subparse", "Parser.parse", "Parser.parse_statement", "template", "data", "variable", "blocks", "statement", "Template", "AST"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/jinja2/parser.py", "parser"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/parser.py"],
+      "symbols": ["Parser.subparse", "Parser.parse", "Parser.parse_statement"]
+    }
+  },
+  {
+    "id": "environment-compile-pipeline",
+    "question": "where does Jinja parse template source, generate Python source, and compile it into a code object or raw generated code?",
+    "agentQuery": {
+      "terms": ["Environment.compile", "Environment._parse", "Environment._generate", "generate", "template", "source", "Python", "code", "raw", "pipeline"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["src/jinja2/environment.py", "src/jinja2/compiler.py", "environment", "compiler"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/environment.py", "src/jinja2/compiler.py"],
+      "symbols": ["Environment.compile", "Environment._parse", "Environment._generate", "generate"]
+    }
+  },
+  {
+    "id": "codegen-template-output",
+    "question": "where does Jinja code generation visit the Template node, write the root render function, and emit Output nodes?",
+    "agentQuery": {
+      "terms": ["CodeGenerator.visit_Template", "CodeGenerator.visit_Output", "code", "generation", "Template", "root", "render", "Output", "nodes"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/jinja2/compiler.py", "compiler"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/compiler.py"],
+      "symbols": ["CodeGenerator.visit_Template", "CodeGenerator.visit_Output"]
+    }
+  },
+  {
+    "id": "context-call-pass-arg",
+    "question": "where does Jinja call a callable from a template context and inject context eval context or environment for pass_context pass_eval_context and pass_environment?",
+    "agentQuery": {
+      "terms": ["Context.call", "_PassArg.from_obj", "pass_context", "pass_eval_context", "pass_environment", "callable", "template", "context", "eval", "environment"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["src/jinja2/runtime.py", "src/jinja2/utils.py", "runtime", "utils"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/runtime.py", "src/jinja2/utils.py"],
+      "symbols": ["Context.call", "_PassArg.from_obj", "pass_context", "pass_eval_context", "pass_environment"]
+    }
+  },
+  {
+    "id": "macro-call-arguments-autoescape",
+    "question": "where does Jinja invoke a macro, bind positional keyword caller varargs kwargs, and mark the result safe when autoescape is enabled?",
+    "agentQuery": {
+      "terms": ["Macro.__call__", "Macro._invoke", "Macro._async_invoke", "macro", "positional", "keyword", "caller", "varargs", "kwargs", "autoescape"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/jinja2/runtime.py", "runtime"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/runtime.py"],
+      "symbols": ["Macro.__call__", "Macro._invoke", "Macro._async_invoke"]
+    }
+  },
+  {
+    "id": "sandbox-attribute-safety",
+    "question": "where does Jinja sandbox decide whether attributes and callables are safe, block private or internal attributes, and return unsafe undefined values?",
+    "agentQuery": {
+      "terms": ["SandboxedEnvironment.is_safe_attribute", "SandboxedEnvironment.is_safe_callable", "SandboxedEnvironment.getattr", "SandboxedEnvironment.unsafe_undefined", "sandbox", "attributes", "callables", "private", "internal", "unsafe"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/jinja2/sandbox.py", "sandbox"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/jinja2/sandbox.py"],
+      "symbols": ["SandboxedEnvironment.is_safe_attribute", "SandboxedEnvironment.is_safe_callable", "SandboxedEnvironment.getattr", "SandboxedEnvironment.unsafe_undefined"]
+    }
+  },
+  {
+    "id": "filters-map-select-reject",
+    "question": "where does Jinja prepare and run map select reject and selectattr style filters over sync or async iterables?",
+    "agentQuery": {
+      "terms": ["prepare_map", "prepare_select_or_reject", "select_or_reject", "async_select_or_reject", "sync_do_map", "sync_do_select", "sync_do_reject", "sync_do_selectattr", "map", "select", "reject", "filters", "iterables"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/jinja2/filters.py", "filters"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/jinja2/filters.py"],
+      "symbols": ["prepare_map", "prepare_select_or_reject", "select_or_reject", "async_select_or_reject", "sync_do_map", "sync_do_select", "sync_do_reject", "sync_do_selectattr"]
+    }
+  },
+  {
+    "id": "meta-undeclared-referenced",
+    "question": "where does Jinja meta analysis find undeclared context variables and referenced templates from an AST?",
+    "agentQuery": {
+      "terms": ["find_undeclared_variables", "find_referenced_templates", "TrackingCodeGenerator", "meta", "undeclared", "context", "variables", "referenced", "templates", "AST"],
+      "symbolKinds": ["function", "class"],
+      "pathHints": ["src/jinja2/meta.py", "meta"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "children"]
+    },
+    "expected": {
+      "files": ["src/jinja2/meta.py"],
+      "symbols": ["find_undeclared_variables", "find_referenced_templates", "TrackingCodeGenerator"]
+    }
+  }
+]

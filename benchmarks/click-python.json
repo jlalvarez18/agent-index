@@ -2,6 +2,13 @@
   {
     "id": "command-decorator",
     "question": "where does Click turn a decorated function into a command?",
+    "agentQuery": {
+      "terms": ["command", "decorator", "function"],
+      "symbolKinds": ["function"],
+      "pathHints": ["decorators"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/decorators.py"],
       "symbols": ["command"]
@@ -10,6 +17,13 @@
   {
     "id": "group-decorator",
     "question": "where does Click create a group decorator from a function?",
+    "agentQuery": {
+      "terms": ["group", "decorator", "function"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["decorators", "core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/decorators.py", "src/click/core.py"],
       "symbols": ["group", "Group.group", "command"]
@@ -18,6 +32,13 @@
   {
     "id": "option-decorator",
     "question": "where are option decorators attached to commands?",
+    "agentQuery": {
+      "terms": ["option", "decorator", "attach", "param"],
+      "symbolKinds": ["function"],
+      "pathHints": ["decorators"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/decorators.py"],
       "symbols": ["option", "_param_memo"]
@@ -26,6 +47,13 @@
   {
     "id": "context-callback-invoke",
     "question": "where does a context invoke a callback with parameters?",
+    "agentQuery": {
+      "terms": ["context", "invoke", "callback", "parameters"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/core.py"],
       "symbols": ["Context.invoke"]
@@ -34,6 +62,13 @@
   {
     "id": "command-main",
     "question": "where is the main command invocation entrypoint implemented?",
+    "agentQuery": {
+      "terms": ["command", "main", "invoke", "entrypoint"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/core.py"],
       "symbols": ["Command.main"]
@@ -42,6 +77,13 @@
   {
     "id": "group-subcommand-dispatch",
     "question": "where does a group resolve and invoke subcommands?",
+    "agentQuery": {
+      "terms": ["group", "resolve", "invoke", "subcommand"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/core.py"],
       "symbols": ["Group.resolve_command", "Group.invoke"]
@@ -50,6 +92,13 @@
   {
     "id": "option-value-source",
     "question": "where does an option consume command line values, defaults, prompts, and environment variables?",
+    "agentQuery": {
+      "terms": ["option", "consume", "value", "default", "prompt", "environment"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/core.py"],
       "symbols": ["Option.consume_value", "Option.value_from_envvar", "Option.prompt_for_value"]
@@ -58,6 +107,13 @@
   {
     "id": "choice-type-conversion",
     "question": "where are choice parameter values normalized and converted?",
+    "agentQuery": {
+      "terms": ["choice", "parameter", "value", "normalize", "convert"],
+      "symbolKinds": ["method"],
+      "pathHints": ["types"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/types.py"],
       "symbols": ["Choice.convert", "Choice.normalize_choice", "Choice._normalized_mapping"]
@@ -66,6 +122,13 @@
   {
     "id": "path-type-validation",
     "question": "where does Click validate path parameter existence and permissions?",
+    "agentQuery": {
+      "terms": ["path", "convert", "existence", "readable", "writable", "permissions"],
+      "symbolKinds": ["method"],
+      "pathHints": ["types"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/types.py"],
       "symbols": ["Path.convert"]
@@ -74,6 +137,13 @@
   {
     "id": "echo-output",
     "question": "where does Click echo output with newline, color stripping, bytes, and flush handling?",
+    "agentQuery": {
+      "terms": ["echo", "output", "newline", "color", "bytes", "flush"],
+      "symbolKinds": ["function"],
+      "pathHints": ["utils"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/utils.py"],
       "symbols": ["echo"]
@@ -82,6 +152,13 @@
   {
     "id": "terminal-prompt",
     "question": "where does Click prompt users for input and confirmation?",
+    "agentQuery": {
+      "terms": ["prompt", "confirm", "input", "confirmation"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["termui", "core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/termui.py", "src/click/core.py"],
       "symbols": ["prompt", "confirm", "Option.prompt_for_value"]
@@ -90,6 +167,13 @@
   {
     "id": "shell-completion",
     "question": "where does Click decide between source and complete shell completion instructions?",
+    "agentQuery": {
+      "terms": ["shell", "completion", "source", "complete", "instruction"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["shell_completion", "core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/shell_completion.py", "src/click/core.py"],
       "symbols": ["shell_complete", "Command._main_shell_completion", "ShellComplete.complete"]
@@ -98,6 +182,13 @@
   {
     "id": "cli-runner-invoke",
     "question": "where does the test CliRunner invoke a command in isolation?",
+    "agentQuery": {
+      "terms": ["cli", "runner", "invoke", "command", "isolation"],
+      "symbolKinds": ["method"],
+      "pathHints": ["testing"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/testing.py"],
       "symbols": ["CliRunner.invoke", "CliRunner.isolation"]
@@ -106,6 +197,13 @@
   {
     "id": "usage-formatting",
     "question": "where does Click format the usage line in help output?",
+    "agentQuery": {
+      "terms": ["usage", "write", "format", "line"],
+      "symbolKinds": ["method"],
+      "pathHints": ["formatting", "core"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
     "expected": {
       "files": ["src/click/formatting.py", "src/click/core.py"],
       "symbols": ["HelpFormatter.write_usage", "Command.format_usage"]

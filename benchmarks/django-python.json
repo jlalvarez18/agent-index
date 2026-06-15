@@ -1,0 +1,242 @@
+[
+  {
+    "id": "handler-load-middleware",
+    "question": "where does Django load middleware hooks for request view template_response and exception handling?",
+    "agentQuery": {
+      "terms": ["BaseHandler.load_middleware", "load_middleware", "middleware", "request", "view", "template_response", "exception", "hooks"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "handlers", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/core/handlers/base.py"],
+      "symbols": ["BaseHandler.load_middleware"]
+    }
+  },
+  {
+    "id": "handler-get-response",
+    "question": "where does Django BaseHandler get an HttpResponse by running the middleware chain and logging error responses?",
+    "agentQuery": {
+      "terms": ["BaseHandler.get_response", "get_response", "HttpResponse", "middleware", "chain", "logging", "error", "responses"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "handlers", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/core/handlers/base.py"],
+      "symbols": ["BaseHandler.get_response"]
+    }
+  },
+  {
+    "id": "urlresolver-resolve",
+    "question": "where does Django URLResolver resolve a path against URL patterns and return a ResolverMatch?",
+    "agentQuery": {
+      "terms": ["URLResolver.resolve", "resolve", "path", "URL", "patterns", "ResolverMatch"],
+      "symbolKinds": ["method"],
+      "pathHints": ["urls", "resolvers"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/urls/resolvers.py"],
+      "symbols": ["URLResolver.resolve"]
+    }
+  },
+  {
+    "id": "routepattern-match",
+    "question": "where does Django RoutePattern match a route path and extract converter kwargs?",
+    "agentQuery": {
+      "terms": ["RoutePattern.match", "match", "route", "path", "converter", "kwargs"],
+      "symbolKinds": ["method"],
+      "pathHints": ["urls", "resolvers"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/urls/resolvers.py"],
+      "symbols": ["RoutePattern.match"]
+    }
+  },
+  {
+    "id": "queryset-filter",
+    "question": "where does Django QuerySet filter rows by args and keyword lookup conditions?",
+    "agentQuery": {
+      "terms": ["QuerySet.filter", "QuerySet._filter_or_exclude", "filter", "args", "kwargs", "lookup", "conditions"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "models", "query"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/models/query.py"],
+      "symbols": ["QuerySet.filter", "QuerySet._filter_or_exclude"]
+    }
+  },
+  {
+    "id": "model-save",
+    "question": "where does Django Model save an object using force_insert force_update update_fields and database routing?",
+    "agentQuery": {
+      "terms": ["Model.save", "save", "force_insert", "force_update", "update_fields", "database", "routing"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "models", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/models/base.py"],
+      "symbols": ["Model.save"]
+    }
+  },
+  {
+    "id": "model-full-clean",
+    "question": "where does Django Model run full_clean by cleaning fields validating unique constraints and model constraints?",
+    "agentQuery": {
+      "terms": ["Model.full_clean", "full_clean", "clean_fields", "validate_unique", "validate_constraints", "model", "constraints"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "models", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/models/base.py"],
+      "symbols": ["Model.full_clean"]
+    }
+  },
+  {
+    "id": "form-full-clean",
+    "question": "where does Django BaseForm run full_clean to populate errors cleaned_data field cleaning and form cleaning?",
+    "agentQuery": {
+      "terms": ["BaseForm.full_clean", "full_clean", "errors", "cleaned_data", "field", "cleaning", "form"],
+      "symbolKinds": ["method"],
+      "pathHints": ["forms", "forms"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/forms/forms.py"],
+      "symbols": ["BaseForm.full_clean"]
+    }
+  },
+  {
+    "id": "boundfield-as-widget",
+    "question": "where does Django BoundField render a form field as a widget with attrs and initial hidden values?",
+    "agentQuery": {
+      "terms": ["BoundField.as_widget", "as_widget", "form", "field", "widget", "attrs", "initial", "hidden"],
+      "symbolKinds": ["method"],
+      "pathHints": ["forms", "boundfield"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/forms/boundfield.py"],
+      "symbols": ["BoundField.as_widget"]
+    }
+  },
+  {
+    "id": "template-parser-parse",
+    "question": "where does Django template Parser parse tokens until block tags and build nodelists?",
+    "agentQuery": {
+      "terms": ["Parser.parse", "parse", "tokens", "block", "tags", "nodelist", "template"],
+      "symbolKinds": ["method"],
+      "pathHints": ["template", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/template/base.py"],
+      "symbols": ["Parser.parse"]
+    }
+  },
+  {
+    "id": "template-variable-resolve",
+    "question": "where does Django template Variable resolve lookups against context dictionaries attributes and list indexes?",
+    "agentQuery": {
+      "terms": ["Variable.resolve", "Variable._resolve_lookup", "resolve", "lookups", "context", "dictionary", "attributes", "list", "indexes"],
+      "symbolKinds": ["method"],
+      "pathHints": ["template", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/template/base.py"],
+      "symbols": ["Variable.resolve", "Variable._resolve_lookup"]
+    }
+  },
+  {
+    "id": "admin-modeladmin-get-queryset",
+    "question": "where does Django ModelAdmin get the queryset using ordering and the model manager?",
+    "agentQuery": {
+      "terms": ["ModelAdmin.get_queryset", "BaseModelAdmin.get_queryset", "get_queryset", "ordering", "model", "manager"],
+      "symbolKinds": ["method"],
+      "pathHints": ["contrib", "admin", "options"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/contrib/admin/options.py"],
+      "symbols": ["BaseModelAdmin.get_queryset", "ModelAdmin.get_queryset"]
+    }
+  },
+  {
+    "id": "management-utility-execute",
+    "question": "where does Django ManagementUtility execute command line management commands and dispatch subcommands?",
+    "agentQuery": {
+      "terms": ["ManagementUtility.execute", "execute", "command", "line", "management", "commands", "dispatch", "subcommands"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "management", "__init__"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/core/management/__init__.py"],
+      "symbols": ["ManagementUtility.execute"]
+    }
+  },
+  {
+    "id": "basecommand-run-from-argv",
+    "question": "where does Django BaseCommand run_from_argv parse argv options and run a management command?",
+    "agentQuery": {
+      "terms": ["BaseCommand.run_from_argv", "run_from_argv", "argv", "parse", "options", "management", "command"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "management", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/core/management/base.py"],
+      "symbols": ["BaseCommand.run_from_argv"]
+    }
+  },
+  {
+    "id": "json-response-init",
+    "question": "where does Django JsonResponse serialize data to JSON and set the application/json content type?",
+    "agentQuery": {
+      "terms": ["JsonResponse.__init__", "JsonResponse", "serialize", "JSON", "application/json", "content_type", "data"],
+      "symbolKinds": ["method"],
+      "pathHints": ["http", "response"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/http/response.py"],
+      "symbols": ["JsonResponse.__init__"]
+    }
+  },
+  {
+    "id": "csrf-process-view",
+    "question": "where does Django CsrfViewMiddleware process a view by checking CSRF cookies tokens origins and trusted origins?",
+    "agentQuery": {
+      "terms": ["CsrfViewMiddleware.process_view", "process_view", "CSRF", "cookies", "tokens", "origins", "trusted_origins", "view"],
+      "symbolKinds": ["method"],
+      "pathHints": ["middleware", "csrf"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/middleware/csrf.py"],
+      "symbols": ["CsrfViewMiddleware.process_view"]
+    }
+  }
+]

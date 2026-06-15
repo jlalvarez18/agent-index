@@ -1,0 +1,242 @@
+[
+  {
+    "id": "app-remote-task-publish",
+    "question": "where does Celery publish a named remote task when there is no local task object and still applies registry execution defaults?",
+    "agentQuery": {
+      "terms": ["Celery.send_task", "send_task", "task_name", "execution_options", "router", "send_task_message", "producer", "result_cls"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/base.py"],
+      "symbols": ["Celery.send_task"]
+    }
+  },
+  {
+    "id": "signature-inline-apply",
+    "question": "where does a canvas signature execute inline locally instead of sending a broker message?",
+    "agentQuery": {
+      "terms": ["Signature.apply", "apply", "inline", "local", "eager", "task.apply", "throw", "app"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["Signature.apply"]
+    }
+  },
+  {
+    "id": "task-inline-apply",
+    "question": "where does a task run eagerly in the current process and build a request with callbacks errbacks and result state?",
+    "agentQuery": {
+      "terms": ["Task.apply", "apply", "eager", "request", "callbacks", "errbacks", "task_id", "EagerResult"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "task"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/task.py"],
+      "symbols": ["Task.apply"]
+    }
+  },
+  {
+    "id": "beat-heap-tick",
+    "question": "where does beat inspect the heap pop a due schedule entry reserve it apply it and return the next delay?",
+    "agentQuery": {
+      "terms": ["Scheduler.tick", "tick", "heap", "event", "is_due", "reserve", "apply_entry", "next_time_to_run"],
+      "symbolKinds": ["method"],
+      "pathHints": ["beat"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/beat.py"],
+      "symbols": ["Scheduler.tick"]
+    }
+  },
+  {
+    "id": "beat-log-due-entry",
+    "question": "where does beat log that a due scheduled task is being sent and report the result id after applying it?",
+    "agentQuery": {
+      "terms": ["Scheduler.apply_entry", "apply_entry", "beat", "send", "sent", "result.id", "task", "entry"],
+      "symbolKinds": ["method"],
+      "pathHints": ["beat"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/beat.py"],
+      "symbols": ["Scheduler.apply_entry"]
+    }
+  },
+  {
+    "id": "backend-mark-success",
+    "question": "where does a result backend mark a task successful and notify chord completion when results should be stored?",
+    "agentQuery": {
+      "terms": ["Backend.mark_as_done", "mark_as_done", "SUCCESS", "store_result", "on_chord_part_return", "request", "result"],
+      "symbolKinds": ["method"],
+      "pathHints": ["backends", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/backends/base.py"],
+      "symbols": ["Backend.mark_as_done"]
+    }
+  },
+  {
+    "id": "backend-mark-failure",
+    "question": "where does a result backend mark a failed task, store the exception, notify chord parts, and propagate chained failures?",
+    "agentQuery": {
+      "terms": ["Backend.mark_as_failure", "mark_as_failure", "FAILURE", "store_result", "exception", "chain", "errbacks", "on_chord_part_return"],
+      "symbolKinds": ["method"],
+      "pathHints": ["backends", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/backends/base.py"],
+      "symbols": ["Backend.mark_as_failure"]
+    }
+  },
+  {
+    "id": "backend-group-chord-error",
+    "question": "where does the backend handle a chord error when the chord callback is a group by revoking pending group body tasks?",
+    "agentQuery": {
+      "terms": ["Backend._handle_group_chord_error", "_handle_group_chord_error", "chord", "group", "revoke", "body", "task_id", "ChordError"],
+      "symbolKinds": ["method"],
+      "pathHints": ["backends", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/backends/base.py"],
+      "symbols": ["Backend._handle_group_chord_error"]
+    }
+  },
+  {
+    "id": "consumer-unknown-task",
+    "question": "where does the worker reject an unknown task message, mark it as failure, emit task-failed, and send the task_unknown signal?",
+    "agentQuery": {
+      "terms": ["Consumer.on_unknown_task", "on_unknown_task", "unknown task", "reject_log_error", "mark_as_failure", "task_unknown", "task-failed", "message"],
+      "symbolKinds": ["method"],
+      "pathHints": ["worker", "consumer", "consumer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/worker/consumer/consumer.py"],
+      "symbols": ["Consumer.on_unknown_task"]
+    }
+  },
+  {
+    "id": "consumer-update-strategies",
+    "question": "where does the worker rebuild task execution strategies from the app registry and install tracers for each task?",
+    "agentQuery": {
+      "terms": ["Consumer.update_strategies", "update_strategies", "registry", "strategies", "build_tracer", "task.__trace__", "tasks"],
+      "symbolKinds": ["method"],
+      "pathHints": ["worker", "consumer", "consumer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/worker/consumer/consumer.py"],
+      "symbols": ["Consumer.update_strategies"]
+    }
+  },
+  {
+    "id": "group-freeze-tasks",
+    "question": "where does a canvas group freeze child signatures with group id root id parent id chord and group indexes?",
+    "agentQuery": {
+      "terms": ["group._freeze_group_tasks", "group._freeze_tasks", "group.freeze", "freeze", "group_id", "root_id", "parent_id", "chord", "group_index"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["children", "callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["group._freeze_group_tasks", "group._freeze_tasks", "group.freeze"]
+    }
+  },
+  {
+    "id": "group-apply-unroll",
+    "question": "where does a canvas group unroll prepared tasks, apply every child signature, build a GroupResult, and add the trail to the parent task?",
+    "agentQuery": {
+      "terms": ["group.apply_async", "group._apply_tasks", "apply_async", "_prepared", "GroupResult", "add_trail", "tasks"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["children", "callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["group.apply_async", "group._apply_tasks"]
+    }
+  },
+  {
+    "id": "chord-run-header-body",
+    "question": "where does a chord freeze header results, schedule the header group, and attach the body callback for unlock behavior?",
+    "agentQuery": {
+      "terms": ["_chord.run", "_chord.apply_async", "chord", "header", "body", "freeze", "GroupResult", "chord_size", "unlock"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["children", "callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["_chord.run", "_chord.apply_async"]
+    }
+  },
+  {
+    "id": "amqp-send-task-message",
+    "question": "where does AMQP create the task sender that publishes a task message with exchange routing key retry policy and events?",
+    "agentQuery": {
+      "terms": ["AMQP._create_task_sender", "AMQP.send_task_message", "send_task_message", "publish", "exchange", "routing_key", "retry_policy", "task_sent"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "amqp"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/amqp.py"],
+      "symbols": ["AMQP._create_task_sender", "AMQP.send_task_message"]
+    }
+  },
+  {
+    "id": "pool-apply-target",
+    "question": "where does the concurrency pool submit a target with args kwargs callbacks accept callbacks timeout and correlation id?",
+    "agentQuery": {
+      "terms": ["BasePool.apply_async", "BasePool.on_apply", "apply_async", "target", "args", "kwargs", "callbacks", "accept_callback", "timeout", "correlation_id"],
+      "symbolKinds": ["method"],
+      "pathHints": ["concurrency", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/concurrency/base.py"],
+      "symbols": ["BasePool.apply_async", "BasePool.on_apply"]
+    }
+  },
+  {
+    "id": "events-state-task-event",
+    "question": "where does the events state object merge a task event into task fields and track received succeeded failed or retried state?",
+    "agentQuery": {
+      "terms": ["Task.event", "State.event", "event", "task", "merge", "received", "succeeded", "failed", "retried", "fields"],
+      "symbolKinds": ["method"],
+      "pathHints": ["events", "state"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/events/state.py"],
+      "symbols": ["Task.event", "State.event"]
+    }
+  }
+]

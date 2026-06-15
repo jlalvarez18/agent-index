@@ -1,0 +1,106 @@
+[
+  {
+    "id": "pipeline-predict-after-transform",
+    "question": "where does scikit-learn Pipeline transform data through each step and then call predict on the final estimator?",
+    "expected": {
+      "files": ["sklearn/pipeline.py"],
+      "symbols": ["Pipeline.predict"]
+    }
+  },
+  {
+    "id": "pipeline-fit-transform-final",
+    "question": "where does scikit-learn Pipeline fit transformers and return transformed data in one fit_transform call?",
+    "expected": {
+      "files": ["sklearn/pipeline.py"],
+      "symbols": ["Pipeline.fit_transform"]
+    }
+  },
+  {
+    "id": "column-transformer-transform-only",
+    "question": "where does scikit-learn ColumnTransformer transform already fitted column transformers without fitting them again?",
+    "expected": {
+      "files": ["sklearn/compose/_column_transformer.py"],
+      "symbols": ["ColumnTransformer.transform"]
+    }
+  },
+  {
+    "id": "cross-validate-multi-metric",
+    "question": "where does scikit-learn cross_validate return fit times score times and test scores for multiple metrics?",
+    "expected": {
+      "files": ["sklearn/model_selection/_validation.py"],
+      "symbols": ["cross_validate"]
+    }
+  },
+  {
+    "id": "grid-search-run-search-param-grid",
+    "question": "where does scikit-learn GridSearchCV enumerate every parameter combination from param_grid before evaluating candidates?",
+    "expected": {
+      "files": ["sklearn/model_selection/_search.py"],
+      "symbols": ["GridSearchCV._run_search"]
+    }
+  },
+  {
+    "id": "mini-batch-kmeans-fit",
+    "question": "where does scikit-learn MiniBatchKMeans fit centroids by chunking samples into mini-batches?",
+    "expected": {
+      "files": ["sklearn/cluster/_kmeans.py"],
+      "symbols": ["MiniBatchKMeans.fit"]
+    }
+  },
+  {
+    "id": "radius-neighbors-query",
+    "question": "where does scikit-learn find neighbors within a given radius and optionally sort radius neighbor results?",
+    "expected": {
+      "files": ["sklearn/neighbors/_base.py"],
+      "symbols": ["RadiusNeighborsMixin.radius_neighbors"]
+    }
+  },
+  {
+    "id": "kneighbors-graph-builder",
+    "question": "where does scikit-learn build a connectivity or distance graph for k nearest neighbors?",
+    "expected": {
+      "files": ["sklearn/neighbors/_graph.py"],
+      "symbols": ["kneighbors_graph", "KNeighborsMixin.kneighbors_graph"]
+    }
+  },
+  {
+    "id": "check-x-y-validation",
+    "question": "where does scikit-learn validate X and y together for consistent length multi-output targets and finite values?",
+    "expected": {
+      "files": ["sklearn/utils/validation.py"],
+      "symbols": ["check_X_y"]
+    }
+  },
+  {
+    "id": "validate-data-estimator",
+    "question": "where does scikit-learn validate estimator input data while setting or checking feature names and n_features_in?",
+    "expected": {
+      "files": ["sklearn/utils/validation.py"],
+      "symbols": ["validate_data"]
+    }
+  },
+  {
+    "id": "pairwise-distances-chunked",
+    "question": "where does scikit-learn generate pairwise distance chunks with reduce_func and working_memory?",
+    "expected": {
+      "files": ["sklearn/metrics/pairwise.py"],
+      "symbols": ["pairwise_distances_chunked"]
+    }
+  },
+  {
+    "id": "roc-curve-thresholds",
+    "question": "where does scikit-learn compute false positive rates true positive rates and thresholds for an ROC curve?",
+    "expected": {
+      "files": ["sklearn/metrics/_ranking.py"],
+      "symbols": ["roc_curve"]
+    }
+  },
+  {
+    "id": "make-classification-generator",
+    "question": "where does scikit-learn generate a random classification problem with informative redundant repeated features and class clusters?",
+    "expected": {
+      "files": ["sklearn/datasets/_samples_generator.py"],
+      "symbols": ["make_classification"]
+    }
+  }
+]

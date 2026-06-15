@@ -1,0 +1,272 @@
+[
+  {
+    "id": "run-entrypoint",
+    "question": "where does Trio run an async function from synchronous code and create the main Trio event loop?",
+    "agentQuery": {
+      "terms": ["run", "async_fn", "synchronous context", "Runner", "GLOBAL_RUN_CONTEXT", "main_task", "event loop"],
+      "symbolKinds": ["function"],
+      "pathHints": ["core", "_run"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_core/_run.py"],
+      "symbols": ["run"]
+    }
+  },
+  {
+    "id": "nursery-open",
+    "question": "where does Trio open a nursery async context manager that waits for child tasks on exit?",
+    "agentQuery": {
+      "terms": ["open_nursery", "NurseryManager", "strict_exception_groups", "child tasks", "__aenter__", "__aexit__"],
+      "symbolKinds": ["function"],
+      "pathHints": ["core", "_run"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_core/_run.py"],
+      "symbols": ["open_nursery"]
+    }
+  },
+  {
+    "id": "nursery-start-soon",
+    "question": "where does a Trio Nursery start a child task soon without waiting for task_status.started?",
+    "agentQuery": {
+      "terms": ["Nursery.start_soon", "start_soon", "async_fn", "child task", "schedule", "name", "parent nursery"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "_run"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_core/_run.py"],
+      "symbols": ["Nursery.start_soon"]
+    }
+  },
+  {
+    "id": "cancel-scope-enter",
+    "question": "where does CancelScope enter the current task, compute relative deadlines, and register cancellation status?",
+    "agentQuery": {
+      "terms": ["CancelScope.__enter__", "__enter__", "current_task", "_relative_deadline", "CancelStatus", "_activate_cancel_status", "_has_been_entered"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "_run"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_core/_run.py"],
+      "symbols": ["CancelScope.__enter__"]
+    }
+  },
+  {
+    "id": "timeout-fail-after",
+    "question": "where does Trio create a timeout cancel scope that raises TooSlowError if the deadline expires?",
+    "agentQuery": {
+      "terms": ["fail_after", "fail_at", "TooSlowError", "CancelScope", "deadline", "seconds", "shield"],
+      "symbolKinds": ["function"],
+      "pathHints": ["timeouts"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_timeouts.py"],
+      "symbols": ["fail_after", "fail_at"]
+    }
+  },
+  {
+    "id": "sleep-relative",
+    "question": "where does Trio sleep for a relative number of seconds, checkpointing immediately for zero seconds?",
+    "agentQuery": {
+      "terms": ["sleep", "seconds", "checkpoint", "current_time", "relative", "zero", "ValueError"],
+      "symbolKinds": ["function"],
+      "pathHints": ["timeouts"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_timeouts.py"],
+      "symbols": ["sleep"]
+    }
+  },
+  {
+    "id": "memory-channel-open",
+    "question": "where does Trio open an in-memory channel and return send and receive endpoints with a max buffer size?",
+    "agentQuery": {
+      "terms": ["open_memory_channel", "max_buffer_size", "MemoryChannelState", "MemorySendChannel", "MemoryReceiveChannel", "__new__"],
+      "symbolKinds": ["class", "method"],
+      "pathHints": ["channel"],
+      "excludeSupportCode": true,
+      "expand": ["children", "callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_channel.py"],
+      "symbols": ["open_memory_channel", "open_memory_channel.__new__"]
+    }
+  },
+  {
+    "id": "memory-send-blocking",
+    "question": "where does MemorySendChannel send a value, block when the buffer is full, and wake waiting receivers?",
+    "agentQuery": {
+      "terms": ["MemorySendChannel.send", "send", "value", "buffer", "waiting_receivers", "wait_send_channel", "checkpoint"],
+      "symbolKinds": ["method"],
+      "pathHints": ["channel"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_channel.py"],
+      "symbols": ["MemorySendChannel.send"]
+    }
+  },
+  {
+    "id": "memory-receive-blocking",
+    "question": "where does MemoryReceiveChannel receive a value, block when no data is ready, and wait for senders?",
+    "agentQuery": {
+      "terms": ["MemoryReceiveChannel.receive", "receive", "buffer", "waiting_senders", "wait_receive_channel", "EndOfChannel", "checkpoint"],
+      "symbolKinds": ["method"],
+      "pathHints": ["channel"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_channel.py"],
+      "symbols": ["MemoryReceiveChannel.receive"]
+    }
+  },
+  {
+    "id": "event-wait",
+    "question": "where does Trio Event wait until the internal flag is set and reschedule waiting tasks?",
+    "agentQuery": {
+      "terms": ["Event.wait", "Event.set", "flag", "_tasks", "reschedule", "parking_lot", "wait"],
+      "symbolKinds": ["method"],
+      "pathHints": ["sync"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_sync.py"],
+      "symbols": ["Event.wait", "Event.set"]
+    }
+  },
+  {
+    "id": "semaphore-acquire",
+    "question": "where does Trio Semaphore acquire decrement the value or park until another task releases it?",
+    "agentQuery": {
+      "terms": ["Semaphore.acquire", "acquire", "value", "parking_lot", "release", "would_block", "max_value"],
+      "symbolKinds": ["method"],
+      "pathHints": ["sync"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_sync.py"],
+      "symbols": ["Semaphore.acquire"]
+    }
+  },
+  {
+    "id": "lock-acquire",
+    "question": "where does Trio Lock acquire the owner task, reject reentrant acquisition, and park contenders?",
+    "agentQuery": {
+      "terms": ["_LockImpl.acquire", "Lock.acquire", "owner", "current_task", "reentrant", "parking_lot", "release"],
+      "symbolKinds": ["method"],
+      "pathHints": ["sync"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_sync.py"],
+      "symbols": ["_LockImpl.acquire", "Lock.acquire"]
+    }
+  },
+  {
+    "id": "open-tcp-stream",
+    "question": "where does Trio open a TCP stream with the happy eyeballs connection algorithm?",
+    "agentQuery": {
+      "terms": ["open_tcp_stream", "happy eyeballs", "host", "port", "local_address", "connect", "SocketStream"],
+      "symbolKinds": ["function"],
+      "pathHints": ["highlevel", "open_tcp_stream"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_highlevel_open_tcp_stream.py"],
+      "symbols": ["open_tcp_stream"]
+    }
+  },
+  {
+    "id": "serve-listeners",
+    "question": "where does Trio serve listeners by accepting streams and starting handler tasks in a nursery?",
+    "agentQuery": {
+      "terms": ["serve_listeners", "listeners", "handler", "accept", "streams", "task_status", "started"],
+      "symbolKinds": ["function"],
+      "pathHints": ["highlevel_serve_listeners", "serve_listeners"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_highlevel_serve_listeners.py"],
+      "symbols": ["serve_listeners"]
+    }
+  },
+  {
+    "id": "run-process",
+    "question": "where does Trio run a subprocess, wait for completion, handle cancellation, and optionally capture stdout and stderr?",
+    "agentQuery": {
+      "terms": ["_run_process", "run_process", "subprocess", "wait", "cancellation", "capture_stdout", "capture_stderr", "stdin"],
+      "symbolKinds": ["function"],
+      "pathHints": ["subprocess"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_subprocess.py"],
+      "symbols": ["_run_process", "run_process"]
+    }
+  },
+  {
+    "id": "thread-run-sync",
+    "question": "where does trio.to_thread.run_sync move a blocking synchronous callable into a worker thread with cancellation handling?",
+    "agentQuery": {
+      "terms": ["to_thread_run_sync", "run_sync", "worker thread", "sync_fn", "abandon_on_cancel", "limiter", "current_default_thread_limiter"],
+      "symbolKinds": ["function"],
+      "pathHints": ["threads"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_threads.py"],
+      "symbols": ["to_thread_run_sync"]
+    }
+  },
+  {
+    "id": "from-thread-run",
+    "question": "where does trio.from_thread.run send an async function back into the parent Trio loop using a Trio token?",
+    "agentQuery": {
+      "terms": ["from_thread_run", "async_fn", "TrioToken", "run_sync_soon", "parent Trio loop", "thread", "trio_token"],
+      "symbolKinds": ["function"],
+      "pathHints": ["threads"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_threads.py"],
+      "symbols": ["from_thread_run"]
+    }
+  },
+  {
+    "id": "wait-task-rescheduled",
+    "question": "where does Trio lowlevel wait_task_rescheduled block the current task until it is rescheduled or aborted?",
+    "agentQuery": {
+      "terms": ["wait_task_rescheduled", "current task", "abort_func", "rescheduled", "Abort", "outcome", "trap"],
+      "symbolKinds": ["function"],
+      "pathHints": ["core", "traps"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/trio/_core/_traps.py"],
+      "symbols": ["wait_task_rescheduled"]
+    }
+  }
+]

@@ -1,0 +1,206 @@
+[
+  {
+    "id": "poolmanager-host-pool",
+    "question": "where does urllib3 choose or create a connection pool for a host using scheme host port and pool kwargs?",
+    "agentQuery": {
+      "terms": ["PoolManager.connection_from_host", "scheme", "host", "port", "pool_kwargs", "request_context"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/poolmanager.py", "poolmanager"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/poolmanager.py"],
+      "symbols": ["PoolManager.connection_from_host"]
+    }
+  },
+  {
+    "id": "poolmanager-urlopen-redirect",
+    "question": "where does urllib3 PoolManager open a URL through a pool and handle redirect retries and response redirect locations?",
+    "agentQuery": {
+      "terms": [
+        "PoolManager.urlopen",
+        "absolute URL",
+        "custom cross-host redirect logic",
+        "redirect_location",
+        "urljoin",
+        "remove_headers_on_redirect",
+        "drain_conn"
+      ],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/poolmanager.py", "poolmanager"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/poolmanager.py"],
+      "symbols": ["PoolManager.urlopen"]
+    }
+  },
+  {
+    "id": "proxy-manager-tunnel-headers",
+    "question": "where does urllib3 build proxy headers for CONNECT tunnels using proxy basic auth?",
+    "agentQuery": {
+      "terms": ["ProxyManager._set_proxy_headers", "CONNECT", "proxy", "headers", "proxy_basic_auth", "Proxy-Authorization"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/poolmanager.py", "proxy"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/poolmanager.py"],
+      "symbols": ["ProxyManager._set_proxy_headers"]
+    }
+  },
+  {
+    "id": "connectionpool-get-conn",
+    "question": "where does urllib3 get a reusable connection from the pool queue or create a new connection when the pool is empty?",
+    "agentQuery": {
+      "terms": ["HTTPConnectionPool._get_conn", "pool", "queue", "EmptyPoolError", "_new_conn", "block"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/connectionpool.py", "connectionpool"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/connectionpool.py"],
+      "symbols": ["HTTPConnectionPool._get_conn"]
+    }
+  },
+  {
+    "id": "connectionpool-urlopen-retry",
+    "question": "where does urllib3 HTTPConnectionPool perform a request with retries timeout redirect chunked body and release connection handling?",
+    "agentQuery": {
+      "terms": ["HTTPConnectionPool.urlopen", "retries", "timeout", "redirect", "chunked", "release_conn", "body_pos"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/connectionpool.py", "connectionpool"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/connectionpool.py"],
+      "symbols": ["HTTPConnectionPool.urlopen"]
+    }
+  },
+  {
+    "id": "retry-increment",
+    "question": "where does urllib3 increment retry state after errors redirects status retries and raise MaxRetryError when exhausted?",
+    "agentQuery": {
+      "terms": [
+        "Retry.increment",
+        "incremented retry counters",
+        "RequestHistory",
+        "new_retry",
+        "too many redirects",
+        "MaxRetryError",
+        "status_count"
+      ],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/util/retry.py", "retry"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/util/retry.py"],
+      "symbols": ["Retry.increment"]
+    }
+  },
+  {
+    "id": "timeout-read-timeout",
+    "question": "where does urllib3 compute read timeout from total timeout, connect duration, and connect timeout?",
+    "agentQuery": {
+      "terms": ["Timeout.read_timeout", "total", "connect_duration", "connect_timeout", "read timeout"],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/util/timeout.py", "timeout"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/util/timeout.py"],
+      "symbols": ["Timeout.read_timeout"]
+    }
+  },
+  {
+    "id": "url-parse",
+    "question": "where does urllib3 parse a URL string into scheme auth host port path query and fragment fields?",
+    "agentQuery": {
+      "terms": ["parse_url", "scheme", "auth", "host", "port", "path", "query", "fragment", "Url"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/urllib3/util/url.py", "url"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/urllib3/util/url.py"],
+      "symbols": ["parse_url"]
+    }
+  },
+  {
+    "id": "ssl-wrap-match-hostname",
+    "question": "where does urllib3 wrap a socket with SSL and verify certificate fingerprint or hostname?",
+    "agentQuery": {
+      "terms": ["_ssl_wrap_socket_and_match_hostname", "ssl_wrap_socket", "assert_fingerprint", "match_hostname", "certificate", "hostname"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/urllib3/connection.py", "ssl"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/urllib3/connection.py"],
+      "symbols": ["_ssl_wrap_socket_and_match_hostname"]
+    }
+  },
+  {
+    "id": "multipart-formdata",
+    "question": "where does urllib3 encode multipart form data fields with boundaries and content type headers?",
+    "agentQuery": {
+      "terms": ["encode_multipart_formdata", "iter_field_objects", "choose_boundary", "Content-Type", "multipart/form-data", "boundary"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/urllib3/filepost.py", "filepost"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/urllib3/filepost.py"],
+      "symbols": ["encode_multipart_formdata"]
+    }
+  },
+  {
+    "id": "response-stream",
+    "question": "where does urllib3 stream response data by repeatedly reading decoded chunks from an HTTPResponse?",
+    "agentQuery": {
+      "terms": [
+        "HTTPResponse.stream",
+        "generator wrapper",
+        "read method",
+        "connection closed",
+        "decoded_buffer",
+        "has_unconsumed_tail",
+        "yield data"
+      ],
+      "symbolKinds": ["method"],
+      "pathHints": ["src/urllib3/response.py", "response"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["src/urllib3/response.py"],
+      "symbols": ["HTTPResponse.stream"]
+    }
+  },
+  {
+    "id": "proxy-tunnel-required",
+    "question": "where does urllib3 decide whether a proxy connection requires an HTTP CONNECT tunnel?",
+    "agentQuery": {
+      "terms": ["connection_requires_http_tunnel", "proxy", "tunnel", "CONNECT", "destination_scheme", "proxy_config"],
+      "symbolKinds": ["function"],
+      "pathHints": ["src/urllib3/util/proxy.py", "proxy"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["src/urllib3/util/proxy.py"],
+      "symbols": ["connection_requires_http_tunnel"]
+    }
+  }
+]

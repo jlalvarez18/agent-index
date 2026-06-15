@@ -25,6 +25,8 @@ Metrics:
 
 The seed set contains 10 questions covering cache behavior, CLI entrypoint, code extraction, graph construction, incremental indexing, query seeds, export, MCP serving, report generation, and community detection.
 
+Each row now also includes an `agentQuery` object for structured agent retrieval. The descriptive `question` remains for continuity and Graphify-style comparisons, but the primary agent-index product path is the structured query: terms, symbol kinds, path hints, support-code filtering, graph expansion, and limit.
+
 For the step-by-step test/change progression, see `docs/findings/experiment-log.md`.
 
 ## Results
@@ -384,12 +386,142 @@ Truth-set corrections:
 - `report-generation`: `graphify/report.py` with `generate`
 - `community-detection`: `graphify/cluster.py` with `cluster` or `_partition`
 
+## Graphify Tool Comparison
+
+Run date: 2026-06-13
+
+This comparison used the same local Graphify checkout but a temporary code-only corpus under `/tmp/graphify-source-only-2` containing only `graphify/**/*.py`. That avoided Graphify's semantic extraction path for docs/images and kept both tools on local Python source only.
+
+Graphify extraction:
+
+```text
+[graphify extract] found 37 code, 0 docs, 0 papers, 0 images
+[graphify extract] wrote /private/tmp/graphify-bench-source-only-2/graphify-out/graph.json — 1420 nodes, 3534 edges (no clustering)
+```
+
+Graphify's built-in benchmark is not a Hit@K retrieval benchmark. It measures token reduction versus reading the whole corpus, using its own generic sample questions:
+
+```text
+Corpus:          73,300 words -> ~97,733 tokens (naive)
+Graph:           1,466 nodes, 3,534 edges
+Avg query cost:  ~9,415 tokens
+Reduction:       10.4x fewer tokens per query
+```
+
+The generated raw graph used `edges`, while Graphify's benchmark reader expected `links`, so this run used a temporary compatibility copy with `links = edges`. That is a useful finding for a future Graphify issue or patch, but no local Graphify source was changed.
+
+To approximate retrieval quality, a lightweight mention-rate adapter ran Graphify's `_query_graph_text` against the 10 `agent-index` golden questions and checked whether any expected file or symbol appeared in the returned context. This is weaker than rank-based scoring because Graphify returns a traversal context blob, not ordered results.
+
+```text
+Symbol mention rate: 0.70
+File mention rate:   0.70
+```
+
+Same source-only corpus with `agent-index`:
+
+```text
+Indexed 37 files, 804 symbols, 804 chunks, 6467 edges at /tmp/agent-index-graphify-source-only.sqlite (mode: source-only)
+
+Mode: hybrid
+Questions: 10
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+Symbol MRR: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+File MRR: 1.00
+Partial file hits: 0.00
+Avg latency: 50ms
+```
+
+Interpretation: Graphify's graph is effective at reducing the amount of context an agent might need to read, but its query traversal is not optimized for exact symbol ranking on this golden set. `agent-index` is currently stronger for exact navigation on these questions, while Graphify is measuring a different value: context compression.
+
+The comparison is now reproducible through the `agent-eval` command. It expects Graphify query output to be captured as JSON with one text blob per benchmark case:
+
+```json
+[
+  {
+    "id": "semantic-cache",
+    "text": "NODE check_semantic_cache() [src=graphify/cache.py loc=L351]"
+  }
+]
+```
+
+Then run:
+
+```bash
+npm run agent-index -- agent-eval ./benchmarks/graphify-python.json \
+  --target /tmp/graphify-source-only-2 \
+  --index-path /tmp/agent-index-graphify-source-only.sqlite \
+  --mode hybrid \
+  --graphify-results /tmp/graphify-query-results.json \
+  --misses
+```
+
+This keeps the comparison honest: `agent-index` reports ranked Hit@K, while Graphify results are scored as expected symbol/file mentions inside returned context.
+
+## Structured Agent Query vs rg-Style Baseline
+
+Run date: 2026-06-13
+
+This run uses the same local Graphify checkout, but changes the evaluation question. Instead of asking whether `agent-index` can interpret natural-language questions, it asks whether an LLM agent can supply structured search terms and constraints that beat an rg-style file search over the same terms.
+
+Index:
+
+```text
+node dist/cli.js index /Users/juan/Repos/graphify --source-only --index-path /tmp/agent-index-graphify-structured.sqlite
+Indexed 37 files, 804 symbols, 804 chunks, 6467 edges at /tmp/agent-index-graphify-structured.sqlite (mode: source-only)
+```
+
+Benchmark:
+
+```text
+node dist/cli.js benchmark benchmarks/graphify-python.json \
+  --target /Users/juan/Repos/graphify \
+  --index-path /tmp/agent-index-graphify-structured.sqlite \
+  --mode hybrid \
+  --query-style agent \
+  --include-rg-baseline \
+  --json
+```
+
+`agent-index` structured query results:
+
+```text
+Questions: 10
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+Symbol MRR: 1.00
+File MRR: 1.00
+Avg latency: 39ms
+```
+
+rg-style file baseline over the same structured terms and path hints:
+
+```text
+Questions: 10
+File Hit@1: 0.20
+File Hit@5: 0.80
+File MRR: 0.44
+Avg latency: 22ms
+```
+
+Qualitative examples:
+
+- `build-graph`: structured `agent-index` returned `build_from_json` / `build` in `graphify/build.py` at the top. The rg-style baseline missed the file in the top five because broad `graph`, `nodes`, and `edges` terms favored larger files like `__main__.py`, `extract.py`, and `export.py`.
+- `graph-export`: structured `agent-index` returned `to_json` in `graphify/export.py` at rank 1. The rg-style baseline missed the expected file in the top five because `graph` and `json` are very common across CLI, watcher, and serving code.
+- `semantic-cache`: structured `agent-index` returned `save_semantic_cache` and `check_semantic_cache` in `graphify/cache.py` at ranks 1 and 2. The rg-style baseline found the right file only at rank 3 because cache vocabulary also appears heavily in `__main__.py` and `extract.py`.
+
+Interpretation: this is the first result that directly matches the product goal. It does not prove broad superiority yet, but it shows the intended shape: the LLM supplies explicit search terms and constraints, while `agent-index` returns ranked symbols and files that are more useful than literal file-level search over those same terms.
+
 ## Next Benchmark Improvements
 
 - Keep using `--source-only` for product-code benchmarks unless the question is explicitly about tests or tooling.
-- Treat `--mode hybrid` as the current best prototype ranking mode.
-- Keep comparing every ranking change against both `--mode fts` and `--mode hybrid`.
+- Treat `--mode hybrid --query-style agent` as the current best prototype path for agent-facing evaluation when `agentQuery` fields exist.
+- Keep comparing every ranking change against both `agent-index` structured mode and an rg-style baseline over the same terms.
 - Do not keep tuning against the current Graphify set; it is saturated.
-- Next benchmark work should add a second repository or expand the golden set before more ranking changes.
+- Next benchmark work should add structured `agentQuery` fields to a second repository or expand the golden set before more ranking changes.
 - Use `--json` detail output before every ranking change to verify which questions moved and why.
 - Corpus hygiene is now probably good enough for the Graphify experiment; the remaining misses are exact-symbol ordering problems.

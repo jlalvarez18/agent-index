@@ -1,0 +1,242 @@
+[
+  {
+    "id": "engine-create-url-pool-dialect",
+    "question": "where does SQLAlchemy create an Engine from a URL while configuring dialect, pool, plugins, and connection arguments?",
+    "agentQuery": {
+      "terms": ["create_engine", "Engine", "URL", "dialect", "pool", "plugins", "connect_args"],
+      "symbolKinds": ["function"],
+      "pathHints": ["engine", "create"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/engine/create.py"],
+      "symbols": ["create_engine"]
+    }
+  },
+  {
+    "id": "connection-execute-statement",
+    "question": "where does SQLAlchemy Connection execute a SQL statement or executable object with parameters and execution options?",
+    "agentQuery": {
+      "terms": ["Connection.execute", "execute", "statement", "parameters", "execution_options", "Executable"],
+      "symbolKinds": ["method"],
+      "pathHints": ["engine", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/engine/base.py"],
+      "symbols": ["Connection.execute"]
+    }
+  },
+  {
+    "id": "session-commit-flush-transaction",
+    "question": "where does SQLAlchemy Session commit the current transaction after flushing pending ORM changes?",
+    "agentQuery": {
+      "terms": ["Session.commit", "commit", "transaction", "flush", "pending", "ORM"],
+      "symbolKinds": ["method"],
+      "pathHints": ["orm", "session"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/session.py"],
+      "symbols": ["Session.commit"]
+    }
+  },
+  {
+    "id": "session-execute-orm-statement",
+    "question": "where does SQLAlchemy Session execute ORM statements with bind arguments and execution options?",
+    "agentQuery": {
+      "terms": ["Session.execute", "ORM", "statement", "bind_arguments", "execution_options", "execute"],
+      "symbolKinds": ["method"],
+      "pathHints": ["orm", "session"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/session.py"],
+      "symbols": ["Session.execute"]
+    }
+  },
+  {
+    "id": "relationship-configure-loader",
+    "question": "where does SQLAlchemy configure an ORM relationship with back_populates cascade secondary joins and loader strategy options?",
+    "agentQuery": {
+      "terms": ["relationship", "back_populates", "cascade", "secondary", "join", "lazy", "loader", "strategy"],
+      "symbolKinds": ["function"],
+      "pathHints": ["orm", "_orm_constructors"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/_orm_constructors.py"],
+      "symbols": ["relationship"]
+    }
+  },
+  {
+    "id": "declarative-base-registry",
+    "question": "where does SQLAlchemy create a declarative base class from a registry with metadata and constructor options?",
+    "agentQuery": {
+      "terms": ["declarative_base", "registry.generate_base", "registry", "metadata", "constructor", "declarative", "base"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["orm", "decl_api"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/decl_api.py"],
+      "symbols": ["declarative_base", "registry.generate_base"]
+    }
+  },
+  {
+    "id": "mapped-column-declarative",
+    "question": "where does SQLAlchemy build a mapped_column for declarative ORM attributes with type annotations and column options?",
+    "agentQuery": {
+      "terms": ["mapped_column", "MappedColumn", "declarative", "ORM", "attributes", "type", "annotations", "column"],
+      "symbolKinds": ["function"],
+      "pathHints": ["orm", "_orm_constructors"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/orm/_orm_constructors.py"],
+      "symbols": ["mapped_column"]
+    }
+  },
+  {
+    "id": "metadata-create-all",
+    "question": "where does SQLAlchemy MetaData create all tables on a bind using schema generation and checkfirst behavior?",
+    "agentQuery": {
+      "terms": ["MetaData.create_all", "create_all", "tables", "bind", "schema", "generation", "checkfirst"],
+      "symbolKinds": ["method"],
+      "pathHints": ["sql", "schema"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/sql/schema.py"],
+      "symbols": ["MetaData.create_all"]
+    }
+  },
+  {
+    "id": "select-constructor",
+    "question": "where does SQLAlchemy construct a Select statement from columns entities or ORM classes?",
+    "agentQuery": {
+      "terms": ["select", "Select", "columns", "entities", "ORM", "classes", "constructor"],
+      "symbolKinds": ["function"],
+      "pathHints": ["sql", "_selectable_constructors"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/sql/_selectable_constructors.py"],
+      "symbols": ["select"]
+    }
+  },
+  {
+    "id": "sqlcompiler-visit-select",
+    "question": "where does SQLAlchemy SQLCompiler render a Select statement with columns FROM clauses criteria grouping ordering and limits?",
+    "agentQuery": {
+      "terms": ["SQLCompiler.visit_select", "_compose_select_body", "render", "Select", "columns", "FROM", "criteria", "group_by", "order_by", "limit"],
+      "symbolKinds": ["method"],
+      "pathHints": ["sql", "compiler"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/sql/compiler.py"],
+      "symbols": ["SQLCompiler.visit_select", "SQLCompiler._compose_select_body"]
+    }
+  },
+  {
+    "id": "typedecorator-bind-param",
+    "question": "where does SQLAlchemy TypeDecorator let custom types process Python values before binding them to a DBAPI statement?",
+    "agentQuery": {
+      "terms": ["TypeDecorator.process_bind_param", "process_bind_param", "custom", "types", "Python", "values", "DBAPI", "bind"],
+      "symbolKinds": ["method"],
+      "pathHints": ["sql", "type_api"],
+      "excludeSupportCode": true,
+      "expand": ["parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/sql/type_api.py"],
+      "symbols": ["TypeDecorator.process_bind_param"]
+    }
+  },
+  {
+    "id": "async-session-execute",
+    "question": "where does SQLAlchemy AsyncSession execute an ORM statement by delegating through greenlet_spawn to the synchronous Session?",
+    "agentQuery": {
+      "terms": ["AsyncSession.execute", "greenlet_spawn", "Session.execute", "ORM", "statement", "async", "synchronous"],
+      "symbolKinds": ["method"],
+      "pathHints": ["ext", "asyncio", "session"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/ext/asyncio/session.py"],
+      "symbols": ["AsyncSession.execute"]
+    }
+  },
+  {
+    "id": "async-connection-run-sync",
+    "question": "where does SQLAlchemy AsyncConnection run a synchronous callable against the proxied Connection inside greenlet_spawn?",
+    "agentQuery": {
+      "terms": ["AsyncConnection.run_sync", "run_sync", "greenlet_spawn", "synchronous", "callable", "proxied", "Connection"],
+      "symbolKinds": ["method"],
+      "pathHints": ["ext", "asyncio", "engine"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/ext/asyncio/engine.py"],
+      "symbols": ["AsyncConnection.run_sync"]
+    }
+  },
+  {
+    "id": "inspection-dispatch",
+    "question": "where does SQLAlchemy inspect an object by dispatching to registered inspection functions and returning an inspector?",
+    "agentQuery": {
+      "terms": ["inspect", "inspection", "dispatch", "registered", "inspector", "_registrars"],
+      "symbolKinds": ["function"],
+      "pathHints": ["inspection"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/inspection.py"],
+      "symbols": ["inspect"]
+    }
+  },
+  {
+    "id": "event-listen-registration",
+    "question": "where does SQLAlchemy register an event listener for a target identifier function with propagate insert named once and retval options?",
+    "agentQuery": {
+      "terms": ["listen", "event", "listener", "target", "identifier", "fn", "propagate", "insert", "named", "once", "retval"],
+      "symbolKinds": ["function"],
+      "pathHints": ["event", "api"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/event/api.py"],
+      "symbols": ["listen"]
+    }
+  },
+  {
+    "id": "queuepool-checkout",
+    "question": "where does SQLAlchemy QueuePool get or create a pooled connection while handling overflow limits wait timeouts and checked out counts?",
+    "agentQuery": {
+      "terms": ["QueuePool._do_get", "_do_get", "pooled", "connection", "overflow", "timeout", "checkedout"],
+      "symbolKinds": ["method"],
+      "pathHints": ["pool", "impl"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/pool/impl.py"],
+      "symbols": ["QueuePool._do_get"]
+    }
+  }
+]

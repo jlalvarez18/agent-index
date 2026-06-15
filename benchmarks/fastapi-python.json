@@ -1,0 +1,182 @@
+[
+  {
+    "id": "app-openapi-schema",
+    "question": "where does FastAPI build and cache the OpenAPI schema for the application?",
+    "agentQuery": {
+      "terms": ["fastapi", "openapi", "schema", "cache", "application", "get_openapi"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["applications", "openapi", "utils"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/applications.py", "fastapi/openapi/utils.py"],
+      "symbols": ["FastAPI.openapi", "get_openapi"]
+    }
+  },
+  {
+    "id": "docs-routes-setup",
+    "question": "where does FastAPI setup the openapi json docs swagger ui and redoc routes?",
+    "agentQuery": {
+      "terms": ["setup", "openapi", "json", "docs", "swagger", "redoc", "routes"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["applications", "openapi", "docs"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/applications.py", "fastapi/openapi/docs.py"],
+      "symbols": ["FastAPI.setup", "get_swagger_ui_html", "get_redoc_html"]
+    }
+  },
+  {
+    "id": "app-add-api-route",
+    "question": "where does FastAPI add an API route with response model dependencies and callbacks?",
+    "agentQuery": {
+      "terms": ["add_api_route", "api", "route", "response_model", "dependencies", "callbacks"],
+      "symbolKinds": ["method"],
+      "pathHints": ["applications", "routing"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/applications.py", "fastapi/routing.py"],
+      "symbols": ["FastAPI.add_api_route", "APIRouter.add_api_route", "APIRoute.__init__"]
+    }
+  },
+  {
+    "id": "router-include-router",
+    "question": "where does FastAPI include another router with prefix tags dependencies and responses?",
+    "agentQuery": {
+      "terms": ["include_router", "router", "prefix", "tags", "dependencies", "responses"],
+      "symbolKinds": ["method"],
+      "pathHints": ["applications", "routing"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/applications.py", "fastapi/routing.py"],
+      "symbols": ["FastAPI.include_router", "APIRouter.include_router"]
+    }
+  },
+  {
+    "id": "request-handler-dependencies",
+    "question": "where does FastAPI handle a request by solving dependencies running the endpoint and serializing the response?",
+    "agentQuery": {
+      "terms": ["request", "handler", "solve_dependencies", "endpoint", "serialize_response", "response"],
+      "symbolKinds": ["function"],
+      "pathHints": ["routing", "dependencies", "utils"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/routing.py", "fastapi/dependencies/utils.py"],
+      "symbols": ["get_request_handler", "solve_dependencies", "serialize_response"]
+    }
+  },
+  {
+    "id": "serialize-response",
+    "question": "where does FastAPI validate and serialize endpoint return values into the response model?",
+    "agentQuery": {
+      "terms": ["serialize_response", "validate", "serialize", "endpoint", "return", "response_model"],
+      "symbolKinds": ["function"],
+      "pathHints": ["routing"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/routing.py"],
+      "symbols": ["serialize_response"]
+    }
+  },
+  {
+    "id": "dependency-graph",
+    "question": "where does FastAPI inspect endpoint signatures and build the dependency graph?",
+    "agentQuery": {
+      "terms": ["get_dependant", "flat_dependant", "parameterless", "endpoint", "signature", "dependency"],
+      "symbolKinds": ["function"],
+      "pathHints": ["dependencies", "utils"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/dependencies/utils.py"],
+      "symbols": ["get_dependant", "get_flat_dependant", "get_parameterless_sub_dependant"]
+    }
+  },
+  {
+    "id": "dependency-solving",
+    "question": "where does FastAPI solve dependency values request params body background tasks and dependency cache?",
+    "agentQuery": {
+      "terms": ["solve_dependencies", "dependency", "values", "request", "params", "body", "cache"],
+      "symbolKinds": ["function"],
+      "pathHints": ["dependencies", "utils"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/dependencies/utils.py"],
+      "symbols": ["solve_dependencies", "request_params_to_args", "get_body_field"]
+    }
+  },
+  {
+    "id": "jsonable-encoder",
+    "question": "where does FastAPI convert pydantic models dataclasses enums paths and collections into JSON compatible data?",
+    "agentQuery": {
+      "terms": ["jsonable_encoder", "json", "compatible", "pydantic", "dataclass", "enum", "path", "collection"],
+      "symbolKinds": ["function"],
+      "pathHints": ["encoders"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/encoders.py"],
+      "symbols": ["jsonable_encoder"]
+    }
+  },
+  {
+    "id": "exception-handlers",
+    "question": "where does FastAPI convert HTTP exceptions and request validation errors into JSON responses?",
+    "agentQuery": {
+      "terms": ["http_exception_handler", "request_validation_exception_handler", "exception", "validation", "json", "response"],
+      "symbolKinds": ["function"],
+      "pathHints": ["exception_handlers"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/exception_handlers.py"],
+      "symbols": ["http_exception_handler", "request_validation_exception_handler"]
+    }
+  },
+  {
+    "id": "http-bearer-security",
+    "question": "where does FastAPI parse HTTP bearer authorization headers and return credentials?",
+    "agentQuery": {
+      "terms": ["http", "bearer", "authorization", "credentials", "scheme", "call"],
+      "symbolKinds": ["class", "method"],
+      "pathHints": ["security", "http"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/security/http.py"],
+      "symbols": ["HTTPBearer.__call__", "HTTPAuthorizationCredentials"]
+    }
+  },
+  {
+    "id": "oauth2-password-bearer",
+    "question": "where does FastAPI read OAuth2 password bearer tokens from the Authorization header?",
+    "agentQuery": {
+      "terms": ["oauth2", "password", "bearer", "token", "authorization", "call"],
+      "symbolKinds": ["class", "method"],
+      "pathHints": ["security", "oauth2"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["fastapi/security/oauth2.py"],
+      "symbols": ["OAuth2PasswordBearer.__call__", "OAuth2"]
+    }
+  }
+]

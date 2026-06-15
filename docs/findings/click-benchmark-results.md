@@ -95,6 +95,84 @@ Avg latency: 20ms
 
 Click supports the soft-hybrid direction. Hybrid beats FTS and symbol mode on Symbol Hit@1 and Symbol Hit@5, while matching symbol mode on File Hit@5. The tradeoff is latency: FTS is much faster.
 
+## Structured Agent Query Pass
+
+Run date: 2026-06-13
+
+This pass evaluates the product-facing path: an LLM agent supplies structured `agentQuery` terms, symbol kinds, path hints, support-code filtering, and graph expansion preferences. The descriptive `question` remains in the benchmark for continuity, but `--query-style agent` does not ask `agent-index` to interpret natural language.
+
+Index command:
+
+```bash
+node dist/cli.js index /Users/juan/Repos/click --source-only --index-path /tmp/agent-index-click-structured-current.sqlite
+```
+
+Index summary:
+
+```text
+Indexed 17 files, 608 symbols, 608 chunks, 2377 edges at /tmp/agent-index-click-structured-current.sqlite (mode: source-only)
+```
+
+First structured run:
+
+```text
+Mode: hybrid
+Query style: agent
+Questions: 14
+Symbol Hit@1: 0.71
+Symbol Hit@5: 0.93
+Symbol MRR: 0.82
+File Hit@1: 0.93
+File Hit@5: 1.00
+File MRR: 0.96
+Partial file hits: 0.07
+Avg latency: 10ms
+rg-style File Hit@1: 0.57
+rg-style File Hit@5: 1.00
+rg-style File MRR: 0.77
+rg-style Avg latency: 7ms
+```
+
+The misses were useful because they were not ranking bugs in a well-formed query. They were query-shaping issues:
+
+```text
+group-decorator         top=Group.command             expected=Group.group/group/command
+option-decorator        top=command                   expected=option/_param_memo
+path-type-validation    top=Parameter.type_cast_value expected=Path.convert
+usage-formatting        top=Command.format_help       expected=HelpFormatter.write_usage/Command.format_usage
+```
+
+After source inspection, the structured queries were refined to carry more discriminating implementation terms:
+
+- `group-decorator`: removed broad `command`, leaving `group`, `decorator`, `function`.
+- `option-decorator`: replaced broad `command` with `param`, matching how decorators store option parameters.
+- `path-type-validation`: used `convert`, `readable`, and `writable` instead of generic `validate` and `parameter`.
+- `usage-formatting`: used `write`, `format`, and `line` instead of broad `help` and `output`.
+
+Final structured run:
+
+```text
+Mode: hybrid
+Query style: agent
+Questions: 14
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+Symbol MRR: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+File MRR: 1.00
+Partial file hits: 0.00
+Avg latency: 14ms
+rg-style File Hit@1: 0.64
+rg-style File Hit@5: 1.00
+rg-style File MRR: 0.79
+rg-style Avg latency: 10ms
+
+Misses: none
+```
+
+Finding: this did not justify another hidden ranking heuristic. It showed that the agent-facing query contract needs good examples and documentation. Like using `rg`, an LLM gets better results when it chooses discriminating code terms instead of forwarding every word from the user request.
+
 After the first Click baseline, the entrypoint intent trigger was narrowed so ordinary "command line value" wording no longer counts as an entrypoint query. This moved `option-value-source` from a partial file hit to a top-five exact symbol hit without changing the answer key.
 
 The next ranking pass added a small hybrid-only specificity boost for methods that already match both owner and method name. This moved `option-value-source` and `usage-formatting` to top-one exact symbol hits.

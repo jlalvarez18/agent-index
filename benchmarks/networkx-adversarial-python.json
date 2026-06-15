@@ -1,0 +1,106 @@
+[
+  {
+    "id": "flow-build-residual-network",
+    "question": "where does NetworkX build a residual network with paired reverse edges, capacities, zero flow, and simulated infinity?",
+    "expected": {
+      "files": ["networkx/algorithms/flow/utils.py"],
+      "symbols": ["build_residual_network"]
+    }
+  },
+  {
+    "id": "flow-maximum-wrapper-return",
+    "question": "where does NetworkX compute maximum_flow and return both flow_value and flow_dict?",
+    "expected": {
+      "files": ["networkx/algorithms/flow/maxflow.py"],
+      "symbols": ["maximum_flow", "maximum_flow_value"]
+    }
+  },
+  {
+    "id": "graphml-parse-string",
+    "question": "where does NetworkX parse a GraphML string into a graph object?",
+    "expected": {
+      "files": ["networkx/readwrite/graphml.py"],
+      "symbols": ["parse_graphml", "GraphMLReader.__call__", "GraphMLReader.make_graph"]
+    }
+  },
+  {
+    "id": "graphml-read-path",
+    "question": "where does NetworkX read GraphML from a path or file handle and repair an incomplete graphml header?",
+    "expected": {
+      "files": ["networkx/readwrite/graphml.py"],
+      "symbols": ["read_graphml", "GraphMLReader.__call__"]
+    }
+  },
+  {
+    "id": "shortest-path-dispatch-wrapper",
+    "question": "where does NetworkX shortest_path choose between unweighted, Dijkstra, and Bellman-Ford branches for source and target arguments?",
+    "expected": {
+      "files": ["networkx/algorithms/shortest_paths/generic.py"],
+      "symbols": ["shortest_path"]
+    }
+  },
+  {
+    "id": "dijkstra-bidirectional-specific",
+    "question": "where does NetworkX expand Dijkstra search from both source and target for a weighted shortest path?",
+    "expected": {
+      "files": ["networkx/algorithms/shortest_paths/weighted.py"],
+      "symbols": ["bidirectional_dijkstra"]
+    }
+  },
+  {
+    "id": "graph-add-single-edge",
+    "question": "where does Graph.add_edge automatically add missing nodes and update the edge attribute dictionary?",
+    "expected": {
+      "files": ["networkx/classes/graph.py"],
+      "symbols": ["Graph.add_edge"]
+    }
+  },
+  {
+    "id": "set-edge-attributes-dict",
+    "question": "where does NetworkX set edge attributes from a scalar value or an edge-keyed dictionary?",
+    "expected": {
+      "files": ["networkx/classes/function.py"],
+      "symbols": ["set_edge_attributes"]
+    }
+  },
+  {
+    "id": "path-weight-existing-path",
+    "question": "where does NetworkX sum edge weights along an existing path and raise if the path does not exist?",
+    "expected": {
+      "files": ["networkx/classes/function.py"],
+      "symbols": ["path_weight", "is_path"]
+    }
+  },
+  {
+    "id": "laplacian-unnormalized",
+    "question": "where does NetworkX compute the unnormalized graph Laplacian matrix D minus A?",
+    "expected": {
+      "files": ["networkx/linalg/laplacianmatrix.py"],
+      "symbols": ["laplacian_matrix"]
+    }
+  },
+  {
+    "id": "laplacian-directed-transition",
+    "question": "where does NetworkX compute the directed Laplacian from a transition matrix and Perron vector?",
+    "expected": {
+      "files": ["networkx/linalg/laplacianmatrix.py"],
+      "symbols": ["directed_laplacian_matrix", "_transition_matrix"]
+    }
+  },
+  {
+    "id": "gnp-quadratic-random-graph",
+    "question": "where does NetworkX choose each possible Gnp random graph edge with probability p in O n squared time?",
+    "expected": {
+      "files": ["networkx/generators/random_graphs.py"],
+      "symbols": ["gnp_random_graph"]
+    }
+  },
+  {
+    "id": "gnp-sparse-fast-random-graph",
+    "question": "where does NetworkX generate sparse Gnp random graphs in O n plus m time by skipping absent edges?",
+    "expected": {
+      "files": ["networkx/generators/random_graphs.py"],
+      "symbols": ["fast_gnp_random_graph"]
+    }
+  }
+]

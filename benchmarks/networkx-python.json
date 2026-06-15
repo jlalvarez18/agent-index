@@ -1,0 +1,219 @@
+[
+  {
+    "id": "astar-heuristic-cutoff",
+    "question": "where does NetworkX run A star shortest path search with heuristic, cutoff, and weighted edges?",
+    "agentQuery": {
+      "terms": ["astar_path", "astar_path_length", "heuristic", "cutoff", "weight", "shortest", "path"],
+      "symbolKinds": ["function"],
+      "pathHints": ["shortest_paths", "astar"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/shortest_paths/astar.py"],
+      "symbols": ["astar_path", "astar_path_length"]
+    }
+  },
+  {
+    "id": "dijkstra-multisource-core",
+    "question": "where does NetworkX implement Dijkstra shortest weighted paths from one or more sources using a heap fringe?",
+    "agentQuery": {
+      "terms": ["_dijkstra_multisource", "_dijkstra", "multi_source_dijkstra", "Dijkstra", "sources", "heap", "fringe", "weight"],
+      "symbolKinds": ["function"],
+      "pathHints": ["shortest_paths", "weighted"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/shortest_paths/weighted.py"],
+      "symbols": ["_dijkstra", "_dijkstra_multisource", "multi_source_dijkstra"]
+    }
+  },
+  {
+    "id": "bidirectional-dijkstra",
+    "question": "where does NetworkX find a weighted shortest path by expanding Dijkstra search from both source and target?",
+    "agentQuery": {
+      "terms": ["bidirectional_dijkstra", "Dijkstra", "source", "target", "weighted", "shortest", "path"],
+      "symbolKinds": ["function"],
+      "pathHints": ["shortest_paths", "weighted"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/shortest_paths/weighted.py"],
+      "symbols": ["bidirectional_dijkstra"]
+    }
+  },
+  {
+    "id": "betweenness-brandes",
+    "question": "where does NetworkX compute betweenness centrality with Brandes shortest path accumulation and rescaling?",
+    "agentQuery": {
+      "terms": ["betweenness_centrality", "Brandes", "shortest", "path", "accumulate", "rescale", "centrality"],
+      "symbolKinds": ["function"],
+      "pathHints": ["centrality", "betweenness"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/centrality/betweenness.py"],
+      "symbols": [
+        "betweenness_centrality",
+        "_single_source_shortest_path_basic",
+        "_single_source_dijkstra_path_basic",
+        "_accumulate_basic",
+        "_accumulate_endpoints",
+        "_rescale"
+      ]
+    }
+  },
+  {
+    "id": "dag-topological-generations",
+    "question": "where does NetworkX stratify a DAG into topological generations by tracking zero indegree nodes?",
+    "agentQuery": {
+      "terms": ["topological_generations", "topological_sort", "DAG", "zero", "indegree", "generations"],
+      "symbolKinds": ["function"],
+      "pathHints": ["algorithms", "dag"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/dag.py"],
+      "symbols": ["topological_generations", "topological_sort"]
+    }
+  },
+  {
+    "id": "dag-transitive-reduction",
+    "question": "where does NetworkX compute the transitive reduction of a directed acyclic graph?",
+    "agentQuery": {
+      "terms": ["transitive_reduction", "directed", "acyclic", "graph", "DAG"],
+      "symbolKinds": ["function"],
+      "pathHints": ["algorithms", "dag"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/dag.py"],
+      "symbols": ["transitive_reduction"]
+    }
+  },
+  {
+    "id": "louvain-modularity-level",
+    "question": "where does NetworkX move nodes between communities for Louvain modularity gain and build community partitions?",
+    "agentQuery": {
+      "terms": ["louvain_communities", "louvain_partitions", "_one_level", "_neighbor_weights", "modularity", "communities", "partitions"],
+      "symbolKinds": ["function"],
+      "pathHints": ["community", "louvain"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/community/louvain.py"],
+      "symbols": ["louvain_communities", "louvain_partitions", "_one_level", "_neighbor_weights"]
+    }
+  },
+  {
+    "id": "graph-add-node-edge",
+    "question": "where does the NetworkX Graph class add nodes and edges while updating attributes and adjacency dictionaries?",
+    "agentQuery": {
+      "terms": ["Graph.add_node", "Graph.add_nodes_from", "Graph.add_edge", "Graph.add_edges_from", "add node", "add edge", "adjacency", "attributes"],
+      "symbolKinds": ["method"],
+      "pathHints": ["classes", "graph"],
+      "excludeSupportCode": true,
+      "expand": ["parents"]
+    },
+    "expected": {
+      "files": ["networkx/classes/graph.py"],
+      "symbols": ["Graph", "Graph.add_node", "Graph.add_nodes_from", "Graph.add_edge", "Graph.add_edges_from"]
+    }
+  },
+  {
+    "id": "graphml-read-parse",
+    "question": "where does NetworkX read and parse GraphML into graph objects with node and edge attributes?",
+    "agentQuery": {
+      "terms": ["read_graphml", "parse_graphml", "GraphMLReader", "make_graph", "node", "edge", "attributes"],
+      "symbolKinds": ["function", "class", "method"],
+      "pathHints": ["readwrite", "graphml"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "children"]
+    },
+    "expected": {
+      "files": ["networkx/readwrite/graphml.py"],
+      "symbols": ["read_graphml", "parse_graphml", "GraphMLReader.__call__", "GraphMLReader.make_graph"]
+    }
+  },
+  {
+    "id": "random-gnp-sparse",
+    "question": "where does NetworkX generate sparse Erdos Renyi Gnp random graphs faster than checking every possible edge?",
+    "agentQuery": {
+      "terms": ["fast_gnp_random_graph", "gnp_random_graph", "sparse", "Erdos", "Renyi", "Gnp", "random", "graph"],
+      "symbolKinds": ["function"],
+      "pathHints": ["generators", "random_graphs"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/generators/random_graphs.py"],
+      "symbols": ["fast_gnp_random_graph", "gnp_random_graph"]
+    }
+  },
+  {
+    "id": "barabasi-preferential-attachment",
+    "question": "where does NetworkX grow a Barabasi Albert graph by preferentially attaching new nodes to high degree existing nodes?",
+    "agentQuery": {
+      "terms": ["barabasi_albert_graph", "_random_subset", "preferential", "attachment", "degree", "nodes"],
+      "symbolKinds": ["function"],
+      "pathHints": ["generators", "random_graphs"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/generators/random_graphs.py"],
+      "symbols": ["barabasi_albert_graph", "_random_subset"]
+    }
+  },
+  {
+    "id": "graph-isomorphism-vf2",
+    "question": "where does NetworkX test graph isomorphism with optional node and edge matching using the VF2 algorithm?",
+    "agentQuery": {
+      "terms": ["is_isomorphic", "GraphMatcher", "DiGraphMatcher", "VF2", "node_match", "edge_match", "isomorphism"],
+      "symbolKinds": ["function", "class", "method"],
+      "pathHints": ["algorithms", "isomorphism", "isomorph"],
+      "excludeSupportCode": true,
+      "expand": ["children", "callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/isomorphism/isomorph.py", "networkx/algorithms/isomorphism/isomorphvf2.py"],
+      "symbols": ["is_isomorphic", "GraphMatcher", "DiGraphMatcher", "GraphMatcher.is_isomorphic"]
+    }
+  },
+  {
+    "id": "laplacian-matrices",
+    "question": "where does NetworkX build graph Laplacian and normalized Laplacian sparse matrices from adjacency and degree data?",
+    "agentQuery": {
+      "terms": ["laplacian_matrix", "normalized_laplacian_matrix", "Laplacian", "adjacency", "degree", "sparse", "matrix"],
+      "symbolKinds": ["function"],
+      "pathHints": ["linalg", "laplacianmatrix"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/linalg/laplacianmatrix.py"],
+      "symbols": ["laplacian_matrix", "normalized_laplacian_matrix"]
+    }
+  },
+  {
+    "id": "maximum-flow-residual",
+    "question": "where does NetworkX compute maximum_flow single commodity flow and return flow_value and flow_dict?",
+    "agentQuery": {
+      "terms": ["maximum_flow", "maximum_flow_value", "flow_value", "flow_dict", "single", "commodity", "flow"],
+      "symbolKinds": ["function"],
+      "pathHints": ["algorithms", "flow", "maxflow"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["networkx/algorithms/flow/maxflow.py"],
+      "symbols": ["maximum_flow", "maximum_flow_value"]
+    }
+  }
+]

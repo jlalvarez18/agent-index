@@ -1,0 +1,242 @@
+[
+  {
+    "id": "url-reverse-public",
+    "question": "where does Django reverse a view name into a URL using urlconf args kwargs current_app and query or fragment values?",
+    "agentQuery": {
+      "terms": ["reverse", "urlconf", "args", "kwargs", "current_app", "query", "fragment", "viewname", "URL"],
+      "symbolKinds": ["function"],
+      "pathHints": ["urls", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/urls/base.py"],
+      "symbols": ["reverse"]
+    }
+  },
+  {
+    "id": "urlresolver-reverse-prefix",
+    "question": "where does Django URLResolver build candidate reversed URLs with prefix namespace converters args and kwargs?",
+    "agentQuery": {
+      "terms": ["URLResolver._reverse_with_prefix", "URLResolver.reverse", "_reverse_with_prefix", "reverse", "prefix", "namespace", "converters", "args", "kwargs"],
+      "symbolKinds": ["method"],
+      "pathHints": ["urls", "resolvers"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/urls/resolvers.py"],
+      "symbols": ["URLResolver._reverse_with_prefix", "URLResolver.reverse"]
+    }
+  },
+  {
+    "id": "regexpattern-match",
+    "question": "where does Django RegexPattern match a URL path with a regular expression and return remaining path args and kwargs?",
+    "agentQuery": {
+      "terms": ["RegexPattern.match", "RegexPattern", "match", "regex", "regular expression", "remaining path", "args", "kwargs"],
+      "symbolKinds": ["method"],
+      "pathHints": ["urls", "resolvers"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/urls/resolvers.py"],
+      "symbols": ["RegexPattern.match"]
+    }
+  },
+  {
+    "id": "queryset-get-or-create",
+    "question": "where does Django QuerySet get an existing row or create it inside an atomic block when DoesNotExist is raised?",
+    "agentQuery": {
+      "terms": ["QuerySet.get_or_create", "get_or_create", "DoesNotExist", "atomic", "create", "defaults", "kwargs", "row"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "models", "query"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/models/query.py"],
+      "symbols": ["QuerySet.get_or_create"]
+    }
+  },
+  {
+    "id": "queryset-update-or-create",
+    "question": "where does Django QuerySet update_or_create lock a row with select_for_update and apply defaults or create_defaults?",
+    "agentQuery": {
+      "terms": ["QuerySet.update_or_create", "update_or_create", "select_for_update", "create_defaults", "defaults", "lock", "atomic"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "models", "query"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/models/query.py"],
+      "symbols": ["QuerySet.update_or_create"]
+    }
+  },
+  {
+    "id": "queryset-prefetch-related",
+    "question": "where does Django QuerySet prefetch related lookups and append them without evaluating the query immediately?",
+    "agentQuery": {
+      "terms": ["QuerySet.prefetch_related", "prefetch_related", "_prefetch_related_lookups", "lookups", "append", "clone", "evaluate"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "models", "query"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/models/query.py"],
+      "symbols": ["QuerySet.prefetch_related"]
+    }
+  },
+  {
+    "id": "baseform-add-error",
+    "question": "where does Django BaseForm add field or non-field validation errors and remove cleaned_data for that field?",
+    "agentQuery": {
+      "terms": ["BaseForm.add_error", "add_error", "NON_FIELD_ERRORS", "ValidationError", "cleaned_data", "field", "errors"],
+      "symbolKinds": ["method"],
+      "pathHints": ["forms", "forms"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/forms/forms.py"],
+      "symbols": ["BaseForm.add_error"]
+    }
+  },
+  {
+    "id": "basemodelform-post-clean",
+    "question": "where does Django BaseModelForm _post_clean construct the model instance, run full_clean, and validate uniqueness?",
+    "agentQuery": {
+      "terms": ["BaseModelForm._post_clean", "_post_clean", "construct_instance", "full_clean", "validate_unique", "model instance", "uniqueness"],
+      "symbolKinds": ["method"],
+      "pathHints": ["forms", "models"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/forms/models.py"],
+      "symbols": ["BaseModelForm._post_clean"]
+    }
+  },
+  {
+    "id": "template-loader-select-template",
+    "question": "where does Django template loader select the first template that exists from a list of template names?",
+    "agentQuery": {
+      "terms": ["select_template", "template loader", "template_name_list", "get_template", "TemplateDoesNotExist", "first template"],
+      "symbolKinds": ["function"],
+      "pathHints": ["template", "loader"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/template/loader.py"],
+      "symbols": ["select_template"]
+    }
+  },
+  {
+    "id": "template-loader-render-to-string",
+    "question": "where does Django template loader render_to_string load a template with context request and return rendered text?",
+    "agentQuery": {
+      "terms": ["render_to_string", "template loader", "context", "request", "select_template", "get_template", "rendered"],
+      "symbolKinds": ["function"],
+      "pathHints": ["template", "loader"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/template/loader.py"],
+      "symbols": ["render_to_string"]
+    }
+  },
+  {
+    "id": "auth-middleware-process-request",
+    "question": "where does Django AuthenticationMiddleware process a request by requiring sessions and attaching request.user lazily?",
+    "agentQuery": {
+      "terms": ["AuthenticationMiddleware.process_request", "process_request", "request.user", "SimpleLazyObject", "get_user", "SessionMiddleware", "sessions"],
+      "symbolKinds": ["method"],
+      "pathHints": ["contrib", "auth", "middleware"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/contrib/auth/middleware.py"],
+      "symbols": ["AuthenticationMiddleware.process_request"]
+    }
+  },
+  {
+    "id": "auth-login-session-cycle-key",
+    "question": "where does Django login persist the authenticated user's id backend and hash in the session while cycling or flushing the key?",
+    "agentQuery": {
+      "terms": ["login", "user_logged_in", "rotate_token", "_set_auth_user", "SESSION_KEY", "BACKEND_SESSION_KEY", "HASH_SESSION_KEY", "_get_backend_from_user", "persist user id backend hash"],
+      "symbolKinds": ["function"],
+      "pathHints": ["contrib", "auth", "__init__"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/contrib/auth/__init__.py"],
+      "symbols": ["login"]
+    }
+  },
+  {
+    "id": "cache-get-or-set",
+    "question": "where does Django BaseCache get_or_set retrieve a cached value or add a default value with timeout and version?",
+    "agentQuery": {
+      "terms": ["BaseCache.get_or_set", "get_or_set", "add", "default", "timeout", "version", "_missing_key"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "cache", "backends", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/core/cache/backends/base.py"],
+      "symbols": ["BaseCache.get_or_set"]
+    }
+  },
+  {
+    "id": "timestamp-signer-unsign-max-age",
+    "question": "where does Django TimestampSigner unsign a signed value and reject signatures older than max_age?",
+    "agentQuery": {
+      "terms": ["TimestampSigner.unsign", "unsign", "max_age", "SignatureExpired", "timestamp", "baseconv", "age"],
+      "symbolKinds": ["method"],
+      "pathHints": ["core", "signing"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/core/signing.py"],
+      "symbols": ["TimestampSigner.unsign"]
+    }
+  },
+  {
+    "id": "transaction-atomic-context",
+    "question": "where does Django Atomic enter and exit a database transaction with savepoints commit rollback and durable checks?",
+    "agentQuery": {
+      "terms": ["Atomic.__enter__", "Atomic.__exit__", "savepoint", "commit", "rollback", "durable", "atomic", "transaction"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "transaction"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/transaction.py"],
+      "symbols": ["Atomic.__enter__", "Atomic.__exit__"]
+    }
+  },
+  {
+    "id": "migration-executor-plan",
+    "question": "where does Django MigrationExecutor build the migration plan for target nodes with forwards and backwards migrations?",
+    "agentQuery": {
+      "terms": ["MigrationExecutor.migration_plan", "migration_plan", "targets", "forwards_plan", "backwards_plan", "clean_start", "applied"],
+      "symbolKinds": ["method"],
+      "pathHints": ["db", "migrations", "executor"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["django/db/migrations/executor.py"],
+      "symbols": ["MigrationExecutor.migration_plan"]
+    }
+  }
+]

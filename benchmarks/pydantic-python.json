@@ -1,0 +1,212 @@
+[
+  {
+    "id": "base-model-validate-python",
+    "question": "where does Pydantic validate a Python object into a BaseModel with strict extra from_attributes by_alias and by_name options?",
+    "agentQuery": {
+      "terms": ["BaseModel", "model_validate", "validate_python", "strict", "extra", "from_attributes", "by_alias", "by_name"],
+      "symbolKinds": ["method"],
+      "pathHints": ["main", "pydantic"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["pydantic/main.py"],
+      "symbols": ["BaseModel.model_validate"]
+    }
+  },
+  {
+    "id": "base-model-dump-dict",
+    "question": "where does Pydantic serialize a model to a Python dict with include exclude aliases unset defaults none computed fields and round trip options?",
+    "agentQuery": {
+      "terms": ["BaseModel", "model_dump", "serialize", "dict", "include", "exclude", "by_alias", "exclude_unset", "computed_fields", "round_trip"],
+      "symbolKinds": ["method"],
+      "pathHints": ["main", "pydantic"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["pydantic/main.py"],
+      "symbols": ["BaseModel.model_dump"]
+    }
+  },
+  {
+    "id": "base-model-json-schema",
+    "question": "where does Pydantic generate JSON schema for a model with by_alias ref_template union_format schema generator and mode?",
+    "agentQuery": {
+      "terms": ["BaseModel", "model_json_schema", "json_schema", "by_alias", "ref_template", "union_format", "schema_generator", "mode"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["main", "json_schema"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["pydantic/main.py", "pydantic/json_schema.py"],
+      "symbols": ["BaseModel.model_json_schema", "model_json_schema"]
+    }
+  },
+  {
+    "id": "base-model-rebuild-forward-refs",
+    "question": "where does Pydantic rebuild a model schema using parent namespaces to resolve forward references?",
+    "agentQuery": {
+      "terms": ["BaseModel", "model_rebuild", "rebuild", "schema", "parent_namespace", "forward", "references", "complete_model_class"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["main", "_model_construction"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["pydantic/main.py", "pydantic/_internal/_model_construction.py"],
+      "symbols": ["BaseModel.model_rebuild", "complete_model_class"]
+    }
+  },
+  {
+    "id": "dynamic-create-model",
+    "question": "where does Pydantic dynamically create a BaseModel subclass from field definitions validators config base and module?",
+    "agentQuery": {
+      "terms": ["create_model", "BaseModel", "field_definitions", "validators", "config", "base", "module"],
+      "symbolKinds": ["function"],
+      "pathHints": ["main", "pydantic"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["pydantic/main.py"],
+      "symbols": ["create_model"]
+    }
+  },
+  {
+    "id": "type-adapter-validate-python",
+    "question": "where does Pydantic TypeAdapter validate a Python object with strict extra from_attributes partial validation by_alias and by_name options?",
+    "agentQuery": {
+      "terms": ["TypeAdapter", "validate_python", "strict", "extra", "from_attributes", "experimental_allow_partial", "by_alias", "by_name"],
+      "symbolKinds": ["method"],
+      "pathHints": ["type_adapter"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["pydantic/type_adapter.py"],
+      "symbols": ["TypeAdapter.validate_python"]
+    }
+  },
+  {
+    "id": "type-adapter-dump-json",
+    "question": "where does Pydantic TypeAdapter serialize an adapted instance to JSON with include exclude aliases round_trip warnings fallback and context?",
+    "agentQuery": {
+      "terms": ["TypeAdapter", "dump_json", "serialize", "json", "include", "exclude", "by_alias", "round_trip", "warnings", "fallback", "context"],
+      "symbolKinds": ["method"],
+      "pathHints": ["type_adapter"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["pydantic/type_adapter.py"],
+      "symbols": ["TypeAdapter.dump_json"]
+    }
+  },
+  {
+    "id": "field-validator-decorator",
+    "question": "where does Pydantic create field validator decorators, check field names and mode, and return a descriptor proxy?",
+    "agentQuery": {
+      "terms": ["field_validator", "decorator", "fields", "mode", "check_fields", "PydanticDescriptorProxy"],
+      "symbolKinds": ["function"],
+      "pathHints": ["functional_validators"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["pydantic/functional_validators.py"],
+      "symbols": ["field_validator"]
+    }
+  },
+  {
+    "id": "model-validator-decorator",
+    "question": "where does Pydantic create model validator decorators for before after and wrap modes and return descriptor proxy metadata?",
+    "agentQuery": {
+      "terms": ["model_validator", "decorator", "before", "after", "wrap", "PydanticDescriptorProxy", "ModelValidatorDecoratorInfo"],
+      "symbolKinds": ["function"],
+      "pathHints": ["functional_validators"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["pydantic/functional_validators.py"],
+      "symbols": ["model_validator"]
+    }
+  },
+  {
+    "id": "computed-field-decorator",
+    "question": "where does Pydantic computed_field include property and cached_property values when serializing models or dataclasses?",
+    "agentQuery": {
+      "terms": ["computed_field", "property", "cached_property", "serialize", "models", "dataclasses", "FieldInfo"],
+      "symbolKinds": ["function"],
+      "pathHints": ["fields"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["pydantic/fields.py"],
+      "symbols": ["computed_field"]
+    }
+  },
+  {
+    "id": "collect-model-fields",
+    "question": "where does Pydantic collect model fields class variables protected namespaces and evaluated annotations for a new model class?",
+    "agentQuery": {
+      "terms": ["collect_model_fields", "set_model_fields", "class_vars", "protected_namespaces", "annotations", "model_fields"],
+      "symbolKinds": ["function"],
+      "pathHints": ["_fields", "_model_construction"],
+      "excludeSupportCode": true,
+      "expand": ["callers", "callees"]
+    },
+    "expected": {
+      "files": ["pydantic/_internal/_fields.py", "pydantic/_internal/_model_construction.py"],
+      "symbols": ["collect_model_fields", "set_model_fields"]
+    }
+  },
+  {
+    "id": "complete-model-class",
+    "question": "where does Pydantic finish building a model class by generating core schema validators serializers and computed fields?",
+    "agentQuery": {
+      "terms": ["complete_model_class", "model", "class", "core_schema", "validator", "serializer", "computed_fields", "finish", "build"],
+      "symbolKinds": ["function"],
+      "pathHints": ["_model_construction"],
+      "excludeSupportCode": true,
+      "expand": ["callees"]
+    },
+    "expected": {
+      "files": ["pydantic/_internal/_model_construction.py"],
+      "symbols": ["complete_model_class"]
+    }
+  },
+  {
+    "id": "validate-call-decorator",
+    "question": "where does Pydantic validate_call wrap a function to validate arguments and optionally validate the return value?",
+    "agentQuery": {
+      "terms": ["validate_call", "ValidateCallWrapper", "function", "arguments", "validate_return", "wrapper"],
+      "symbolKinds": ["function", "class"],
+      "pathHints": ["validate_call_decorator", "_validate_call"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "children"]
+    },
+    "expected": {
+      "files": ["pydantic/validate_call_decorator.py", "pydantic/_internal/_validate_call.py"],
+      "symbols": ["validate_call", "ValidateCallWrapper"]
+    }
+  },
+  {
+    "id": "alias-path-search",
+    "question": "where does Pydantic AliasPath search a nested dictionary path and return PydanticUndefined when a key or index is missing?",
+    "agentQuery": {
+      "terms": ["AliasPath", "search_dict_for_path", "nested", "dictionary", "path", "PydanticUndefined", "missing"],
+      "symbolKinds": ["method"],
+      "pathHints": ["aliases"],
+      "excludeSupportCode": true,
+      "expand": ["parents"]
+    },
+    "expected": {
+      "files": ["pydantic/aliases.py"],
+      "symbols": ["AliasPath.search_dict_for_path"]
+    }
+  }
+]

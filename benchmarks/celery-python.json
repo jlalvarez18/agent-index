@@ -1,0 +1,242 @@
+[
+  {
+    "id": "send-task-by-name",
+    "question": "where does Celery send a task by name through the app and merge execution options before publishing?",
+    "agentQuery": {
+      "terms": ["Celery.send_task", "send_task", "task", "name", "execution", "options", "publish", "producer", "router"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/base.py"],
+      "symbols": ["Celery.send_task"]
+    }
+  },
+  {
+    "id": "task-apply-async-publish",
+    "question": "where does a Celery Task apply_async validate arguments merge execution options and publish through send_task?",
+    "agentQuery": {
+      "terms": ["Task.apply_async", "apply_async", "validate", "arguments", "execution", "options", "send_task", "publish"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "task"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/task.py"],
+      "symbols": ["Task.apply_async"]
+    }
+  },
+  {
+    "id": "task-retry-reschedule",
+    "question": "where does a Celery Task retry itself by building a retry signature and raising the Retry exception?",
+    "agentQuery": {
+      "terms": ["Task.retry", "retry", "signature", "Retry", "exception", "countdown", "eta", "reschedule"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "task"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/task.py"],
+      "symbols": ["Task.retry"]
+    }
+  },
+  {
+    "id": "amqp-v2-task-message",
+    "question": "where does Celery build the protocol v2 task message headers body callbacks errbacks and stamped headers?",
+    "agentQuery": {
+      "terms": ["AMQP.as_task_v2", "as_task_v2", "protocol", "v2", "headers", "body", "callbacks", "errbacks", "stamped_headers"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "amqp"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/amqp.py"],
+      "symbols": ["AMQP.as_task_v2"]
+    }
+  },
+  {
+    "id": "task-router-options",
+    "question": "where does Celery route a task by expanding queue destinations and merging route options?",
+    "agentQuery": {
+      "terms": ["Router.route", "Router.expand_destination", "Router.lookup_route", "route", "task", "queue", "destination", "options"],
+      "symbolKinds": ["method"],
+      "pathHints": ["app", "routes"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/app/routes.py"],
+      "symbols": ["Router.route", "Router.expand_destination", "Router.lookup_route"]
+    }
+  },
+  {
+    "id": "worker-task-message-handler",
+    "question": "where does the Celery worker receive task messages choose protocol v1 or v2 and dispatch to a strategy?",
+    "agentQuery": {
+      "terms": ["Consumer.create_task_handler", "create_task_handler", "worker", "receive", "task", "messages", "protocol", "strategy"],
+      "symbolKinds": ["method"],
+      "pathHints": ["worker", "consumer", "consumer"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/worker/consumer/consumer.py"],
+      "symbols": ["Consumer.create_task_handler"]
+    }
+  },
+  {
+    "id": "worker-start-blueprint",
+    "question": "where does the Celery worker start its blueprint and handle terminate system exit or keyboard interrupt?",
+    "agentQuery": {
+      "terms": ["WorkController.start", "start", "blueprint", "terminate", "SystemExit", "KeyboardInterrupt", "worker"],
+      "symbolKinds": ["method"],
+      "pathHints": ["worker", "worker"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/worker/worker.py"],
+      "symbols": ["WorkController.start"]
+    }
+  },
+  {
+    "id": "beat-apply-scheduled-entry",
+    "question": "where does Celery beat reserve a schedule entry evaluate args kwargs apply the task and sync the schedule?",
+    "agentQuery": {
+      "terms": ["Scheduler.apply_async", "apply_async", "reserve", "schedule", "entry", "args", "kwargs", "task", "sync"],
+      "symbolKinds": ["method"],
+      "pathHints": ["beat"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/beat.py"],
+      "symbols": ["Scheduler.apply_async"]
+    }
+  },
+  {
+    "id": "beat-service-loop",
+    "question": "where does the Celery beat service start its tick loop sleep until the next interval and sync on shutdown?",
+    "agentQuery": {
+      "terms": ["Service.start", "start", "tick", "loop", "sleep", "interval", "sync", "shutdown", "beat"],
+      "symbolKinds": ["method"],
+      "pathHints": ["beat"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/beat.py"],
+      "symbols": ["Service.start"]
+    }
+  },
+  {
+    "id": "crontab-due-check",
+    "question": "where does Celery crontab decide whether a schedule is due based on the last run time?",
+    "agentQuery": {
+      "terms": ["crontab.is_due", "is_due", "crontab", "schedule", "due", "last_run_at", "remaining_estimate"],
+      "symbolKinds": ["method"],
+      "pathHints": ["schedules"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/schedules.py"],
+      "symbols": ["crontab.is_due"]
+    }
+  },
+  {
+    "id": "signature-apply-async",
+    "question": "where does a Celery canvas Signature apply_async merge partial args kwargs options and submit the task?",
+    "agentQuery": {
+      "terms": ["Signature.apply_async", "apply_async", "partial", "args", "kwargs", "options", "submit", "task"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["Signature.apply_async"]
+    }
+  },
+  {
+    "id": "chain-apply-run",
+    "question": "where does Celery canvas chain apply_async delegate to run and execute the chain in order?",
+    "agentQuery": {
+      "terms": ["_chain.apply_async", "_chain.run", "chain", "apply_async", "run", "execute", "order"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["_chain.apply_async", "_chain.run"]
+    }
+  },
+  {
+    "id": "group-apply-async",
+    "question": "where does Celery canvas group apply_async submit a group of task signatures and return a group result?",
+    "agentQuery": {
+      "terms": ["group.apply_async", "apply_async", "group", "task", "signatures", "GroupResult", "submit"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["group.apply_async"]
+    }
+  },
+  {
+    "id": "chord-apply-async",
+    "question": "where does Celery canvas chord apply_async clone the body prepare header tasks and run the chord?",
+    "agentQuery": {
+      "terms": ["_chord.apply_async", "_chord.run", "chord", "apply_async", "clone", "body", "header", "tasks"],
+      "symbolKinds": ["method"],
+      "pathHints": ["canvas"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/canvas.py"],
+      "symbols": ["_chord.apply_async", "_chord.run"]
+    }
+  },
+  {
+    "id": "security-setup-auth-serializer",
+    "question": "where does Celery setup security by disabling insecure serializers checking auth settings and registering the auth serializer?",
+    "agentQuery": {
+      "terms": ["setup_security", "Celery.setup_security", "security", "auth", "serializer", "disable", "insecure", "register"],
+      "symbolKinds": ["function", "method"],
+      "pathHints": ["security", "app", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/security/__init__.py", "celery/app/base.py"],
+      "symbols": ["setup_security", "Celery.setup_security"]
+    }
+  },
+  {
+    "id": "backend-store-result",
+    "question": "where does a Celery result backend store task state result traceback request metadata and retry on recoverable errors?",
+    "agentQuery": {
+      "terms": ["Backend.store_result", "store_result", "result", "backend", "task", "state", "traceback", "request", "retry"],
+      "symbolKinds": ["method"],
+      "pathHints": ["backends", "base"],
+      "excludeSupportCode": true,
+      "expand": ["callees", "parents"]
+    },
+    "expected": {
+      "files": ["celery/backends/base.py"],
+      "symbols": ["Backend.store_result"]
+    }
+  }
+]

@@ -342,7 +342,66 @@ multipart-encoding      symbolRank=1     fileRank=1     top=encode_multipart_dat
 - Exact-object ordering moved HTTPX hybrid Symbol Hit@1 from `0.77` to `0.85` while preserving Symbol Hit@5 `1.00`.
 - Guarded coding-domain signals saturated the current HTTPX set at Symbol Hit@1/Hit@5 `1.00/1.00`.
 
+## Structured Agent Query vs rg-Style Baseline
+
+Run date: 2026-06-13
+
+This pass added `agentQuery` fields to all 13 HTTPX benchmark rows. The structured fields represent what an LLM agent could reasonably pass to the tool after translating the user's goal into terms, symbol kinds, path hints, support-code filtering, and graph expansion preferences.
+
+Index:
+
+```text
+node dist/cli.js index /Users/juan/Repos/httpx --source-only --index-path /tmp/agent-index-httpx-structured.sqlite
+Indexed 23 files, 544 symbols, 544 chunks, 1851 edges at /tmp/agent-index-httpx-structured.sqlite (mode: source-only)
+```
+
+Benchmark:
+
+```text
+node dist/cli.js benchmark benchmarks/httpx-python.json \
+  --target /Users/juan/Repos/httpx \
+  --index-path /tmp/agent-index-httpx-structured.sqlite \
+  --mode hybrid \
+  --query-style agent \
+  --include-rg-baseline \
+  --misses
+```
+
+`agent-index` structured query results:
+
+```text
+Questions: 13
+Symbol Hit@1: 1.00
+Symbol Hit@5: 1.00
+File Hit@1: 1.00
+File Hit@5: 1.00
+Symbol MRR: 1.00
+File MRR: 1.00
+Avg latency: 12ms
+Misses: none
+```
+
+rg-style file baseline over the same structured terms and path hints:
+
+```text
+Questions: 13
+File Hit@1: 0.31
+File Hit@5: 1.00
+File MRR: 0.60
+Avg latency: 12ms
+```
+
+Qualitative examples:
+
+- `cli-entrypoint`: structured `agent-index` returned `main` in `httpx/_main.py` at rank 1. The rg-style file baseline ranked `httpx/_client.py` first because `client`, `httpx`, and related CLI terms occur broadly there; `_main.py` was rank 2.
+- `top-level-request-api`: structured `agent-index` returned the module-level `request` function in `httpx/_api.py` at rank 1. The rg-style baseline ranked `_client.py` and `_models.py` above `_api.py` because `request` is common across the library.
+- `asgi-transport` and `wsgi-transport`: structured `agent-index` returned the transport class/method in the specific transport files at rank 1. The rg-style baseline found the correct files only at rank 3 because general `transport`, `request`, and `app` terms also heavily match `_client.py` and `_models.py`.
+- `multipart-encoding`: structured `agent-index` returned `encode_multipart_data` in `httpx/_content.py` at rank 1. The rg-style baseline ranked `_models.py` first and only found expected files at ranks 2 and 3.
+
+Interpretation: HTTPX confirms the Graphify structured-query result on a different corpus shape. `agent-index` is not winning because it understands English; it is winning because structured terms and constraints are mapped onto symbols, line ranges, and graph neighbors instead of raw file-level text counts. The remaining evidence gap is breadth: structured-vs-rg comparison should be added to more corpora before claiming general readiness.
+
 ## Next HTTPX Work
 
 - Keep HTTPX results separate from Graphify results so cross-corpus changes stay visible.
 - Expand the HTTPX question set or add a new corpus before further HTTPX-specific ranking work.
+- Add structured-agent comparison to another adversarial set or a fresh repo to test whether the rg-style baseline gap persists across more agent-shaped queries.

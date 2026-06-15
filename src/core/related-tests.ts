@@ -19,27 +19,84 @@ interface TestFileRow {
   called_names: string | null;
 }
 
+interface TestFileRowsResult {
+  rows: TestFileRow[];
+  pruned: boolean;
+}
+
 export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResult {
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
   try {
-    const rows = queryTestRows(db);
-    const matches = rows
-      .map((row) => scoreTestFile(row, options.sourceFile, options.symbol, options.terms ?? []))
-      .filter((match): match is RelatedTestMatch => match !== undefined)
-      .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file))
-      .slice(0, options.limit ?? 5);
+    let { rows, pruned } = queryTestRows(db, options);
+    let matches = scoreTestRows(rows, options);
+    if (pruned && matches.length === 0) {
+      rows = queryAllTestRows(db);
+      pruned = false;
+      matches = scoreTestRows(rows, options);
+    }
     return {
       sourceFile: normalizeSourceFile(options.sourceFile),
       symbol: options.symbol,
-      matches
+      candidateFilesScored: rows.length,
+      matches: matches.slice(0, options.limit ?? 5)
     };
   } finally {
     db.close();
   }
 }
 
-function queryTestRows(db: Database.Database): TestFileRow[] {
+function scoreTestRows(rows: TestFileRow[], options: RelatedTestsOptions): RelatedTestMatch[] {
+  return rows
+    .map((row) => scoreTestFile(row, options.sourceFile, options.symbol, options.terms ?? []))
+    .filter((match): match is RelatedTestMatch => match !== undefined)
+    .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
+}
+
+function queryTestRows(db: Database.Database, options: RelatedTestsOptions): TestFileRowsResult {
+  const candidateFilter = testCandidateSqlFilter(options);
+  const rows = db
+    .prepare(
+      `
+        with test_text as (
+          select file_id, group_concat(text, char(10)) as text
+          from chunks
+          where file_id in (select id from files where role = 'test' ${candidateFilter.sql})
+          group by file_id
+        ),
+        test_edges as (
+          select
+            s.file_id,
+            group_concat(distinct case when e.kind = 'symbol_imports_module' then e.target_name end) as imported_modules,
+            group_concat(distinct case when e.kind = 'symbol_calls_name' then e.target_name end) as called_names
+          from symbols s
+          join edges e on e.source_symbol_id = s.id
+          group by s.file_id
+        )
+        select f.path, test_text.text, test_edges.imported_modules, test_edges.called_names
+        , test_symbols.symbols
+        from files f
+        join test_text on test_text.file_id = f.id
+        left join test_edges on test_edges.file_id = f.id
+        left join (
+          select file_id, group_concat(qualified_name) as symbols
+          from symbols
+          where kind in ('function', 'method', 'class')
+          group by file_id
+        ) test_symbols on test_symbols.file_id = f.id
+        where f.role = 'test'
+        order by f.path
+        `
+    )
+    .all(candidateFilter.params) as TestFileRow[];
+
+  if (rows.length > 0) {
+    return { rows, pruned: true };
+  }
+  return { rows: queryAllTestRows(db), pruned: false };
+}
+
+function queryAllTestRows(db: Database.Database): TestFileRow[] {
   return db
     .prepare(
       `
@@ -73,6 +130,55 @@ function queryTestRows(db: Database.Database): TestFileRow[] {
         `
     )
     .all() as TestFileRow[];
+}
+
+function testCandidateSqlFilter(options: RelatedTestsOptions): { sql: string; params: Record<string, unknown> } {
+  const normalizedSource = normalizeSourceFile(options.sourceFile);
+  const sourceStem = fileStem(normalizedSource);
+  const sourceModules = moduleNamesForSource(normalizedSource);
+  const sourceTokens = pathTokens(normalizedSource).filter((token) => token.length >= 3 && !layoutStopwords.has(token));
+  const symbolLeaf = options.symbol ? normalize(options.symbol.includes(".") ? options.symbol.slice(options.symbol.lastIndexOf(".") + 1) : options.symbol) : "";
+  const terms = (options.terms ?? []).map(normalize).filter((term) => term.length >= 3);
+  const pathTokensToMatch = uniqueValues([sourceStem, symbolLeaf, ...sourceTokens, ...terms].filter((term) => term.length >= 3));
+  const clauses: string[] = [];
+  const params: Record<string, unknown> = {};
+
+  for (const [index, token] of pathTokensToMatch.entries()) {
+    const key = `candidatePath${index}`;
+    params[key] = `%${token}%`;
+    clauses.push(`lower(path) like @${key}`);
+  }
+
+  for (const [index, sourceModule] of sourceModules.entries()) {
+    const key = `candidateImport${index}`;
+    params[key] = sourceModule;
+    clauses.push(
+      `exists (
+        select 1
+        from symbols candidate_s
+        join edges candidate_e on candidate_e.source_symbol_id = candidate_s.id
+        where candidate_s.file_id = files.id
+          and candidate_e.kind = 'symbol_imports_module'
+          and replace(lower(candidate_e.target_name), '.', '') like '%' || @${key} || '%'
+      )`
+    );
+  }
+
+  if (symbolLeaf) {
+    params.candidateCall = symbolLeaf;
+    clauses.push(
+      `exists (
+        select 1
+        from symbols candidate_s
+        join edges candidate_e on candidate_e.source_symbol_id = candidate_s.id
+        where candidate_s.file_id = files.id
+          and candidate_e.kind = 'symbol_calls_name'
+          and lower(candidate_e.target_name) = @candidateCall
+      )`
+    );
+  }
+
+  return clauses.length === 0 ? { sql: "", params } : { sql: `and (${clauses.join(" or ")})`, params };
 }
 
 function scoreTestFile(

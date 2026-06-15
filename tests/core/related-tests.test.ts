@@ -74,6 +74,79 @@ def test_client_factory():
     expect(result.matches[0].why).toContain("test imports source module");
   });
 
+  test("prunes unrelated test files before scoring full text", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-pruned-candidates-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests", "client"), { recursive: true });
+    await mkdir(path.join(root, "tests", "noise"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "client.py"), "def send_redirect():\n    return 'redirect'\n");
+    await writeFile(
+      path.join(root, "tests", "client", "test_redirects.py"),
+      `from pkg import client
+
+def test_redirect_history():
+    assert client.send_redirect() == "redirect"
+`
+    );
+    for (let index = 0; index < 40; index += 1) {
+      await writeFile(
+        path.join(root, "tests", "noise", `test_noise_${index}.py`),
+        `def test_noise_${index}():
+    unrelated_payload = "${"noise ".repeat(200)}"
+    assert unrelated_payload
+`
+      );
+    }
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/client.py",
+      symbol: "send_redirect",
+      terms: ["redirect", "history"]
+    });
+
+    expect(result.candidateFilesScored).toBeLessThan(10);
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/client/test_redirects.py"
+    });
+  });
+
+  test("falls back to all tests when pruned candidates do not score", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-prune-fallback-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests", "noise"), { recursive: true });
+    await mkdir(path.join(root, "tests", "regression"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "client.py"), "def send_redirect():\n    return 'redirect'\n");
+    await writeFile(
+      path.join(root, "tests", "noise", "test_redirect_placeholder.py"),
+      `def test_placeholder():
+    assert True
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "regression", "test_behavior.py"),
+      `from pkg import client
+
+def test_history_behavior():
+    assert client.send_redirect() == "redirect"
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/client.py",
+      symbol: "send_redirect",
+      terms: ["redirect"]
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/regression/test_behavior.py"
+    });
+    expect(result.candidateFilesScored).toBeGreaterThan(1);
+  });
+
   test("uses task terms to disambiguate tests that import the same source module", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-task-terms-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

@@ -221,6 +221,41 @@ def verify_signature(payload, signature):
     expect(result.matches.map((match) => match.file)).toEqual(["pkg/algorithms/tests/test_cuts.py"]);
   });
 
+  test("can treat tokenized structured path hints as hard file-path filters", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-token-path-filter-"));
+    await mkdir(path.join(root, "pkg", "algorithms", "tests"), { recursive: true });
+    await mkdir(path.join(root, "pkg", "community", "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "algorithms", "tests", "test_cuts.py"),
+      `def test_mixing_expansion():
+    mixing_expansion_conductance_cut_size = "cuts"
+    return mixing_expansion_conductance_cut_size
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "community", "tests", "test_quality.py"),
+      `def test_community_expansion():
+    mixing_expansion_conductance_cut_size = "community"
+    return mixing_expansion_conductance_cut_size
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["mixing_expansion", "conductance", "cut_size"],
+        symbolKinds: ["function"],
+        roles: ["test"],
+        pathHints: ["algorithms cuts"],
+        pathMode: "filter",
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches.map((match) => match.file)).toEqual(["pkg/algorithms/tests/test_cuts.py"]);
+  });
+
   test("boosts tests that contain exact API evidence over generic validator noise", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-test-api-evidence-"));
     await mkdir(path.join(root, "tests", "validation"), { recursive: true });

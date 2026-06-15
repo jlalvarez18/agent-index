@@ -83,6 +83,40 @@ describe("findFileClusters", () => {
     expect(result.clusters.map((cluster) => cluster.file)).toEqual(["tests/test_cache.py"]);
   });
 
+  test("can treat tokenized structured path hints as hard file-path filters", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-token-path-filter-"));
+    await mkdir(path.join(root, "pkg", "algorithms", "tests"), { recursive: true });
+    await mkdir(path.join(root, "pkg", "community", "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "algorithms", "tests", "test_cuts.py"),
+      `def test_mixing_expansion():
+    mixing_expansion_conductance_cut_size = "cuts"
+    return mixing_expansion_conductance_cut_size
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "community", "tests", "test_quality.py"),
+      `def test_community_expansion():
+    mixing_expansion_conductance_cut_size = "community"
+    return mixing_expansion_conductance_cut_size
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["mixing_expansion", "conductance", "cut_size"],
+        symbolKinds: ["function"],
+        roles: ["test"],
+        pathHints: ["algorithms cuts"],
+        pathMode: "filter"
+      },
+      { target: root, limit: 5 }
+    );
+
+    expect(result.clusters.map((cluster) => cluster.file)).toEqual(["pkg/algorithms/tests/test_cuts.py"]);
+  });
+
   test("prefers files with broader task-term coverage over repeated partial noise", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-coverage-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

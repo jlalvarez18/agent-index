@@ -237,12 +237,24 @@ function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record
   }
 
   if (agentQuery.pathMode === "filter" && agentQuery.pathHints && agentQuery.pathHints.length > 0) {
-    const placeholders = agentQuery.pathHints.map((hint, index) => {
-      const key = `pathHint${index}`;
-      params[key] = `%${normalizePathHint(hint)}%`;
-      return `lower(f.path) like @${key}`;
+    const hintClauses = agentQuery.pathHints.flatMap((hint, hintIndex) => {
+      const tokens = normalizePathHintTokens(hint);
+      if (tokens.length === 0) {
+        return [];
+      }
+      return [
+        `(${tokens
+          .map((token, tokenIndex) => {
+            const key = `pathHint${hintIndex}_${tokenIndex}`;
+            params[key] = `%${token}%`;
+            return `lower(f.path) like @${key}`;
+          })
+          .join(" and ")})`
+      ];
     });
-    clauses.push(`and (${placeholders.join(" or ")})`);
+    if (hintClauses.length > 0) {
+      clauses.push(`and (${hintClauses.join(" or ")})`);
+    }
   }
 
   return { sql: clauses.length > 0 ? clauses.join("\n          ") : "", params };
@@ -261,8 +273,13 @@ function compactSymbolLine(row: ClusterRow): string {
   return `${row.file_path}:${row.start_line}-${row.end_line} ${row.kind} ${row.symbol_name}`;
 }
 
-function normalizePathHint(hint: string): string {
-  return hint.trim().toLowerCase().replace(/\\/gu, "/");
+function normalizePathHintTokens(hint: string): string[] {
+  return hint
+    .trim()
+    .toLowerCase()
+    .replace(/\\/gu, "/")
+    .split(/[^a-z0-9]+/u)
+    .filter((token) => token.length > 0);
 }
 
 function normalize(value: string): string {

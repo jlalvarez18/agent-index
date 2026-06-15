@@ -254,4 +254,44 @@ describe("runNavigationEval", () => {
       /behavior-only step 2 must infer related-tests symbol/
     );
   });
+
+  test("rejects behavior-only workflows that include exact target symbol terms", async () => {
+    const { root } = await fixtureProject();
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-term-fairness-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "semantic-cache-behavior-only",
+            task: "Find semantic cache source without naming the function.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["semantic", "cache", "load_value"],
+                  roles: ["source"]
+                },
+                limit: 3
+              }
+            ],
+            rgQueries: [["semantic", "cache"]],
+            expected: {
+              files: ["pkg/cache.py"],
+              symbols: ["load_value"],
+              requiredSymbols: ["load_value"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    await expect(runNavigationEval(navigationEvalPath, { target: root, mode: "hybrid" })).rejects.toThrow(
+      /behavior-only step 1 must not include exact target symbol term\(s\): load_value/
+    );
+  });
 });

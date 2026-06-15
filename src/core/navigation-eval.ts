@@ -69,6 +69,12 @@ export function validateNavigationEvalCases(cases: NavigationEvalCase[], source 
           `${navigationCase.id}: behavior-only step ${index + 1} must infer related-tests symbol from prior output, not pass explicit symbol "${step.symbol}"`
         );
       }
+      const leakedTerms = exactTargetNameTerms(navigationCase, navigationStepTerms(step));
+      if (leakedTerms.length > 0) {
+        errors.push(
+          `${navigationCase.id}: behavior-only step ${index + 1} must not include exact target symbol term(s): ${leakedTerms.join(", ")}`
+        );
+      }
     }
   }
 
@@ -79,6 +85,32 @@ export function validateNavigationEvalCases(cases: NavigationEvalCase[], source 
 
 function isBehaviorOnlyCase(navigationCase: NavigationEvalCase): boolean {
   return navigationCase.id.includes("behavior-only") || /\bwithout (?:using|naming)\b/i.test(navigationCase.task);
+}
+
+function navigationStepTerms(step: NavigationAgentStep): string[] {
+  if (step.type === "query" || step.type === "file-clusters") {
+    return step.query.terms;
+  }
+  return step.terms ?? [];
+}
+
+function exactTargetNameTerms(navigationCase: NavigationEvalCase, terms: string[]): string[] {
+  const exactNames = new Set(
+    (navigationCase.expected.requiredSymbols ?? navigationCase.expected.symbols ?? [])
+      .flatMap(targetNameVariants)
+      .filter((name) => name.length > 0)
+  );
+  return terms.filter((term) => exactNames.has(normalizeTargetName(term)));
+}
+
+function targetNameVariants(symbol: string): string[] {
+  const normalized = normalizeTargetName(symbol);
+  const parts = symbol.split(".");
+  return uniqueValues([normalized, normalizeTargetName(parts[parts.length - 1])]);
+}
+
+function normalizeTargetName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 async function runAgentIndexWorkflow(

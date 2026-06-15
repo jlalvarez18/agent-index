@@ -165,6 +165,11 @@ function scoreTestFile(
     }
   }
 
+  if (score > 0 && isExternalTestRoot(row.path)) {
+    score += 24;
+    why.push("external test root");
+  }
+
   if (score === 0) {
     return undefined;
   }
@@ -379,6 +384,11 @@ function packageLayoutTokens(file: string): string[] {
     .flatMap((part) => normalize(part).split(/\s+/))
     .filter((token) => token.length >= 3 && !layoutStopwords.has(token));
   return uniqueValues(parts);
+}
+
+function isExternalTestRoot(file: string): boolean {
+  const normalized = normalizeSourceFile(file);
+  return /^(?:tests?|integration_tests?|functional_tests?|acceptance_tests?)\//u.test(normalized);
 }
 
 const layoutStopwords = new Set([

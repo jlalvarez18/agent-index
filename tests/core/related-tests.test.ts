@@ -307,6 +307,42 @@ def test_runtime_factory(kind):
     expect(result.matches.map((match) => match.file)).not.toContain("tests/server/test_runtime_behavior.py");
   });
 
+  test("prefers external regression tests over package test helpers", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-external-root-"));
+    await mkdir(path.join(root, "pkg", "http"), { recursive: true });
+    await mkdir(path.join(root, "pkg", "test"), { recursive: true });
+    await mkdir(path.join(root, "tests", "httpwrappers"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "http", "response.py"), "def stream_response():\n    return 'streaming response'\n");
+    await writeFile(
+      path.join(root, "pkg", "test", "client.py"),
+      `from pkg.http import response
+
+def test_client_response_helper():
+    assert response.stream_response()
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "httpwrappers", "tests.py"),
+      `from pkg.http import response
+
+def test_streaming_response_cleanup():
+    assert response.stream_response() == "streaming response"
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/http/response.py",
+      terms: ["streaming", "response", "cleanup"]
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/httpwrappers/tests.py"
+    });
+    expect(result.matches[0].why).toContain("external test root");
+  });
+
   test("ignores generic mirrored layout tokens", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-layout-stopwords-"));
     await mkdir(path.join(root, "pkg", "core"), { recursive: true });

@@ -37,8 +37,8 @@ node dist/cli.js nav-eval benchmarks/navigation/pytest-behavior-navigation.json 
 
 node dist/cli.js nav-suite benchmarks/navigation/suite.json \
   --repo-root /Users/juan/Repos \
-  --index-root /tmp/agent-index-nav-suite-first-useful-context \
-  --artifacts-dir /tmp/agent-index-nav-artifacts-first-useful-context \
+  --index-root /tmp/agent-index-nav-suite-external-test-root \
+  --artifacts-dir /tmp/agent-index-nav-artifacts-external-test-root \
   --repos \
   --reindex
 ```
@@ -49,7 +49,7 @@ Multi-repo `nav-suite` result:
 
 | Repos | Cases | agent-index useful | rg broad useful | rg optimized useful | agent-index complete | rg broad complete | rg optimized complete | agent-index avg tokens | rg broad avg tokens | rg optimized avg tokens | agent wins vs broad | agent wins vs optimized |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 7 | 20 | 1.00 | 1.00 | 0.95 | 1.00 | 0.60 | 0.20 | 175 | 401,250 | 944 | 20 | 20 |
+| 7 | 20 | 1.00 | 1.00 | 1.00 | 1.00 | 0.60 | 0.25 | 175 | 401,250 | 949 | 20 | 20 |
 
 The current suite was run with `--reindex`, rebuilding:
 
@@ -67,11 +67,11 @@ Per-repo results:
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Click | 4 | 1.00 | 1.00 | 0.50 | 124 | 30,065 | 449 | 4 |
 | NetworkX | 2 | 1.00 | 1.00 | 0.50 | 93 | 472,427 | 268 | 2 |
-| Pydantic | 4 | 1.00 | 0.25 | 0.00 | 141 | 106,118 | 1,207 | 4 |
-| HTTPX | 3 | 1.00 | 0.00 | 0.00 | 185 | 48,793 | 1,417 | 3 |
-| Rich | 3 | 1.00 | 1.00 | 0.33 | 121 | 536,114 | 728 | 3 |
-| Pytest | 3 | 1.00 | 0.67 | 0.00 | 337 | 1,171,143 | 968 | 3 |
-| Django | 1 | 1.00 | 0.00 | 0.00 | 330 | 1,267,256 | 2,373 | 1 |
+| Pydantic | 4 | 1.00 | 0.25 | 0.00 | 141 | 106,118 | 1,243 | 4 |
+| HTTPX | 3 | 1.00 | 0.00 | 0.00 | 186 | 48,793 | 1,417 | 3 |
+| Rich | 3 | 1.00 | 1.00 | 0.67 | 121 | 536,114 | 721 | 3 |
+| Pytest | 3 | 1.00 | 0.67 | 0.00 | 337 | 1,171,143 | 934 | 3 |
+| Django | 1 | 1.00 | 0.00 | 0.00 | 331 | 1,267,256 | 2,456 | 1 |
 
 ## Per-Case Notes
 
@@ -94,7 +94,7 @@ Per-repo results:
 - `pytest-capture-suspend-resume-behavior-only`: 331 agent-index tokens vs 1,208,697 broad rg tokens and 920 optimized rg tokens, without naming `CaptureManager.item_capture`.
 - `pytest-marker-keyword-deselect-behavior-only`: 330 agent-index tokens vs 1,147,759 broad rg tokens and 1,013 optimized rg tokens, without naming the deselection functions.
 - `pytest-k-marker-keyword-selection-symptom`: 328 agent-index tokens vs 1,156,973 broad rg tokens and 944 optimized rg tokens, framed as surprising `-k` selection behavior rather than a direct implementation lookup.
-- `django-streaming-response-close-behavior-only`: 330 agent-index tokens vs 1,267,256 broad rg tokens and 2,373 optimized rg tokens, framed around streaming response cleanup without naming the private closer list or passing the `close` method name as a query term.
+- `django-streaming-response-close-behavior-only`: 331 agent-index tokens vs 1,267,256 broad rg tokens and 2,456 optimized rg tokens, framed around streaming response cleanup without naming the private closer list or passing the `close` method name as a query term.
 
 ## Lessons
 
@@ -103,8 +103,8 @@ Per-repo results:
 - `nav-eval` now reports required task completion in addition to first useful hit: each workflow includes found/missing required files and symbols, plus `taskComplete` and suite-level completion rates. Fixtures still keep broader `expected` files/symbols for useful-hit credit.
 - The NetworkX multi-step workflow now has `agent-index completion rate: 1.00` and `rg completion rate: 1.00`, so the token win is no longer just first-hit evidence; both workflows found the required source/test locations and symbols.
 - Click completion is 1.00 for agent-index, broad rg, and optimized rg, but agent-index uses 91 average tokens vs 25,271 broad rg tokens and 443 optimized rg tokens after adding the blind case. Pydantic exposes a mixed-language advantage: agent-index completion is 1.00 while broad rg completion is 0.33 and optimized rg completion is 0.00 because the Rust core symbol is surfaced structurally by the index.
-- `nav-suite` now runs seven real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.60 and optimized rg 0.20. Agent-index averages 175 context tokens vs 401,250 broad rg tokens and 944 optimized rg tokens, with 20 wins vs broad rg and 20 wins vs optimized rg. Adding SQLite lookup indexes kept the suite's agent-index average latency near 128ms in this run.
-- `nav-eval` and `nav-suite` now report average first-useful latency and first-useful context tokens separately from total workflow latency/context. In the current suite, agent-index finds the first useful code in 22ms and 124 tokens on average vs broad rg at 33ms and 83,413 tokens. Optimized rg reaches first useful output in 10ms and 124 tokens on successful cases, but it completes only 20% of tasks and still averages 944 total context tokens.
+- `nav-suite` now runs seven real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.60 and optimized rg 0.25. Agent-index averages 175 context tokens vs 401,250 broad rg tokens and 949 optimized rg tokens, with 20 wins vs broad rg and 20 wins vs optimized rg. Adding SQLite lookup indexes kept the suite's agent-index average latency near 132ms in this run.
+- `nav-eval` and `nav-suite` now report average first-useful latency and first-useful context tokens separately from total workflow latency/context. In the current suite, agent-index finds the first useful code in 23ms and 124 tokens on average vs broad rg at 35ms and 83,413 tokens. Optimized rg reaches first useful output in 13ms and 133 tokens on useful cases, but it completes only 25% of tasks and still averages 949 total context tokens.
 - The new `file-clusters` map view put `networkx/algorithms/cuts.py` first for weighted mixing expansion and `httpx/_client.py` first for redirect-history handling, keeping broad behavior prompts under 150 tokens before the test follow-up.
 - Path-filtered test discovery matters for keeping test-navigation output small.
 - Minimal Rust indexing is enough to make the Pydantic Rust serializer case visible to `agent-index`.
@@ -127,7 +127,7 @@ Per-repo results:
 - A fairness audit caught that some behavior-only drafts passed exact symbols into the second `related-tests` step. The HTTPX, Rich, and Pytest behavior-only cases now omit those symbols and rely on the previous map/query step to infer them. `nav-eval` also rejects behavior-only fixtures that pass explicit related-test symbols or exact target symbol names as agent-index query terms.
 - `nav-suite` can now persist `summary.json` plus per-repository JSON under an artifacts directory, so regression checks can compare full case-level evidence without scraping terminal output.
 - `nav-compare` now compares saved suite artifacts and fails on agent-index completion drops, win-count drops, total context-token increases, or first-useful context-token increases beyond an explicit allowance. It also supports opt-in latency budgets for total agent latency and time to first useful hit on stable benchmark machines.
-- Django exposed a realistic multi-step failure mode: the first `file-clusters` pass found the right source file at rank 2, but `related-tests` followed rank 1 into staticfiles tests. The basename tie-breaker moved the core response module to rank 1, after which `related-tests` found `tests/httpwrappers/tests.py` at rank 3 and the task completed.
+- Django exposed a realistic multi-step failure mode: the first `file-clusters` pass found the right source file at rank 2, but `related-tests` followed rank 1 into staticfiles tests. The basename tie-breaker moved the core response module to rank 1, and external test-root scoring now moves `tests/httpwrappers/tests.py` from related-test rank 3 to rank 1 instead of preferring framework helper modules under `django/test`.
 - Index builds now create lookup indexes for file role, chunk file id, symbol file id, and edge source symbol id, improving navigation-query latency without changing compact output or scoring semantics.
 
 ## Next Retrieval Improvements

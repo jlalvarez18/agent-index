@@ -94,5 +94,43 @@
       "requiredFiles": ["tests/test_globals.py"],
       "requiredSymbols": []
     }
+  },
+  {
+    "id": "click-no-color-source-blind",
+    "task": "Without knowing the file name, locate the default color decision point that should honor NO_COLOR.",
+    "kind": "bugfix",
+    "agentIndexQueries": [
+      {
+        "terms": ["NO_COLOR", "color", "env", "default"],
+        "symbolKinds": ["function"],
+        "roles": ["source"],
+        "expand": ["callers"],
+        "limit": 3
+      }
+    ],
+    "rgQueries": [
+      ["NO_COLOR", "color", "env", "default"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["NO_COLOR", "color", "env", "default"],
+        "paths": ["src"],
+        "globs": ["*.py"],
+        "limit": 20
+      },
+      {
+        "type": "snippets",
+        "terms": ["NO_COLOR", "color", "env", "default"],
+        "fromStep": 1,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["src/click/globals.py", "src/click/utils.py", "src/click/testing.py"],
+      "symbols": ["resolve_color_default"],
+      "requiredFiles": ["src/click/globals.py"],
+      "requiredSymbols": ["resolve_color_default"]
+    }
   }
 ]

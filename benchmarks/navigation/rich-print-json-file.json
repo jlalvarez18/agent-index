@@ -59,5 +59,66 @@
       "requiredFiles": ["rich/__init__.py", "tests/test_rich_print.py"],
       "requiredSymbols": ["print_json"]
     }
+  },
+  {
+    "id": "rich-print-json-file-blind",
+    "task": "Without knowing the implementation file, locate top-level print_json file stream support and its tests.",
+    "kind": "feature",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["print_json", "file", "stream", "sort_keys"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source"],
+          "limit": 1
+        }
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "print_json",
+        "terms": ["file", "StringIO", "print_json"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["def print_json", "print_json(", "file=", "sort_keys"],
+      ["print_json", "file", "StringIO", "test"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["def print_json", "print_json(", "file=", "sort_keys"],
+        "paths": ["rich"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["def print_json", "print_json(", "file=", "sort_keys"],
+        "fromStep": 1,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["print_json", "file", "StringIO"],
+        "paths": ["tests"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["print_json", "file", "StringIO"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["rich/__init__.py", "rich/console.py", "rich/json.py", "tests/test_rich_print.py", "tests/test_console.py"],
+      "symbols": ["print_json", "Console.print_json", "JSON.from_data", "test_rich_print_json", "test_print_json"],
+      "requiredFiles": ["rich/__init__.py", "tests/test_rich_print.py"],
+      "requiredSymbols": ["print_json"]
+    }
   }
 ]

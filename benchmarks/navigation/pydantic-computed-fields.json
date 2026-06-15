@@ -93,5 +93,42 @@
       "files": ["pydantic-core/src/serializers/computed_fields.rs"],
       "symbols": ["ComputedFields.serialize"]
     }
+  },
+  {
+    "id": "pydantic-computed-fields-rust-core-blind",
+    "task": "Without knowing the Rust file path, locate the serializer method that handles computed fields.",
+    "kind": "maintenance",
+    "agentIndexQueries": [
+      {
+        "terms": ["ComputedFields", "serialize", "computed_fields"],
+        "symbolKinds": ["method"],
+        "roles": ["source"],
+        "expand": [],
+        "limit": 3
+      }
+    ],
+    "rgQueries": [
+      ["ComputedFields", "serialize", "computed_fields"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["ComputedFields"],
+        "paths": ["pydantic-core/src"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["ComputedFields"],
+        "fromStep": 1,
+        "before": 20,
+        "after": 20,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["pydantic-core/src/serializers/computed_fields.rs"],
+      "symbols": ["ComputedFields.serialize"]
+    }
   }
 ]

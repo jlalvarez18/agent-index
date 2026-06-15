@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { compactEvidenceLine } from "./evidence.js";
 import type { AgentQuery, FileClusterMatch, FileClusterResult, FileRole, Language, SymbolKind } from "./schema.js";
 
 export interface FileClusterOptions {
@@ -29,6 +30,7 @@ interface MutableCluster {
   matchedChunks: number;
   matchedTerms: Set<string>;
   contextChars: number;
+  evidence?: string;
   symbols: FileClusterMatch["symbols"];
   why: Set<string>;
 }
@@ -95,10 +97,16 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       matchedChunks: 0,
       matchedTerms: new Set<string>(),
       contextChars: 0,
+      evidence: undefined,
       symbols: [],
       why: new Set<string>()
     };
-    cluster.score = Math.max(cluster.score, scoreRow(row, agentQuery));
+    const rowScore = scoreRow(row, agentQuery);
+    const rowEvidence = compactEvidenceLine(row.chunk_text, normalizedQueryTerms(agentQuery));
+    if (rowScore > cluster.score || !cluster.evidence) {
+      cluster.evidence = rowEvidence;
+    }
+    cluster.score = Math.max(cluster.score, rowScore);
     cluster.matchedChunks += 1;
     rowMatchedTerms(row, agentQuery).forEach((term) => cluster.matchedTerms.add(term));
     cluster.contextChars += compactSymbolLine(row).length + 1;
@@ -130,10 +138,11 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
         language: cluster.language,
         score: Number((cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost).toFixed(2)),
         matchedChunks: cluster.matchedChunks,
-        contextChars: cluster.contextChars,
-        contextTokens: approximateTokens(cluster.contextChars),
+        contextChars: cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0),
+        contextTokens: approximateTokens(cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0)),
         symbols: cluster.symbols.slice(0, 5),
-        why: [...cluster.why]
+        why: [...cluster.why],
+        evidence: cluster.evidence
       };
     })
     .sort((a, b) => b.score - a.score || b.matchedChunks - a.matchedChunks || a.file.localeCompare(b.file));

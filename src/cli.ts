@@ -471,7 +471,10 @@ function formatQueryCompact(response: QueryResponse): string {
   }
 
   return response.matches
-    .map((match, index) => `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}`)
+    .map(
+      (match, index) =>
+        `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}${formatEvidence(match.evidence)}`
+    )
     .join("\n");
 }
 
@@ -483,7 +486,7 @@ function formatFileClusters(result: FileClusterResult): string {
   return result.clusters
     .map((cluster, index) => {
       const symbols = cluster.symbols.map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
-      return `${index + 1} ${cluster.file} role=${cluster.role} score=${cluster.score} chunks=${cluster.matchedChunks} tokens=${cluster.contextTokens} symbols=${symbols} why=${cluster.why.join(", ")}`;
+      return `${index + 1} ${cluster.file} role=${cluster.role} score=${cluster.score} chunks=${cluster.matchedChunks} tokens=${cluster.contextTokens} symbols=${symbols} why=${cluster.why.join(", ")}${formatEvidence(cluster.evidence)}`;
     })
     .join("\n");
 }
@@ -727,6 +730,10 @@ function formatLatency(latencyMs: number | null): string {
 
 function formatTokens(tokens: number | null): string {
   return tokens === null ? "-" : String(Math.round(tokens));
+}
+
+function formatEvidence(evidence: string | undefined): string {
+  return evidence ? ` evidence=${JSON.stringify(evidence)}` : "";
 }
 
 function formatMention(mention: boolean | null): string {

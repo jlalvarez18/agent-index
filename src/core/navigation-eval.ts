@@ -598,7 +598,10 @@ function formatCompactMatches(matches: QueryMatch[]): string {
     return "No matches";
   }
   return matches
-    .map((match, index) => `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}`)
+    .map(
+      (match, index) =>
+        `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}${formatEvidence(match.evidence)}`
+    )
     .join("\n");
 }
 
@@ -609,7 +612,7 @@ function formatCompactClusters(clusters: FileClusterMatch[]): string {
   return clusters
     .map((cluster, index) => {
       const symbols = cluster.symbols.slice(0, 2).map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
-      return `${index + 1} ${cluster.file} role=${cluster.role} chunks=${cluster.matchedChunks} symbols=${symbols}`;
+      return `${index + 1} ${cluster.file} role=${cluster.role} chunks=${cluster.matchedChunks} symbols=${symbols}${formatEvidence(cluster.evidence)}`;
     })
     .join("\n");
 }
@@ -621,6 +624,10 @@ function formatCompactRelatedTests(matches: RelatedTestMatch[]): string {
   return matches
     .map((match, index) => `${index + 1} ${match.file}${match.firstLine === null ? "" : `:${match.firstLine}`} score=${match.score}`)
     .join("\n");
+}
+
+function formatEvidence(evidence: string | undefined): string {
+  return evidence ? ` evidence=${JSON.stringify(evidence)}` : "";
 }
 
 function formatRgFileList(files: string[]): string {

@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { compactEvidenceLine } from "./evidence.js";
 import type {
   AgentQuery,
   FileRole,
@@ -161,7 +162,7 @@ function rankRows(
   agentQuery?: AgentQuery
 ): QueryMatch[] {
   if (mode === "fts") {
-    return uniqueMatches(rows.map((row) => toPlainFtsMatch(row, debug))).slice(0, limit);
+    return uniqueMatches(rows.map((row) => toPlainFtsMatch(row, question, debug))).slice(0, limit);
   }
 
   if (mode === "hybrid") {
@@ -684,6 +685,7 @@ function toMatch(
     lines: [row.symbol_start_line, row.symbol_end_line],
     score: Number(score.toFixed(3)),
     why,
+    evidence: compactEvidenceLine(row.chunk_text, rankedQueryTokens(question)),
     neighbors,
     debug: debug ? debugForRow(row) : undefined
   };
@@ -696,7 +698,7 @@ function shouldExpandNeighbors(agentQuery: AgentQuery | undefined): boolean {
   return agentQuery.expand.length > 0;
 }
 
-function toPlainFtsMatch(row: CandidateRow, debug: boolean): QueryMatch {
+function toPlainFtsMatch(row: CandidateRow, question: string, debug: boolean): QueryMatch {
   return {
     symbol: row.qualified_name,
     kind: row.kind,
@@ -704,6 +706,7 @@ function toPlainFtsMatch(row: CandidateRow, debug: boolean): QueryMatch {
     lines: [row.symbol_start_line, row.symbol_end_line],
     score: Number((-row.rank).toFixed(3)),
     why: ["plain FTS match"],
+    evidence: compactEvidenceLine(row.chunk_text, rankedQueryTokens(question)),
     neighbors: [],
     debug: debug ? debugForRow(row) : undefined
   };

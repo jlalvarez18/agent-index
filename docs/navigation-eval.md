@@ -16,6 +16,8 @@ npm run agent-index -- nav-eval ./navigation-eval.json \
 
 Use `--json` for machine-readable results. Text and JSON output include total workflow latency, time to first useful hit, total context tokens, and context tokens up to the first useful hit. That lets the suite distinguish "when did the agent first find useful code?" from "when did the whole workflow finish?", and "how much did it read before the first useful result?" from total task-completion context.
 
+Compact `query` and `file-clusters` navigation output includes one capped `evidence="..."` line per result. Those evidence labels are counted in context-token metrics; they are meant to give agents enough confirmation to choose the next file without expanding into full snippets.
+
 ## Multi-Repo Suite
 
 Use `nav-suite` to run multiple repository fixtures and get weighted aggregate metrics:

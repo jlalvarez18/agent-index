@@ -39,6 +39,8 @@ describe("queryIndex", () => {
     });
     expect(result.matches[0].score).toBeGreaterThan(0);
     expect(result.matches[0].why).toEqual(expect.arrayContaining(["matched source text"]));
+    expect(result.matches[0].evidence).toContain("semantic_cache");
+    expect(result.matches[0].evidence?.length).toBeLessThanOrEqual(96);
     expect(result.matches[0].neighbors).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -57,6 +59,7 @@ describe("queryIndex", () => {
 
     expect(result.mode).toBe("fts");
     expect(result.matches[0].why).toEqual(["plain FTS match"]);
+    expect(result.matches[0].evidence).toContain("semantic_cache");
     expect(result.matches[0].neighbors).toEqual([]);
   });
 

@@ -64,6 +64,8 @@ describe("findFileClusters", () => {
       ])
     );
     expect(result.clusters[0].why).toEqual(expect.arrayContaining(["path hint match", "symbol name match", "role match"]));
+    expect(result.clusters[0].evidence).toContain("semantic_cache");
+    expect(result.clusters[0].evidence?.length).toBeLessThanOrEqual(96);
     expect(result.clusters[0].contextTokens).toBeLessThan(80);
   });
 
@@ -153,6 +155,7 @@ def build_manual_next_request(request):
     expect(result.clusters[0]).toMatchObject({
       file: "pkg/http/response.py"
     });
+    expect(result.clusters[0].evidence).toContain("set_streaming_iterator");
     expect(result.clusters[0].why).toContain("file name matches task terms");
   });
 });

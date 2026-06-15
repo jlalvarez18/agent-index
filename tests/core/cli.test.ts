@@ -155,7 +155,8 @@ describe("runCli", () => {
       write: (line) => output.push(line)
     });
 
-    expect(output[2].split("\n")[0]).toBe("1 pkg/cache.py:1-3 function load_value");
+    expect(output[2].split("\n")[0]).toContain("1 pkg/cache.py:1-3 function load_value evidence=");
+    expect(output[2]).toContain("semantic_cache");
     expect(output[2]).not.toContain("why");
     expect(output[2]).not.toContain("neighbors");
     expect(output[2].length).toBeLessThan(output[1].length);
@@ -200,6 +201,7 @@ describe("runCli", () => {
 
     expect(output[1]).toContain("1 pkg/cache.py role=source");
     expect(output[1]).toContain("tokens=");
+    expect(output[1]).toContain("evidence=");
     const json = JSON.parse(output[2]);
     expect(json.clusters[0]).toMatchObject({
       file: "pkg/cache.py",

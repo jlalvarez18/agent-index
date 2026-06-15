@@ -88,6 +88,7 @@ export interface QueryMatch {
   lines: [number, number];
   score: number;
   why: string[];
+  evidence?: string;
   neighbors: QueryNeighbor[];
   debug?: QueryMatchDebug;
 }
@@ -460,6 +461,7 @@ export interface FileClusterMatch {
     lines: [number, number];
   }>;
   why: string[];
+  evidence?: string;
 }
 
 export interface FileClusterResult {

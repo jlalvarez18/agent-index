@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import { stat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { extractPython } from "./extractors/python.js";
-import { scanPythonFiles } from "./scanner.js";
+import { extractRust } from "./extractors/rust.js";
+import { scanCodeFiles } from "./scanner.js";
 import type { CodeEdge, CodeSymbol, ExtractionResult, IndexStats } from "./schema.js";
 
 export interface IndexOptions {
@@ -21,8 +22,8 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
   const db = new Database(indexPath);
   try {
     createSchema(db);
-    const files = await scanPythonFiles(root, { includeSupportCode: options.includeSupportCode });
-    const extractions = files.map(extractPython);
+    const files = await scanCodeFiles(root, { includeSupportCode: options.includeSupportCode });
+    const extractions = files.map((file) => file.language === "rust" ? extractRust(file) : extractPython(file));
     const stats = writeExtractions(db, extractions);
     return { ...stats, indexPath };
   } finally {

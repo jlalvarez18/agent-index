@@ -86,6 +86,43 @@ describe("indexTarget", () => {
     ]);
   });
 
+  test("indexes Rust source files alongside Python files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-rust-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "pydantic-core", "src", "serializers"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "main.py"), "def model_dump_json():\n    return 'json'\n");
+    await writeFile(
+      path.join(root, "pydantic-core", "src", "serializers", "computed_fields.rs"),
+      `pub struct ComputedFields {}
+
+impl ComputedFields {
+    pub fn serialize(&self) {
+        exclude_computed_fields();
+    }
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("pydantic-core/src/serializers/computed_fields.rs");
+    db.close();
+
+    expect(files).toEqual([
+      { path: "pkg/main.py", language: "python" },
+      { path: "pydantic-core/src/serializers/computed_fields.rs", language: "rust" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "ComputedFields", kind: "class" },
+        { qualified_name: "ComputedFields.serialize", kind: "method" }
+      ])
+    );
+  });
+
   test("rejects a missing target before creating an index directory", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-missing-"));
     const missing = path.join(root, "missing-project");

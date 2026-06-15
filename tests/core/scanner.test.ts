@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { classifyFileRole, scanPythonFiles } from "../../src/core/scanner.js";
+import { classifyFileRole, scanCodeFiles, scanPythonFiles } from "../../src/core/scanner.js";
 
 async function fixtureDir() {
   return mkdtemp(path.join(tmpdir(), "agent-index-scanner-"));
@@ -55,6 +55,21 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("worked/demo.py")).toBe("tool");
     expect(classifyFileRole("benchmarks/bench_runtime.py")).toBe("benchmark");
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
+  });
+
+  test("can scan mixed Python and Rust source files for indexing", async () => {
+    const root = await fixtureDir();
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "core", "src"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
+    await writeFile(path.join(root, "core", "src", "serializer.rs"), "pub struct ComputedFields {}\n");
+
+    const files = await scanCodeFiles(root);
+
+    expect(files.map((file) => ({ relativePath: file.relativePath, language: file.language }))).toEqual([
+      { relativePath: "core/src/serializer.rs", language: "rust" },
+      { relativePath: "pkg/service.py", language: "python" }
+    ]);
   });
 
   test("can skip tests and tools for source-only benchmark indexing", async () => {

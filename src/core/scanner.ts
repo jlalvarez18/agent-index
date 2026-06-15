@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import type { FileRole, SourceFile } from "./schema.js";
+import type { FileRole, Language, SourceFile } from "./schema.js";
 
 const IGNORED_DIRS = new Set([
   ".git",
@@ -49,9 +49,18 @@ export interface ScanOptions {
 }
 
 export async function scanPythonFiles(target: string, options: ScanOptions = {}): Promise<SourceFile[]> {
+  return scanFiles(target, options, [".py"]);
+}
+
+export async function scanCodeFiles(target: string, options: ScanOptions = {}): Promise<SourceFile[]> {
+  return scanFiles(target, options, [".py", ".rs"]);
+}
+
+async function scanFiles(target: string, options: ScanOptions, extensions: string[]): Promise<SourceFile[]> {
   const root = path.resolve(target);
   const files: SourceFile[] = [];
   const includeSupportCode = options.includeSupportCode ?? true;
+  const extensionSet = new Set(extensions);
 
   async function visit(directory: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true });
@@ -68,7 +77,7 @@ export async function scanPythonFiles(target: string, options: ScanOptions = {})
         continue;
       }
 
-      if (!entry.isFile() || !entry.name.endsWith(".py")) {
+      if (!entry.isFile() || !extensionSet.has(path.extname(entry.name))) {
         continue;
       }
 
@@ -78,7 +87,7 @@ export async function scanPythonFiles(target: string, options: ScanOptions = {})
       files.push({
         absolutePath,
         relativePath,
-        language: "python",
+        language: languageForExtension(path.extname(entry.name)),
         role: classifyFileRole(relativePath),
         text
       });
@@ -87,6 +96,13 @@ export async function scanPythonFiles(target: string, options: ScanOptions = {})
 
   await visit(root);
   return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+}
+
+function languageForExtension(extension: string): Language {
+  if (extension === ".rs") {
+    return "rust";
+  }
+  return "python";
 }
 
 export function classifyFileRole(relativePath: string): FileRole {

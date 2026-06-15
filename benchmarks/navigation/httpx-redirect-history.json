@@ -151,36 +151,46 @@
       ["manual", "redirect", "response", "history", "preserve"],
       ["redirect", "history", "response"]
     ],
-    "rgOptimizedSteps": [
-      {
-        "type": "files",
-        "terms": ["manual", "redirect", "response", "history", "preserve"],
-        "paths": ["httpx"],
-        "globs": ["*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["manual", "redirect", "response", "history", "preserve"],
-        "fromStep": 1,
-        "before": 20,
-        "after": 10,
-        "limit": 5
-      },
-      {
-        "type": "files",
-        "terms": ["redirect", "history", "response"],
-        "paths": ["tests"],
-        "globs": ["*test*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["redirect", "history", "response"],
-        "fromStep": 3,
-        "limit": 5
-      }
-    ],
+    "searchTerms": {
+      "seed": ["manual", "redirect", "response", "history", "preserve"],
+      "forbiddenExact": ["next_request"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["manual", "redirect", "response", "history", "preserve"],
+          "scope": "source",
+          "paths": ["httpx"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["manual", "redirect", "response", "history", "preserve"],
+          "before": 20,
+          "after": 10,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["redirect", "history", "response"],
+          "scope": "test",
+          "paths": ["tests"],
+          "globs": ["*test*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["redirect", "history", "response"],
+          "limit": 5
+        }
+      ]
+    },
     "expected": {
       "files": ["httpx/_client.py", "tests/client/test_redirects.py"],
       "symbols": ["Client._send_handling_redirects", "AsyncClient._send_handling_redirects", "test_next_request_preserves_redirect_history", "test_async_next_request_preserves_redirect_history"],

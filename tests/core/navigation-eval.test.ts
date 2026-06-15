@@ -321,6 +321,73 @@ describe("runNavigationEval", () => {
     });
   });
 
+  test("does not run optimized rg refinement when snippets yield no allowed terms", async () => {
+    const { root } = await fixtureProject();
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-rg-empty-terms-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "semantic-cache-empty-rg-refinement",
+            task: "Search tests only from terms visible in source snippets.",
+            kind: "bugfix",
+            agentIndexQueries: [
+              {
+                terms: ["semantic", "cache"],
+                roles: ["source"],
+                expand: []
+              }
+            ],
+            rgQueries: [["semantic", "cache"]],
+            rgOptimizedPlan: {
+              version: 2,
+              steps: [
+                {
+                  type: "search-files",
+                  terms: ["semantic", "cache"],
+                  paths: ["pkg"],
+                  limit: 10
+                },
+                {
+                  type: "read-snippets",
+                  fromStep: 1,
+                  terms: ["semantic", "cache"],
+                  limit: 3
+                },
+                {
+                  type: "search-files-from-snippets",
+                  fromStep: 2,
+                  includeTerms: ["not_visible_in_snippets"],
+                  paths: ["tests"],
+                  limit: 10
+                }
+              ]
+            },
+            expected: {
+              files: ["pkg/cache.py", "tests/test_cache.py"],
+              symbols: ["load_value"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].rgOptimized.steps[2]).toMatchObject({
+      command: "rg --files-with-matches --color never -F --from-snippets step:2 tests | head -10",
+      contextChars: 17,
+      outputFiles: []
+    });
+  });
+
   test("rejects behavior-only workflows that pass exact related-test symbols", async () => {
     const { root } = await fixtureProject();
     const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-fairness-"));

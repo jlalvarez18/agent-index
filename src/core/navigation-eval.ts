@@ -882,6 +882,10 @@ function runRgFilesCommand(
   globs: string[] = [],
   paths: string[] = ["."]
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  if (terms.length === 0) {
+    return Promise.resolve({ stdout: "", stderr: "", exitCode: 1 });
+  }
+
   return new Promise((resolve, reject) => {
     const args = [
       "--files-with-matches",

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "pytest-capture-suspend-resume-behavior-only",
+    "task": "Find where pytest suspends and resumes stdout/stderr capture around test execution and the related tests, without naming the capture manager API.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["stdout", "stderr", "capture", "suspend", "resume"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["stdout", "stderr", "capture"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["stdout", "stderr", "capture", "suspend", "resume"],
+      ["stdout", "stderr", "capture", "test"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["stdout", "stderr", "capture", "suspend", "resume"],
+        "paths": ["src"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["stdout", "stderr", "capture", "suspend", "resume"],
+        "fromStep": 1,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["stdout", "stderr", "capture"],
+        "paths": ["testing"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["stdout", "stderr", "capture"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["src/_pytest/capture.py", "testing/test_capture.py"],
+      "symbols": ["CaptureManager.item_capture"],
+      "requiredFiles": ["src/_pytest/capture.py", "testing/test_capture.py"],
+      "requiredSymbols": ["CaptureManager.item_capture"]
+    }
+  },
+  {
+    "id": "pytest-marker-keyword-deselect-behavior-only",
+    "task": "Find where pytest applies marker and keyword expressions to deselect collected tests and the related tests, without naming the implementation functions.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["marker", "keyword", "expression", "deselect"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["keyword", "marker", "deselect"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["marker", "keyword", "expression", "deselect"],
+      ["keyword", "marker", "deselect", "test"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["marker", "keyword", "expression", "deselect"],
+        "paths": ["src"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["marker", "keyword", "expression", "deselect"],
+        "fromStep": 1,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["keyword", "marker", "deselect"],
+        "paths": ["testing"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["keyword", "marker", "deselect"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["src/_pytest/mark/__init__.py", "src/_pytest/mark/expression.py", "testing/test_mark.py", "testing/test_mark_expression.py"],
+      "symbols": ["deselect_by_keyword", "deselect_by_mark"],
+      "requiredFiles": ["src/_pytest/mark/__init__.py", "testing/test_mark.py"],
+      "requiredSymbols": ["deselect_by_keyword"]
+    }
+  }
+]

@@ -28,5 +28,11 @@
     "evalPath": "rich-print-json-file.json",
     "target": "rich",
     "mode": "hybrid"
+  },
+  {
+    "name": "pytest",
+    "evalPath": "pytest-behavior-navigation.json",
+    "target": "pytest",
+    "mode": "hybrid"
   }
 ]

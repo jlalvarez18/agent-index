@@ -551,6 +551,9 @@ function formatNavigationEval(result: NavigationEvalResult, includeCases = false
     `agent-index avg latency: ${Math.round(result.agentIndexAvgLatencyMs)}ms`,
     `rg broad avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
     `rg optimized avg latency: ${Math.round(result.rgOptimizedAvgLatencyMs)}ms`,
+    `agent-index avg first useful latency: ${Math.round(result.agentIndexAvgFirstUsefulLatencyMs)}ms`,
+    `rg broad avg first useful latency: ${Math.round(result.rgAvgFirstUsefulLatencyMs)}ms`,
+    `rg optimized avg first useful latency: ${Math.round(result.rgOptimizedAvgFirstUsefulLatencyMs)}ms`,
     `agent-index avg context tokens: ${Math.round(result.agentIndexAvgContextTokens)}`,
     `rg broad avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
     `rg optimized avg context tokens: ${Math.round(result.rgOptimizedAvgContextTokens)}`,
@@ -584,7 +587,8 @@ function formatNavigationEval(result: NavigationEvalResult, includeCases = false
           `rgOptimizedComplete=${navigationCase.rgOptimized.taskComplete ? "yes" : "no"}`,
           `agentUseful=${formatRank(navigationCase.agentIndex.firstUsefulCommand)}`,
           `rgUseful=${formatRank(navigationCase.rg.firstUsefulCommand)}`,
-          `rgOptimizedUseful=${formatRank(navigationCase.rgOptimized.firstUsefulCommand)}`
+          `rgOptimizedUseful=${formatRank(navigationCase.rgOptimized.firstUsefulCommand)}`,
+          `agentFirstUsefulMs=${formatLatency(navigationCase.agentIndex.firstUsefulLatencyMs)}`
         ].join("  ")
       )
     );
@@ -609,6 +613,9 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
     `agent-index avg latency: ${Math.round(result.agentIndexAvgLatencyMs)}ms`,
     `rg broad avg latency: ${Math.round(result.rgAvgLatencyMs)}ms`,
     `rg optimized avg latency: ${Math.round(result.rgOptimizedAvgLatencyMs)}ms`,
+    `agent-index avg first useful latency: ${Math.round(result.agentIndexAvgFirstUsefulLatencyMs)}ms`,
+    `rg broad avg first useful latency: ${Math.round(result.rgAvgFirstUsefulLatencyMs)}ms`,
+    `rg optimized avg first useful latency: ${Math.round(result.rgOptimizedAvgFirstUsefulLatencyMs)}ms`,
     `agent-index avg context tokens: ${Math.round(result.agentIndexAvgContextTokens)}`,
     `rg broad avg context tokens: ${Math.round(result.rgAvgContextTokens)}`,
     `rg optimized avg context tokens: ${Math.round(result.rgOptimizedAvgContextTokens)}`,
@@ -635,6 +642,7 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
           `rgBroadComplete=${repo.result.rgCompletionRate.toFixed(2)}`,
           `rgOptimizedComplete=${repo.result.rgOptimizedCompletionRate.toFixed(2)}`,
           `agentTokens=${Math.round(repo.result.agentIndexAvgContextTokens)}`,
+          `agentFirstUsefulMs=${Math.round(repo.result.agentIndexAvgFirstUsefulLatencyMs)}`,
           `rgBroadTokens=${Math.round(repo.result.rgAvgContextTokens)}`,
           `rgOptimizedTokens=${Math.round(repo.result.rgOptimizedAvgContextTokens)}`,
           repo.indexStats ? `indexed=${repo.indexStats.files}files/${repo.indexStats.symbols}symbols` : "indexed=prebuilt",
@@ -703,6 +711,10 @@ function formatBenchmarkMisses(result: Awaited<ReturnType<typeof runBenchmark>>)
 
 function formatRank(rank: number | null): string {
   return rank === null ? "-" : String(rank);
+}
+
+function formatLatency(latencyMs: number | null): string {
+  return latencyMs === null ? "-" : String(Math.round(latencyMs));
 }
 
 function formatMention(mention: boolean | null): string {

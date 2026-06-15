@@ -319,6 +319,7 @@ export interface NavigationEvalWorkflowResult {
   foundSymbols: string[];
   missingFiles: string[];
   missingSymbols: string[];
+  firstUsefulLatencyMs: number | null;
   latencyMs: number;
   contextChars: number;
   contextTokens: number;
@@ -358,6 +359,9 @@ export interface NavigationEvalResult {
   agentIndexAvgLatencyMs: number;
   rgAvgLatencyMs: number;
   rgOptimizedAvgLatencyMs: number;
+  agentIndexAvgFirstUsefulLatencyMs: number;
+  rgAvgFirstUsefulLatencyMs: number;
+  rgOptimizedAvgFirstUsefulLatencyMs: number;
   agentIndexAvgContextTokens: number;
   rgAvgContextTokens: number;
   rgOptimizedAvgContextTokens: number;
@@ -402,6 +406,9 @@ export interface NavigationSuiteResult {
   agentIndexAvgLatencyMs: number;
   rgAvgLatencyMs: number;
   rgOptimizedAvgLatencyMs: number;
+  agentIndexAvgFirstUsefulLatencyMs: number;
+  rgAvgFirstUsefulLatencyMs: number;
+  rgOptimizedAvgFirstUsefulLatencyMs: number;
   agentIndexAvgContextTokens: number;
   rgAvgContextTokens: number;
   rgOptimizedAvgContextTokens: number;

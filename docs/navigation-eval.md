@@ -14,7 +14,7 @@ npm run agent-index -- nav-eval ./navigation-eval.json \
   --cases
 ```
 
-Use `--json` for machine-readable results.
+Use `--json` for machine-readable results. Text and JSON output include total workflow latency and time to first useful hit, so speed can be measured as both "when did the agent first find useful code?" and "when did the whole workflow finish?"
 
 ## Multi-Repo Suite
 
@@ -62,7 +62,7 @@ npm run agent-index -- nav-compare /path/to/baseline-artifacts /tmp/agent-index-
   --max-agent-latency-increase-percent 25
 ```
 
-The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment.
+The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment. Those latency budgets guard both total agent-index latency and time to first useful hit.
 
 Relative `evalPath`, `target`, and `indexPath` values resolve relative to the manifest file.
 

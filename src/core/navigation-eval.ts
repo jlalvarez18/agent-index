@@ -372,6 +372,9 @@ function summarizeNavigationCases(caseResults: NavigationEvalCaseResult[]): Navi
     agentIndexAvgLatencyMs: ratio(caseResults.reduce((sum, result) => sum + result.agentIndex.latencyMs, 0), caseResults.length),
     rgAvgLatencyMs: ratio(caseResults.reduce((sum, result) => sum + result.rg.latencyMs, 0), caseResults.length),
     rgOptimizedAvgLatencyMs: ratio(caseResults.reduce((sum, result) => sum + result.rgOptimized.latencyMs, 0), caseResults.length),
+    agentIndexAvgFirstUsefulLatencyMs: averagePresent(caseResults.map((result) => result.agentIndex.firstUsefulLatencyMs)),
+    rgAvgFirstUsefulLatencyMs: averagePresent(caseResults.map((result) => result.rg.firstUsefulLatencyMs)),
+    rgOptimizedAvgFirstUsefulLatencyMs: averagePresent(caseResults.map((result) => result.rgOptimized.firstUsefulLatencyMs)),
     agentIndexAvgContextTokens: ratio(
       caseResults.reduce((sum, result) => sum + result.agentIndex.contextTokens, 0),
       caseResults.length
@@ -408,6 +411,7 @@ function summarizeWorkflow(steps: NavigationEvalStepResult[], navigationCase?: N
   const foundSymbols = uniqueValues(steps.flatMap((step) => step.foundSymbols));
   const missingFiles = requiredFiles.filter((file) => !foundFiles.includes(file));
   const missingSymbols = requiredSymbols.filter((symbol) => !foundSymbols.includes(symbol));
+  const firstUsefulLatencyMs = usefulIndex === -1 ? null : steps.slice(0, usefulIndex + 1).reduce((sum, step) => sum + step.latencyMs, 0);
   return {
     commands: steps.length,
     foundUseful: usefulIndex !== -1,
@@ -418,6 +422,7 @@ function summarizeWorkflow(steps: NavigationEvalStepResult[], navigationCase?: N
     foundSymbols,
     missingFiles,
     missingSymbols,
+    firstUsefulLatencyMs,
     latencyMs: steps.reduce((sum, step) => sum + step.latencyMs, 0),
     contextChars: steps.reduce((sum, step) => sum + step.contextChars, 0),
     contextTokens: steps.reduce((sum, step) => sum + step.contextTokens, 0),
@@ -471,6 +476,11 @@ function pickOptimizedRgWinner(
 
 function usefulCommand(workflow: NavigationEvalWorkflowResult): number {
   return workflow.firstUsefulCommand ?? Number.POSITIVE_INFINITY;
+}
+
+function averagePresent(values: Array<number | null>): number {
+  const present = values.filter((value): value is number => value !== null);
+  return ratio(present.reduce((sum, value) => sum + value, 0), present.length);
 }
 
 function usefulAgentMatch(matches: QueryMatch[], navigationCase: NavigationEvalCase): { rank: number; file: string; symbol: string } | undefined {

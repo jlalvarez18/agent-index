@@ -21,6 +21,9 @@ function suiteResult(overrides: Partial<NavigationSuiteResult> = {}): Navigation
     agentIndexAvgLatencyMs: 50,
     rgAvgLatencyMs: 20,
     rgOptimizedAvgLatencyMs: 15,
+    agentIndexAvgFirstUsefulLatencyMs: 30,
+    rgAvgFirstUsefulLatencyMs: 20,
+    rgOptimizedAvgFirstUsefulLatencyMs: 15,
     agentIndexAvgContextTokens: 100,
     rgAvgContextTokens: 1000,
     rgOptimizedAvgContextTokens: 300,
@@ -54,6 +57,9 @@ function suiteResult(overrides: Partial<NavigationSuiteResult> = {}): Navigation
           agentIndexAvgLatencyMs: 50,
           rgAvgLatencyMs: 20,
           rgOptimizedAvgLatencyMs: 15,
+          agentIndexAvgFirstUsefulLatencyMs: 30,
+          rgAvgFirstUsefulLatencyMs: 20,
+          rgOptimizedAvgFirstUsefulLatencyMs: 15,
           agentIndexAvgContextTokens: 100,
           rgAvgContextTokens: 1000,
           rgOptimizedAvgContextTokens: 300,
@@ -144,6 +150,22 @@ describe("compareNavigationArtifacts", () => {
       regressions: [
         expect.objectContaining({
           metric: "agentIndexAvgLatencyMs"
+        })
+      ]
+    });
+  });
+
+  test("optionally fails first-useful latency regressions", async () => {
+    const baseline = await writeSummary(suiteResult());
+    const current = await writeSummary(suiteResult({ agentIndexAvgFirstUsefulLatencyMs: 50 }));
+
+    const result = await compareNavigationArtifacts(baseline, current, { maxAgentLatencyIncreaseMs: 10 });
+
+    expect(result).toMatchObject({
+      passed: false,
+      regressions: [
+        expect.objectContaining({
+          metric: "agentIndexAvgFirstUsefulLatencyMs"
         })
       ]
     });

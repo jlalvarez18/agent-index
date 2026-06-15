@@ -126,6 +126,9 @@ describe("runNavigationSuite", () => {
       rgUsefulRate: 1,
       agentIndexCompletionRate: 1,
       rgCompletionRate: 1,
+      agentIndexAvgFirstUsefulLatencyMs: expect.any(Number),
+      rgAvgFirstUsefulLatencyMs: expect.any(Number),
+      rgOptimizedAvgFirstUsefulLatencyMs: expect.any(Number),
       agentIndexWins: 1,
       rgWins: 0
     });
@@ -169,6 +172,7 @@ describe("runNavigationSuite", () => {
       repos: 1,
       cases: 1,
       agentIndexCompletionRate: result.agentIndexCompletionRate,
+      agentIndexAvgFirstUsefulLatencyMs: result.agentIndexAvgFirstUsefulLatencyMs,
       repoResults: [
         {
           name: "fixture",

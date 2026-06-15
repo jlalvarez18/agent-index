@@ -68,6 +68,13 @@ function findNavigationRegressions(
   );
   compareTokenBudget(regressions, baseline.agentIndexAvgContextTokens, current.agentIndexAvgContextTokens, options);
   compareLatencyBudget(regressions, baseline.agentIndexAvgLatencyMs, current.agentIndexAvgLatencyMs, options);
+  compareLatencyBudget(
+    regressions,
+    baseline.agentIndexAvgFirstUsefulLatencyMs,
+    current.agentIndexAvgFirstUsefulLatencyMs,
+    options,
+    "agentIndexAvgFirstUsefulLatencyMs"
+  );
   compareRepoResults(regressions, baseline.repoResults, current.repoResults, options);
   return regressions;
 }
@@ -117,6 +124,13 @@ function compareRepoResults(
       options,
       `repo.${baselineRepo.name}.agentIndexAvgLatencyMs`
     );
+    compareLatencyBudget(
+      regressions,
+      baselineRepo.result.agentIndexAvgFirstUsefulLatencyMs,
+      currentRepo.result.agentIndexAvgFirstUsefulLatencyMs,
+      options,
+      `repo.${baselineRepo.name}.agentIndexAvgFirstUsefulLatencyMs`
+    );
   }
 }
 
@@ -158,12 +172,15 @@ function compareTokenBudget(
 
 function compareLatencyBudget(
   regressions: NavigationArtifactRegression[],
-  baseline: number,
-  current: number,
+  baseline: number | undefined,
+  current: number | undefined,
   options: NavigationArtifactCompareOptions,
   metric = "agentIndexAvgLatencyMs"
 ): void {
   if (options.maxAgentLatencyIncreaseMs === undefined && options.maxAgentLatencyIncreasePercent === undefined) {
+    return;
+  }
+  if (typeof baseline !== "number" || typeof current !== "number") {
     return;
   }
 

@@ -76,6 +76,9 @@ describe("runNavigationEval", () => {
       cases: 1,
       agentIndexUsefulRate: 1,
       rgUsefulRate: 1,
+      agentIndexAvgFirstUsefulLatencyMs: expect.any(Number),
+      rgAvgFirstUsefulLatencyMs: expect.any(Number),
+      rgOptimizedAvgFirstUsefulLatencyMs: expect.any(Number),
       agentIndexWins: 1,
       rgWins: 0
     });
@@ -92,15 +95,18 @@ describe("runNavigationEval", () => {
         missingFiles: [],
         missingSymbols: [],
         firstUsefulCommand: 1,
-        firstUsefulRank: 1
+        firstUsefulRank: 1,
+        firstUsefulLatencyMs: expect.any(Number)
       },
       rg: {
         commands: 1,
         foundUseful: true,
         taskComplete: true,
-        firstUsefulCommand: 1
+        firstUsefulCommand: 1,
+        firstUsefulLatencyMs: expect.any(Number)
       }
     });
+    expect(result.caseResults[0].agentIndex.firstUsefulLatencyMs).toBeLessThanOrEqual(result.caseResults[0].agentIndex.latencyMs);
     expect(result.caseResults[0].tokenSavings).toBeGreaterThan(0);
   });
 
@@ -187,7 +193,8 @@ describe("runNavigationEval", () => {
         foundFiles: ["pkg/cache.py", "tests/test_cache.py"],
         foundSymbols: ["load_value"],
         firstUsefulCommand: 1,
-        firstUsefulRank: 1
+        firstUsefulRank: 1,
+        firstUsefulLatencyMs: expect.any(Number)
       }
     });
     expect(result.caseResults[0].agentIndex.steps.map((step) => step.type)).toEqual(["file-clusters", "related-tests"]);

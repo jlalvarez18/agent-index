@@ -143,4 +143,61 @@ def test_client_factory():
     });
     expect(result.matches[0].why).toContain("test imports source module");
   });
+
+  test("uses fixture arguments that match the source file stem", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-fixture-stem-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "cache.py"), "def load_value(key):\n    return key\n");
+    await writeFile(
+      path.join(root, "tests", "test_runtime_behavior.py"),
+      `def test_runtime_cache(cache):
+    assert cache.load_value("x") == "x"
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_unrelated.py"),
+      `def test_unrelated(other):
+    assert other
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/cache.py"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_runtime_behavior.py",
+      firstLine: 1
+    });
+    expect(result.matches[0].why).toContain("test uses related fixture");
+  });
+
+  test("uses fixture arguments that match noun-like source symbol suffixes", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-fixture-symbol-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "factory.py"), "def create_client():\n    return object()\n");
+    await writeFile(
+      path.join(root, "tests", "test_runtime_behavior.py"),
+      `def test_runtime_client(client):
+    assert client is not None
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/factory.py",
+      symbol: "create_client"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_runtime_behavior.py",
+      firstLine: 1
+    });
+    expect(result.matches[0].why).toContain("test uses related fixture");
+  });
 });

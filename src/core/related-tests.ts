@@ -83,6 +83,7 @@ function scoreTestFile(
   const sourceTokens = pathTokens(normalizedSource);
   const normalizedTestPath = normalize(row.path);
   const normalizedText = normalize(row.text);
+  const fixtureArgs = testFixtureArgs(row.text);
   const importedModules = splitCsv(row.imported_modules).map(normalizeDottedName);
   const calledNames = splitCsv(row.called_names).map(normalize);
   const why: string[] = [];
@@ -102,6 +103,11 @@ function scoreTestFile(
   if (importsSourceModule(importedModules, sourceModules, sourceStem, normalizedText)) {
     score += 30;
     why.push("test imports source module");
+  }
+
+  if (usesRelatedFixture(fixtureArgs, sourceStem, symbol)) {
+    score += 18;
+    why.push("test uses related fixture");
   }
 
   const matchedTerms = terms.map(normalize).filter((term) => term.length >= 2 && normalizedText.includes(term));
@@ -135,7 +141,7 @@ function scoreTestFile(
     file: row.path,
     score,
     why,
-    firstLine: firstUsefulLine(row.text, sourceStem, sourceModules, symbol, terms),
+    firstLine: firstUsefulLine(row.text, sourceStem, sourceModules, symbol, terms, fixtureArgs),
     symbols: splitCsv(row.symbols)
   };
 }
@@ -145,7 +151,8 @@ function firstUsefulLine(
   sourceStem: string,
   sourceModules: string[],
   symbol: string | undefined,
-  terms: string[] = []
+  terms: string[] = [],
+  fixtureArgs: string[] = []
 ): number | null {
   const symbolLeaf = symbol ? normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol) : undefined;
   const normalizedTerms = terms.map(normalize).filter((term) => term.length >= 2);
@@ -157,10 +164,50 @@ function firstUsefulLine(
       normalizedLine.includes(sourceStem) ||
       sourceModules.some((sourceModule) => dottedLine.includes(sourceModule)) ||
       (symbolLeaf ? normalizedLine.includes(symbolLeaf) : false) ||
+      fixtureArgs.some((fixtureArg) => normalizedLine.includes(fixtureArg)) ||
       normalizedTerms.some((term) => normalizedLine.includes(term))
     );
   });
   return index === -1 ? null : index + 1;
+}
+
+function usesRelatedFixture(fixtureArgs: string[], sourceStem: string, symbol: string | undefined): boolean {
+  if (fixtureArgs.length === 0) {
+    return false;
+  }
+  const candidates = fixtureNameCandidates(sourceStem, symbol);
+  return fixtureArgs.some((fixtureArg) => candidates.includes(fixtureArg));
+}
+
+function fixtureNameCandidates(sourceStem: string, symbol: string | undefined): string[] {
+  const symbolLeaf = symbol ? normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol) : "";
+  const candidates = [sourceStem, symbolLeaf, ...nounLikeSuffixes(symbolLeaf)].filter((candidate) => candidate.length >= 3);
+  return uniqueValues(candidates);
+}
+
+function nounLikeSuffixes(symbolLeaf: string): string[] {
+  const parts = symbolLeaf.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return [];
+  }
+  const commonVerbs = new Set(["build", "create", "get", "load", "make", "new", "open", "parse", "read", "resolve"]);
+  return commonVerbs.has(parts[0]) ? [parts.slice(1).join(" ")] : [];
+}
+
+function testFixtureArgs(text: string): string[] {
+  const args: string[] = [];
+  const definitionPattern = /\bdef\s+test[\w_]*\s*\(([^)]*)\)/g;
+  for (const match of text.matchAll(definitionPattern)) {
+    args.push(...splitPythonArgs(match[1]).map(normalize));
+  }
+  return uniqueValues(args.filter((arg) => arg.length > 0 && arg !== "self" && arg !== "cls"));
+}
+
+function splitPythonArgs(args: string): string[] {
+  return args
+    .split(",")
+    .map((arg) => arg.trim().replace(/^[*/]+/u, "").replace(/\s*=.*$/u, "").replace(/\s*:.*$/u, ""))
+    .filter(Boolean);
 }
 
 function normalizeSourceFile(sourceFile: string): string {

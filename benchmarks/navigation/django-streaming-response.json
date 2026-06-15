@@ -1,0 +1,70 @@
+[
+  {
+    "id": "django-streaming-response-close-behavior-only",
+    "task": "Investigate streaming responses that use async iterators or closeable iterables: find where Django registers and runs response cleanup, plus the related streaming response tests, without naming the private closer list.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["streaming", "async", "cleanup", "iterator", "resources"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+      ["streaming", "async", "cleanup", "iterator", "resources", "test"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+        "paths": ["django"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+        "fromStep": 1,
+        "before": 20,
+        "after": 12,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["streaming", "async", "cleanup", "iterator", "resources"],
+        "paths": ["tests"],
+        "globs": ["*test*.py", "tests.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["streaming", "async", "cleanup", "iterator", "resources"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["django/http/response.py", "tests/httpwrappers/tests.py"],
+      "symbols": [
+        "HttpResponseBase.close",
+        "StreamingHttpResponse._set_streaming_content",
+        "StreamingHttpResponse.__aiter__",
+        "StreamingHttpResponseTests.test_async_streaming_response",
+        "FileCloseTests.test_streaming_response"
+      ],
+      "requiredFiles": ["django/http/response.py", "tests/httpwrappers/tests.py"],
+      "requiredSymbols": ["HttpResponseBase.close", "StreamingHttpResponse._set_streaming_content"]
+    }
+  }
+]

@@ -34,5 +34,11 @@
     "evalPath": "pytest-behavior-navigation.json",
     "target": "pytest",
     "mode": "hybrid"
+  },
+  {
+    "name": "django",
+    "evalPath": "django-streaming-response.json",
+    "target": "django",
+    "mode": "hybrid"
   }
 ]

@@ -117,4 +117,42 @@ def build_manual_next_request(request):
     });
     expect(result.clusters[0].why).toContain("broader task-term coverage");
   });
+
+  test("uses file basename task terms to break adapter-method ties", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-path-"));
+    await mkdir(path.join(root, "pkg", "contrib"), { recursive: true });
+    await mkdir(path.join(root, "pkg", "http"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "contrib", "handlers.py"),
+      `class StaticHandler:
+    async def get_response_async(self, request):
+        return request
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "http", "response.py"),
+      `class StreamingResponse:
+    async def __aiter__(self):
+        yield b""
+
+    def set_streaming_iterator(self, iterator):
+        self.iterator = iterator
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["streaming", "async", "iterator", "response"],
+        symbolKinds: ["method", "function"],
+        roles: ["source"]
+      },
+      { target: root, limit: 2 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "pkg/http/response.py"
+    });
+    expect(result.clusters[0].why).toContain("file name matches task terms");
+  });
 });

@@ -120,11 +120,15 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       if (coverageBoost > 0) {
         cluster.why.add("broader task-term coverage");
       }
+      const fileNameBoost = fileNameTermBoost(cluster.file, queryTerms);
+      if (fileNameBoost > 0) {
+        cluster.why.add("file name matches task terms");
+      }
       return {
         file: cluster.file,
         role: cluster.role,
         language: cluster.language,
-        score: Number((cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost).toFixed(2)),
+        score: Number((cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost).toFixed(2)),
         matchedChunks: cluster.matchedChunks,
         contextChars: cluster.contextChars,
         contextTokens: approximateTokens(cluster.contextChars),
@@ -188,6 +192,12 @@ function taskTermCoverageBoost(cluster: MutableCluster, queryTerms: string[]): n
 
   const completeCoverageBonus = coverage === queryTerms.length ? 4 : 0;
   return Math.min(coverage * 3 + completeCoverageBonus, 16);
+}
+
+function fileNameTermBoost(file: string, queryTerms: string[]): number {
+  const basename = normalize(path.posix.basename(file).replace(/\.[^.]+$/u, ""));
+  const matches = queryTerms.filter((term) => basename.includes(term)).length;
+  return Math.min(matches * 6, 12);
 }
 
 function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {

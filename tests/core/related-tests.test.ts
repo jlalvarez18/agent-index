@@ -200,4 +200,78 @@ def test_client_factory():
     });
     expect(result.matches[0].why).toContain("test uses related fixture");
   });
+
+  test("uses parametrized cases to disambiguate related tests", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-parametrize-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "client.py"), "def send_request():\n    return 'ok'\n");
+    await writeFile(
+      path.join(root, "tests", "test_auth.py"),
+      `from pkg import client
+
+def test_auth_flow():
+    assert client.send_request() == "ok"
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_redirects.py"),
+      `import pytest
+from pkg import client
+
+@pytest.mark.parametrize(
+    "status, expected",
+    [(302, "redirect-history"), (303, "redirect-history")],
+    ids=["redirect-history-302", "redirect-history-303"],
+)
+def test_redirect_history(status, expected):
+    assert client.send_request() == "ok"
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/client.py",
+      symbol: "send_request",
+      terms: ["redirect", "history"]
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_redirects.py",
+      firstLine: 2
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["parametrized cases match task terms", "test body matches task terms"])
+    );
+  });
+
+  test("uses parametrized cases that mention source target aliases", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-parametrize-target-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "factory.py"), "def create_client():\n    return object()\n");
+    await writeFile(
+      path.join(root, "tests", "test_factory_cases.py"),
+      `import pytest
+
+@pytest.mark.parametrize("kind", ["client", "client-alias"])
+def test_runtime_factory(kind):
+    assert kind
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/factory.py",
+      symbol: "create_client"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_factory_cases.py",
+      firstLine: 3
+    });
+    expect(result.matches[0].why).toContain("parametrized cases mention source target");
+  });
 });

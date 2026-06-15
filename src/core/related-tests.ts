@@ -84,6 +84,8 @@ function scoreTestFile(
   const normalizedTestPath = normalize(row.path);
   const normalizedText = normalize(row.text);
   const fixtureArgs = testFixtureArgs(row.text);
+  const parametrizeBlocks = testParametrizeBlocks(row.text);
+  const normalizedParametrizeText = normalize(parametrizeBlocks.join("\n"));
   const importedModules = splitCsv(row.imported_modules).map(normalizeDottedName);
   const calledNames = splitCsv(row.called_names).map(normalize);
   const why: string[] = [];
@@ -108,6 +110,17 @@ function scoreTestFile(
   if (usesRelatedFixture(fixtureArgs, sourceStem, symbol)) {
     score += 18;
     why.push("test uses related fixture");
+  }
+
+  const parametrizeTermMatches = terms.map(normalize).filter((term) => term.length >= 2 && normalizedParametrizeText.includes(term));
+  if (parametrizeTermMatches.length > 0) {
+    score += Math.min(parametrizeTermMatches.length * 12, 36);
+    why.push("parametrized cases match task terms");
+  }
+
+  if (parametrizeMentionsTarget(parametrizeBlocks, sourceStem, symbol)) {
+    score += 16;
+    why.push("parametrized cases mention source target");
   }
 
   const matchedTerms = terms.map(normalize).filter((term) => term.length >= 2 && normalizedText.includes(term));
@@ -141,7 +154,7 @@ function scoreTestFile(
     file: row.path,
     score,
     why,
-    firstLine: firstUsefulLine(row.text, sourceStem, sourceModules, symbol, terms, fixtureArgs),
+    firstLine: firstUsefulLine(row.text, sourceStem, sourceModules, symbol, terms, fixtureArgs, parametrizeBlocks),
     symbols: splitCsv(row.symbols)
   };
 }
@@ -152,10 +165,12 @@ function firstUsefulLine(
   sourceModules: string[],
   symbol: string | undefined,
   terms: string[] = [],
-  fixtureArgs: string[] = []
+  fixtureArgs: string[] = [],
+  parametrizeBlocks: string[] = []
 ): number | null {
   const symbolLeaf = symbol ? normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol) : undefined;
   const normalizedTerms = terms.map(normalize).filter((term) => term.length >= 2);
+  const normalizedParametrizeBlocks = parametrizeBlocks.map(normalize);
   const lines = text.split(/\r?\n/);
   const index = lines.findIndex((line) => {
     const normalizedLine = normalize(line);
@@ -165,10 +180,22 @@ function firstUsefulLine(
       sourceModules.some((sourceModule) => dottedLine.includes(sourceModule)) ||
       (symbolLeaf ? normalizedLine.includes(symbolLeaf) : false) ||
       fixtureArgs.some((fixtureArg) => normalizedLine.includes(fixtureArg)) ||
+      normalizedParametrizeBlocks.some(
+        (block) => normalizedLine.length > 0 && (block.includes(normalizedLine) || normalizedLine.includes("parametrize"))
+      ) ||
       normalizedTerms.some((term) => normalizedLine.includes(term))
     );
   });
   return index === -1 ? null : index + 1;
+}
+
+function parametrizeMentionsTarget(blocks: string[], sourceStem: string, symbol: string | undefined): boolean {
+  if (blocks.length === 0) {
+    return false;
+  }
+  const normalizedBlocks = normalize(blocks.join("\n"));
+  const candidates = fixtureNameCandidates(sourceStem, symbol);
+  return candidates.some((candidate) => normalizedBlocks.includes(candidate));
 }
 
 function usesRelatedFixture(fixtureArgs: string[], sourceStem: string, symbol: string | undefined): boolean {
@@ -201,6 +228,29 @@ function testFixtureArgs(text: string): string[] {
     args.push(...splitPythonArgs(match[1]).map(normalize));
   }
   return uniqueValues(args.filter((arg) => arg.length > 0 && arg !== "self" && arg !== "cls"));
+}
+
+function testParametrizeBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!lines[index].includes("parametrize")) {
+      continue;
+    }
+    const block: string[] = [];
+    for (let lineIndex = index; lineIndex < lines.length && block.length < 12; lineIndex += 1) {
+      const line = lines[lineIndex];
+      if (block.length > 0 && /^\s*(?:async\s+)?def\s+test/u.test(line)) {
+        break;
+      }
+      block.push(line);
+      if (block.length > 1 && /^\s*\)\s*$/u.test(line)) {
+        break;
+      }
+    }
+    blocks.push(block.join("\n"));
+  }
+  return blocks;
 }
 
 function splitPythonArgs(args: string): string[] {

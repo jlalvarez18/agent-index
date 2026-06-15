@@ -45,12 +45,14 @@ Then run:
 npm run agent-index -- nav-suite ./benchmarks/navigation/suite.json \
   --repo-root /path/to/local/repos \
   --index-root /tmp/agent-index-nav-suite \
+  --artifacts-dir /tmp/agent-index-nav-artifacts \
   --repos \
   --reindex
 ```
 
 Use `--reindex` when you want one command to rebuild every suite index before measuring navigation. Omit it when comparing against already-built indexes.
 Use `--repo-root` with portable suite manifests whose `target` values are repo directory names. Use `--index-root` to write generated SQLite indexes outside the evaluated repositories.
+Use `--artifacts-dir` to persist `summary.json` and one JSON file per repository under `repos/`, which makes CI comparisons and regression diffs easier than scraping terminal output.
 
 Relative `evalPath`, `target`, and `indexPath` values resolve relative to the manifest file.
 

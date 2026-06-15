@@ -255,6 +255,7 @@ describe("runCli", () => {
     const suiteRoot = await mkdtemp(path.join(tmpdir(), "agent-index-cli-navigation-suite-"));
     const suitePath = path.join(suiteRoot, "suite.json");
     const indexRoot = path.join(suiteRoot, "indexes");
+    const artifactsDir = path.join(suiteRoot, "artifacts");
     const output: string[] = [];
 
     await runCli(["index", root], { write: (line) => output.push(line) });
@@ -268,7 +269,7 @@ describe("runCli", () => {
         }
       ])
     );
-    await runCli(["nav-suite", suitePath, "--repos", "--reindex"], {
+    await runCli(["nav-suite", suitePath, "--repos", "--reindex", "--artifacts-dir", artifactsDir], {
       write: (line) => output.push(line)
     });
     await runCli(["nav-suite", suitePath, "--json"], {
@@ -288,6 +289,18 @@ describe("runCli", () => {
         cases: 1,
         agentIndexCompletionRate: 1
       }
+    });
+    const summary = JSON.parse(await readFile(path.join(artifactsDir, "summary.json"), "utf8"));
+    expect(summary).toMatchObject({
+      repos: 1,
+      repoResults: [
+        {
+          name: "fixture",
+          result: {
+            cases: 1
+          }
+        }
+      ]
     });
   });
 

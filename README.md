@@ -297,6 +297,7 @@ To run several real repos as one benchmark suite, use a manifest:
 npm run agent-index -- nav-suite ./benchmarks/navigation/suite.json \
   --repo-root /path/to/local/repos \
   --index-root /tmp/agent-index-nav-suite \
+  --artifacts-dir /tmp/agent-index-nav-artifacts \
   --repos \
   --reindex
 ```

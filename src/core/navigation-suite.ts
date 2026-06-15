@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { NavigationSuiteEntry, NavigationSuiteRepoResult, NavigationSuiteResult, QueryMode } from "./schema.js";
 import { indexTarget } from "./indexer.js";
@@ -9,6 +9,7 @@ export interface NavigationSuiteOptions {
   reindex?: boolean;
   repoRoot?: string;
   indexRoot?: string;
+  artifactsDir?: string;
 }
 
 export async function runNavigationSuite(
@@ -32,7 +33,26 @@ export async function runNavigationSuite(
     repoResults.push({ ...resolvedEntry, indexPath: indexStats?.indexPath ?? resolvedEntry.indexPath, indexStats, result });
   }
 
-  return summarizeSuite(repoResults);
+  const suiteResult = summarizeSuite(repoResults);
+  if (options.artifactsDir) {
+    await writeNavigationSuiteArtifacts(suiteResult, options.artifactsDir);
+  }
+  return suiteResult;
+}
+
+async function writeNavigationSuiteArtifacts(result: NavigationSuiteResult, artifactsDir: string): Promise<void> {
+  await mkdir(artifactsDir, { recursive: true });
+  await writeJsonArtifact(path.join(artifactsDir, "summary.json"), result);
+
+  const reposDir = path.join(artifactsDir, "repos");
+  await mkdir(reposDir, { recursive: true });
+  for (const repo of result.repoResults) {
+    await writeJsonArtifact(path.join(reposDir, `${safeIndexName(repo.name)}.json`), repo);
+  }
+}
+
+async function writeJsonArtifact(filePath: string, value: unknown): Promise<void> {
+  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 function resolveSuiteEntry(

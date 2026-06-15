@@ -283,6 +283,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--reindex", "rebuild each suite entry index before running navigation evals")
     .option("--repo-root <path>", "resolve relative suite targets under this local repository root")
     .option("--index-root <path>", "write default suite index files under this directory")
+    .option("--artifacts-dir <path>", "write navigation suite summary and per-repository JSON artifacts")
     .option("--json", "write full navigation suite result as JSON")
     .option("--repos", "append per-repository results to text output")
     .action(
@@ -293,6 +294,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           reindex?: boolean;
           repoRoot?: string;
           indexRoot?: string;
+          artifactsDir?: string;
           json?: boolean;
           repos?: boolean;
         }
@@ -301,7 +303,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           mode: options.mode ? parseMode(options.mode) : undefined,
           reindex: Boolean(options.reindex),
           repoRoot: options.repoRoot,
-          indexRoot: options.indexRoot
+          indexRoot: options.indexRoot,
+          artifactsDir: options.artifactsDir
         });
         io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationSuite(result, Boolean(options.repos)));
       }

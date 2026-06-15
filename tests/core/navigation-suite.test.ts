@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -154,6 +154,49 @@ describe("runNavigationSuite", () => {
     expect(result).toMatchObject({
       cases: 1,
       agentIndexCompletionRate: 1
+    });
+  });
+
+  test("writes summary and per-repository JSON artifacts", async () => {
+    const manifestPath = await fixtureSuite();
+    const artifactsDir = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-suite-artifacts-"));
+
+    const result = await runNavigationSuite(manifestPath, { artifactsDir });
+    const summary = JSON.parse(await readFile(path.join(artifactsDir, "summary.json"), "utf8"));
+    const repo = JSON.parse(await readFile(path.join(artifactsDir, "repos", "fixture.json"), "utf8"));
+
+    expect(summary).toMatchObject({
+      repos: 1,
+      cases: 1,
+      agentIndexCompletionRate: result.agentIndexCompletionRate,
+      repoResults: [
+        {
+          name: "fixture",
+          result: {
+            cases: 1,
+            caseResults: [
+              {
+                id: "semantic-cache",
+                winner: "agent-index"
+              }
+            ]
+          }
+        }
+      ]
+    });
+    expect(repo).toMatchObject({
+      name: "fixture",
+      result: {
+        cases: 1,
+        caseResults: [
+          {
+            id: "semantic-cache",
+            agentIndex: {
+              taskComplete: true
+            }
+          }
+        ]
+      }
     });
   });
 });

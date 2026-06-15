@@ -30,7 +30,7 @@ export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResu
   try {
     let { rows, pruned } = queryTestRows(db, options);
     let matches = scoreTestRows(rows, options);
-    if (pruned && matches.length === 0) {
+    if (pruned && matches.length < (options.limit ?? 5)) {
       rows = queryAllTestRows(db);
       pruned = false;
       matches = scoreTestRows(rows, options);
@@ -136,10 +136,9 @@ function testCandidateSqlFilter(options: RelatedTestsOptions): { sql: string; pa
   const normalizedSource = normalizeSourceFile(options.sourceFile);
   const sourceStem = fileStem(normalizedSource);
   const sourceModules = moduleNamesForSource(normalizedSource);
-  const sourceTokens = pathTokens(normalizedSource).filter((token) => token.length >= 3 && !layoutStopwords.has(token));
+  const sourceTokens = candidateSourcePathTokens(normalizedSource);
   const symbolLeaf = options.symbol ? normalize(options.symbol.includes(".") ? options.symbol.slice(options.symbol.lastIndexOf(".") + 1) : options.symbol) : "";
-  const terms = (options.terms ?? []).map(normalize).filter((term) => term.length >= 3);
-  const pathTokensToMatch = uniqueValues([sourceStem, symbolLeaf, ...sourceTokens, ...terms].filter((term) => term.length >= 3));
+  const pathTokensToMatch = uniqueValues([sourceStem, ...sourceTokens].filter((term) => term.length >= 3));
   const clauses: string[] = [];
   const params: Record<string, unknown> = {};
 
@@ -475,6 +474,11 @@ function calledNamesFromText(text: string): string[] {
 
 function pathTokens(file: string): string[] {
   return normalize(file).split(/\s+/).filter(Boolean);
+}
+
+function candidateSourcePathTokens(sourceFile: string): string[] {
+  const tokens = pathTokens(sourceFile).filter((token) => token.length >= 3 && !layoutStopwords.has(token));
+  return uniqueValues(tokens.slice(1));
 }
 
 function mirroredPackageLayoutTokens(sourceFile: string, testFile: string): string[] {

@@ -103,12 +103,51 @@ def test_redirect_history():
       target: root,
       sourceFile: "pkg/client.py",
       symbol: "send_redirect",
-      terms: ["redirect", "history"]
+      terms: ["redirect", "history"],
+      limit: 1
     });
 
     expect(result.candidateFilesScored).toBeLessThan(10);
     expect(result.matches[0]).toMatchObject({
       file: "tests/client/test_redirects.py"
+    });
+  });
+
+  test("does not let broad task terms or package roots flood candidate tests", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-broad-path-prune-"));
+    await mkdir(path.join(root, "networkx", "classes"), { recursive: true });
+    await mkdir(path.join(root, "networkx", "classes", "tests"), { recursive: true });
+    await mkdir(path.join(root, "networkx", "algorithms", "tests"), { recursive: true });
+    await writeFile(path.join(root, "networkx", "classes", "function.py"), "def path_weight():\n    return 1\n");
+    await writeFile(
+      path.join(root, "networkx", "classes", "tests", "test_function.py"),
+      `from networkx.classes import function
+
+def test_pathweight():
+    assert function.path_weight() == 1
+`
+    );
+    for (let index = 0; index < 30; index += 1) {
+      await writeFile(
+        path.join(root, "networkx", "algorithms", "tests", `test_weight_path_${index}.py`),
+        `def test_weight_path_${index}():
+    assert "path weight default"
+`
+      );
+    }
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "networkx/classes/function.py",
+      symbol: "path_weight",
+      terms: ["path", "cost", "edge", "weight", "missing", "default", "invalid"],
+      limit: 1
+    });
+
+    expect(result.candidateFilesScored).toBeLessThan(5);
+    expect(result.matches[0]).toMatchObject({
+      file: "networkx/classes/tests/test_function.py"
     });
   });
 

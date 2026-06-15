@@ -2,7 +2,7 @@
 
 `agent-index` is a TypeScript/Node prototype for local, symbol-first code search by LLM agents.
 
-The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, stored in a local SQLite/FTS5 index, queried with lexical, symbol, or hybrid ranking, and evaluated with golden benchmark cases. The product model is that the LLM translates user intent into explicit search terms and constraints; `agent-index` is the fast code map, not an embedded LLM.
+The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, Rust files get minimal line-based symbol extraction for mixed repos, results are stored in a local SQLite/FTS5 index, queried with lexical, symbol, or hybrid ranking, and evaluated with golden benchmark cases. The product model is that the LLM translates user intent into explicit search terms and constraints; `agent-index` is the fast code map, not an embedded LLM.
 
 Think of it as a library catalog for code. Plain text search finds pages with matching words; `agent-index` tries to return the function, class, file, and nearby code relationships that make those pages useful to a coding agent.
 
@@ -34,7 +34,7 @@ Current benchmark shape, using hybrid mode:
 
 These numbers are useful, but not final product claims. The current golden sets are small, answer keys were source-audited, and ranking still uses hand-built query-intent rules. The current corpus suite is now saturated, which is good dogfood evidence but weak discovery pressure. The next retrieval evidence should come from a harder golden set or another larger corpus.
 
-Structured agent-query checks now compare `agent-index` against an rg-style file baseline over the same agent-supplied terms:
+Structured agent-query checks compare `agent-index` against an rg-style file baseline over the same agent-supplied terms. The benchmark command can also run a real `rg` command baseline with `--baseline command` and report approximate context-token payloads for both sides.
 
 | Corpus | Questions | agent-index Symbol Hit@1 | agent-index File Hit@1 | rg-style File Hit@1 | rg-style File Hit@5 |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -186,6 +186,7 @@ Agent query guidance:
 - Use discriminating implementation terms the code is likely to contain, not every word from the user request.
 - Prefer exact API nouns and verbs when the agent can infer them: `Path`, `convert`, `readable`, `writable` is better than broad words like `validate` and `parameter`.
 - Put directory/module clues in `pathHints` instead of repeating them as vague search terms.
+- Use `--path-filter` when a path clue is meant to be a hard file-path constraint, for example after a source hit reveals the likely test file or directory.
 - Use `--role source` for implementation-only search on an all-files index, and `--role test` when looking for tests.
 - Use `symbolKinds` to remove whole classes of noise when the task is clearly about a function, method, or class.
 - Use `--exclude-support-code` for legacy edit-location searches when no explicit `--role` is provided. Do not combine it with `--role`.
@@ -206,7 +207,14 @@ Free-text lexical query remains available for debugging and human convenience:
 npm run agent-index -- query "where is the command entrypoint handled?" --target /path/to/python/repo
 ```
 
-The query command returns JSON with ranked matches, line ranges, scores, reasons, and nearby graph context.
+The query command returns JSON with ranked matches, line ranges, scores, reasons, and nearby graph context. For lower-token agent navigation, use compact output:
+
+```bash
+npm run agent-index -- query "where is semantic cache loaded?" \
+  --target /path/to/python/repo \
+  --mode hybrid \
+  --format compact
+```
 
 By default, `query` uses `symbol` mode. You can inspect the other ranking modes with:
 
@@ -257,6 +265,19 @@ npm run agent-index -- benchmark ./benchmarks/graphify-python.json \
   --query-style agent \
   --include-rg-baseline
 ```
+
+For a real `rg` command baseline, add `--baseline command`:
+
+```bash
+npm run agent-index -- benchmark ./benchmarks/graphify-python.json \
+  --target /path/to/graphify \
+  --mode hybrid \
+  --query-style agent \
+  --include-rg-baseline \
+  --baseline command
+```
+
+Benchmark output includes average context-token estimates. These are deterministic `ceil(chars / 4)` estimates of what an agent would need to read from the ranked `agent-index` matches versus baseline matched-line output.
 
 Available benchmark modes:
 

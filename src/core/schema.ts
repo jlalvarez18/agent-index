@@ -1,4 +1,4 @@
-export type Language = "python";
+export type Language = "python" | "rust";
 
 export type FileRole = "source" | "test" | "docs" | "example" | "fixture" | "tool" | "benchmark";
 
@@ -106,6 +106,7 @@ export interface AgentQuery {
   terms: string[];
   symbolKinds?: SymbolKind[];
   pathHints?: string[];
+  pathMode?: "hint" | "filter";
   roles?: FileRole[];
   excludeSupportCode?: boolean;
   expand?: QueryExpansion[];
@@ -113,6 +114,7 @@ export interface AgentQuery {
 }
 
 export type BenchmarkQueryStyle = "question" | "agent";
+export type RgBaselineKind = "lexical" | "command";
 
 export interface BenchmarkQuestion {
   id: string;
@@ -139,6 +141,8 @@ export interface BenchmarkCaseResult {
   fileReciprocalRank: number;
   partialFileHit: boolean;
   latencyMs: number;
+  contextChars: number;
+  contextTokens: number;
   firstMatch?: QueryMatch;
   topMatches: BenchmarkTopMatch[];
 }
@@ -159,6 +163,7 @@ export interface BenchmarkResult {
   fileMrr: number;
   partialFileHits: number;
   avgLatencyMs: number;
+  avgContextTokens: number;
   cases: BenchmarkCaseResult[];
   rgBaseline?: RgBaselineResult;
 }
@@ -179,15 +184,22 @@ export interface RgBaselineCaseResult {
   fileHitAt5: boolean;
   fileReciprocalRank: number;
   latencyMs: number;
+  matchedLineCount: number;
+  contextChars: number;
+  contextTokens: number;
+  command?: string;
+  exitCode?: number;
   topFiles: RgBaselineTopFile[];
 }
 
 export interface RgBaselineResult {
+  baselineKind: RgBaselineKind;
   questions: number;
   fileHitAt1: number;
   fileHitAt5: number;
   fileMrr: number;
   avgLatencyMs: number;
+  avgContextTokens: number;
   cases: RgBaselineCaseResult[];
 }
 

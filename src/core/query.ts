@@ -53,7 +53,8 @@ export async function queryIndex(question: string, options: QueryOptions): Promi
 }
 
 export async function queryAgentIndex(agentQuery: AgentQuery, options: QueryOptions): Promise<QueryResponse> {
-  const queryText = agentQueryText(agentQuery);
+  const queryText = agentQueryTermsText(agentQuery);
+  const scoringText = agentQueryTermsText(agentQuery);
   return queryWithText(
     queryText,
     {
@@ -61,42 +62,39 @@ export async function queryAgentIndex(agentQuery: AgentQuery, options: QueryOpti
       limit: agentQuery.limit ?? options.limit,
       expand: agentQuery.expand ?? options.expand
     },
-    agentQuery
+    agentQuery,
+    scoringText
   );
 }
 
 async function queryWithText(
   question: string,
   options: QueryOptions,
-  agentQuery?: AgentQuery
+  agentQuery?: AgentQuery,
+  scoringQuestion = question
 ): Promise<QueryResponse> {
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   validateIndexDatabase(dbPath, options.target);
   const db = new Database(dbPath, { readonly: true });
   const mode = options.mode ?? "symbol";
   try {
-    const ftsRows = searchCandidates(db, question);
-    const candidateRows = mode === "fts" ? ftsRows : mergeCandidateRows([...searchIntentCandidates(db, question), ...ftsRows]);
+    const ftsRows = searchCandidates(db, question, agentQuery);
+    const candidateRows =
+      mode === "fts" ? ftsRows : mergeCandidateRows([...searchIntentCandidates(db, scoringQuestion, agentQuery), ...ftsRows]);
     const rows = applyAgentQueryFilters(candidateRows, agentQuery);
-    const matches = rankRows(db, rows, question, mode, options.limit ?? 5, options.debug ?? false, agentQuery);
+    const matches = rankRows(db, rows, scoringQuestion, mode, options.limit ?? 5, options.debug ?? false, agentQuery);
     return { query: question, mode, matches };
   } finally {
     db.close();
   }
 }
 
-function agentQueryText(agentQuery: AgentQuery): string {
-  const pathHints = (agentQuery.pathHints ?? []).filter((hint) => !isDunderPathHint(hint));
-  const tokens = [...agentQuery.terms, ...pathHints]
+function agentQueryTermsText(agentQuery: AgentQuery): string {
+  return agentQuery.terms
     .map((term) => term.trim())
-    .filter(Boolean);
-  return tokens.filter((token, index) => tokens.indexOf(token) === index).join(" ");
-}
-
-function isDunderPathHint(hint: string): boolean {
-  return hint
-    .split(/[\\/]/)
-    .some((segment) => /^__[A-Za-z0-9_]+__(?:\.py)?$/.test(segment.trim()));
+    .filter(Boolean)
+    .filter((token, index, tokens) => tokens.indexOf(token) === index)
+    .join(" ");
 }
 
 function applyAgentQueryFilters(rows: CandidateRow[], agentQuery: AgentQuery | undefined): CandidateRow[] {
@@ -184,11 +182,13 @@ function rankRows(
     .slice(0, limit);
 }
 
-function searchCandidates(db: Database.Database, question: string): CandidateRow[] {
+function searchCandidates(db: Database.Database, question: string, agentQuery?: AgentQuery): CandidateRow[] {
   const match = ftsMatchQuery(question);
   if (!match) {
     return [];
   }
+  const filter = candidateSqlFilter(agentQuery);
+  const candidateLimit = ftsCandidateLimit(agentQuery);
 
   const rows = db
     .prepare(
@@ -212,19 +212,32 @@ function searchCandidates(db: Database.Database, question: string): CandidateRow
       join symbols s on s.id = c.symbol_id
       join files f on f.id = c.file_id
       where chunk_fts match @match
+        ${filter.sql}
       order by rank
-      limit 25
+      limit ${candidateLimit}
       `
     )
-    .all({ match }) as CandidateRow[];
+    .all({ match, ...filter.params }) as CandidateRow[];
   return rows.map((row, index) => ({ ...row, ftsPosition: index + 1, candidateSources: ["fts"] }));
 }
 
-function searchIntentCandidates(db: Database.Database, question: string): CandidateRow[] {
+function ftsCandidateLimit(agentQuery: AgentQuery | undefined): number {
+  if (agentQuery?.roles?.includes("test")) {
+    return 100;
+  }
+  return 25;
+}
+
+function searchIntentCandidates(db: Database.Database, question: string, agentQuery?: AgentQuery): CandidateRow[] {
+  if (agentQuery?.roles?.includes("test")) {
+    return [];
+  }
+
   const rules = intentRulesForQuestion(question);
   if (rules.length === 0) {
     return [];
   }
+  const filter = candidateSqlFilter(agentQuery);
 
   const rows = db
     .prepare(
@@ -246,10 +259,12 @@ function searchIntentCandidates(db: Database.Database, question: string): Candid
       from chunks c
       join symbols s on s.id = c.symbol_id
       join files f on f.id = c.file_id
+      where 1 = 1
+        ${filter.sql}
       order by f.path, s.start_line
       `
     )
-    .all() as CandidateRow[];
+    .all(filter.params) as CandidateRow[];
 
   return rows
     .filter((row) => row.kind !== "module")
@@ -257,6 +272,53 @@ function searchIntentCandidates(db: Database.Database, question: string): Candid
     .filter((row): row is CandidateRow => row !== undefined)
     .sort((a, b) => (b.intentBoost ?? 0) - (a.intentBoost ?? 0))
     .slice(0, 12);
+}
+
+function candidateSqlFilter(agentQuery: AgentQuery | undefined): { sql: string; params: Record<string, unknown> } {
+  if (!agentQuery) {
+    return { sql: "", params: {} };
+  }
+
+  const clauses: string[] = [];
+  const params: Record<string, unknown> = {};
+
+  if (agentQuery.symbolKinds && agentQuery.symbolKinds.length > 0) {
+    const placeholders = agentQuery.symbolKinds.map((kind, index) => {
+      const key = `kind${index}`;
+      params[key] = kind;
+      return `@${key}`;
+    });
+    clauses.push(`and s.kind in (${placeholders.join(", ")})`);
+  }
+
+  if (agentQuery.roles && agentQuery.roles.length > 0) {
+    const placeholders = agentQuery.roles.map((role, index) => {
+      const key = `role${index}`;
+      params[key] = role;
+      return `@${key}`;
+    });
+    clauses.push(`and f.role in (${placeholders.join(", ")})`);
+  }
+
+  if (agentQuery.excludeSupportCode) {
+    clauses.push("and f.role = @sourceRole");
+    params.sourceRole = "source";
+  }
+
+  if (agentQuery.pathMode === "filter" && agentQuery.pathHints && agentQuery.pathHints.length > 0) {
+    const placeholders = agentQuery.pathHints.map((hint, index) => {
+      const key = `pathHint${index}`;
+      params[key] = `%${sqlPathHint(hint)}%`;
+      return `lower(f.path) like @${key}`;
+    });
+    clauses.push(`and (${placeholders.join(" or ")})`);
+  }
+
+  return { sql: clauses.length > 0 ? clauses.join("\n        ") : "", params };
+}
+
+function sqlPathHint(hint: string): string {
+  return hint.trim().toLowerCase().replace(/\\/gu, "/");
 }
 
 function scoreIntentRow(row: CandidateRow, rules: IntentRule[]): CandidateRow | undefined {
@@ -559,6 +621,18 @@ function toMatch(
   score += exactFileContext.score;
   if (exactFileContext.score > 0) {
     addWhy(why, exactFileContext.reason);
+  }
+
+  const pathHint = pathHintAdjustment(row, agentQuery);
+  score += pathHint.score;
+  if (pathHint.score > 0) {
+    addWhy(why, pathHint.reason);
+  }
+
+  const testApi = testApiEvidenceAdjustment(row, question);
+  score += testApi.score;
+  if (testApi.score > 0) {
+    addWhy(why, testApi.reason);
   }
 
   const decoratorTarget = decoratorTargetAdjustment(row, question);
@@ -1154,6 +1228,113 @@ function exactFileContextAdjustment(row: CandidateRow, question: string): { scor
   }
 
   return { score: 16, reason: "exact file context match" };
+}
+
+function pathHintAdjustment(row: CandidateRow, agentQuery: AgentQuery | undefined): { score: number; reason: string } {
+  const pathHints = agentQuery?.pathHints?.map(normalizedPathHint).filter(Boolean) ?? [];
+  if (pathHints.length === 0) {
+    return { score: 0, reason: "path hint match" };
+  }
+
+  const normalizedFile = normalize(row.file_path);
+  const matchedHints = pathHints.filter((hint) => pathHintMatchesFile(normalizedFile, hint));
+  if (matchedHints.length === 0) {
+    return { score: 0, reason: "path hint match" };
+  }
+
+  return { score: Math.min(2 * matchedHints.length, 6), reason: "path hint match" };
+}
+
+function normalizedPathHint(hint: string): string {
+  return normalize(hint.replace(/\.py$/u, ""));
+}
+
+function pathHintMatchesFile(normalizedFile: string, normalizedHint: string): boolean {
+  if (!normalizedHint) {
+    return false;
+  }
+
+  if (normalizedFile.includes(normalizedHint)) {
+    return true;
+  }
+
+  const hintTokens = normalizedHint.split(/\s+/).filter((token) => token.length >= 2 && token !== "py");
+  if (hintTokens.length === 0) {
+    return false;
+  }
+
+  const fileTokens = new Set(normalizedFile.split(/\s+/).filter(Boolean));
+  return hintTokens.every((hintToken) =>
+    [...fileTokens].some((fileToken) => fileToken === hintToken || tokensLooselyMatch(fileToken, hintToken))
+  );
+}
+
+function testApiEvidenceAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  if (row.file_role !== "test") {
+    return { score: 0, reason: "test API evidence match" };
+  }
+
+  const normalizedChunk = normalize(row.chunk_text);
+  const normalizedSymbolName = normalize(row.symbol_name);
+  const phrases = exactApiPhrases(question);
+  const rawChunk = row.chunk_text;
+  let score = 0;
+
+  for (const phrase of phrases) {
+    if (normalizedChunk.includes(phrase)) {
+      score += 8;
+    }
+    if (normalizedSymbolName.includes(phrase)) {
+      score += 10;
+    }
+  }
+
+  const symbolNameTokens = new Set(normalizedSymbolName.split(/\s+/).filter(Boolean));
+  const matchedNameTokens = rankedQueryTokens(question).filter(
+    (token) => token.length >= 5 && symbolNameTokens.has(token)
+  );
+  score += Math.min(matchedNameTokens.length * 2, 8);
+
+  for (const term of exactApiTerms(question)) {
+    const leaf = term.includes(".") ? term.slice(term.lastIndexOf(".") + 1) : term;
+    if (apiCallPattern(leaf).test(rawChunk)) {
+      score += 14;
+    } else if (apiKeywordArgumentPattern(leaf).test(rawChunk)) {
+      score += 4;
+    }
+  }
+
+  return score > 0 ? { score: Math.min(score, 36), reason: "test API evidence match" } : { score: 0, reason: "test API evidence match" };
+}
+
+function exactApiTerms(question: string): string[] {
+  return question
+    .split(/\s+/)
+    .map((term) => term.trim().replace(/^[^A-Za-z0-9_]+|[^A-Za-z0-9_]+$/gu, ""))
+    .filter((term) => /[._]/u.test(term))
+    .filter((term, index, terms) => terms.indexOf(term) === index);
+}
+
+function apiCallPattern(name: string): RegExp {
+  return new RegExp(`(?:\\.|\\b)${escapeRegExp(name)}\\s*\\(`, "u");
+}
+
+function apiKeywordArgumentPattern(name: string): RegExp {
+  return new RegExp(`\\b${escapeRegExp(name)}\\s*=`, "u");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function exactApiPhrases(question: string): string[] {
+  return question
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => /[._]/u.test(term))
+    .map((term) => normalize(term.replace(/^[^A-Za-z0-9_]+|[^A-Za-z0-9_]+$/gu, "")))
+    .filter((term) => term.split(/\s+/).filter(Boolean).length >= 2)
+    .filter((term, index, terms) => terms.indexOf(term) === index);
 }
 
 function exactClassNameAdjustment(row: CandidateRow, normalizedQuestion: string): { score: number; reason: string } {

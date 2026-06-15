@@ -51,6 +51,47 @@ async function fixtureProject() {
   return { root, benchmarkPath };
 }
 
+async function noisyContextProject() {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-index-benchmark-noisy-context-"));
+  await mkdir(path.join(root, "pkg"), { recursive: true });
+  const noise = Array.from(
+    { length: 80 },
+    (_, index) => `semantic_cache_load_value_noise_${index} = "semantic cache load_value noise"`
+  ).join("\n");
+  await writeFile(
+    path.join(root, "pkg", "cache.py"),
+    `def load_value(key):
+    semantic_cache = {"hit": key}
+    return semantic_cache["hit"]
+
+${noise}
+`
+  );
+  await indexTarget(root);
+  const benchmarkPath = path.join(root, "benchmark.json");
+  await writeFile(
+    benchmarkPath,
+    JSON.stringify([
+      {
+        id: "semantic-cache-noisy-context",
+        question: "where is semantic cache loaded?",
+        agentQuery: {
+          terms: ["load_value", "semantic", "cache"],
+          symbolKinds: ["function"],
+          pathHints: ["cache"],
+          excludeSupportCode: true,
+          expand: []
+        },
+        expected: {
+          files: ["pkg/cache.py"],
+          symbols: ["load_value"]
+        }
+      }
+    ])
+  );
+  return { root, benchmarkPath };
+}
+
 describe("runBenchmark", () => {
   test("computes hit rates, MRR, partial file hits, and latency", async () => {
     const { root, benchmarkPath } = await fixtureProject();
@@ -67,6 +108,7 @@ describe("runBenchmark", () => {
     expect(result.fileMrr).toBe(1);
     expect(result.partialFileHits).toBe(0.5);
     expect(result.avgLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(result.avgContextTokens).toBeGreaterThan(0);
     expect(result.cases).toHaveLength(2);
     expect(result.cases[0]).toMatchObject({
       id: "semantic-cache",
@@ -82,6 +124,8 @@ describe("runBenchmark", () => {
       fileHitAt5: true,
       fileReciprocalRank: 1,
       partialFileHit: false,
+      contextChars: expect.any(Number),
+      contextTokens: expect.any(Number),
       topMatches: expect.arrayContaining([
         expect.objectContaining({
           symbol: "load_value",
@@ -160,13 +204,62 @@ describe("runBenchmark", () => {
       fileRank: 1
     });
     expect(result.rgBaseline).toMatchObject({
+      baselineKind: "lexical",
       questions: 2,
       fileHitAt1: 1,
-      fileHitAt5: 1
+      fileHitAt5: 1,
+      avgContextTokens: expect.any(Number)
     });
     expect(result.rgBaseline?.cases[0].topFiles[0]).toMatchObject({
       file: "pkg/cache.py",
       rank: 1
     });
+  });
+
+  test("can measure context-token savings against the lexical baseline", async () => {
+    const { root, benchmarkPath } = await noisyContextProject();
+
+    const result = await runBenchmark(benchmarkPath, {
+      target: root,
+      mode: "hybrid",
+      queryStyle: "agent",
+      includeRgBaseline: true
+    });
+
+    expect(result.cases[0]).toMatchObject({
+      symbolRank: 1,
+      fileRank: 1
+    });
+    expect(result.rgBaseline?.cases[0]).toMatchObject({
+      fileRank: 1,
+      matchedLineCount: expect.any(Number),
+      contextTokens: expect.any(Number)
+    });
+    expect(result.cases[0].contextTokens).toBeLessThan(result.rgBaseline?.cases[0].contextTokens ?? 0);
+  });
+
+  test("can run a real rg command baseline with context-token metrics", async () => {
+    const { root, benchmarkPath } = await noisyContextProject();
+
+    const result = await runBenchmark(benchmarkPath, {
+      target: root,
+      mode: "hybrid",
+      queryStyle: "agent",
+      includeRgBaseline: true,
+      rgBaselineKind: "command"
+    });
+
+    expect(result.rgBaseline).toMatchObject({
+      baselineKind: "command",
+      questions: 1,
+      avgContextTokens: expect.any(Number)
+    });
+    expect(result.rgBaseline?.cases[0]).toMatchObject({
+      command: expect.stringContaining("load_value"),
+      exitCode: 0,
+      matchedLineCount: expect.any(Number),
+      contextTokens: expect.any(Number)
+    });
+    expect(result.cases[0].contextTokens).toBeLessThan(result.rgBaseline?.cases[0].contextTokens ?? 0);
   });
 });

@@ -116,6 +116,24 @@ describe("runCli", () => {
     expect(queryJson.matches[0].symbol).toBe("load_value");
   });
 
+  test("supports compact query output for lower-token agent navigation", async () => {
+    const { root } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["query", "where is semantic cache loaded?", "--target", root], {
+      write: (line) => output.push(line)
+    });
+    await runCli(["query", "where is semantic cache loaded?", "--target", root, "--format", "compact"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[2].split("\n")[0]).toBe("1 pkg/cache.py:1-3 function load_value");
+    expect(output[2]).not.toContain("why");
+    expect(output[2]).not.toContain("neighbors");
+    expect(output[2].length).toBeLessThan(output[1].length);
+  });
+
   test("supports structured agent query JSON through the public query command", async () => {
     const { root } = await fixtureProject();
     const output: string[] = [];
@@ -212,7 +230,7 @@ describe("runCli", () => {
     );
 
     const queryJson = JSON.parse(output[1]);
-    expect(queryJson.query).toBe("semantic cache load pkg");
+    expect(queryJson.query).toBe("semantic cache load");
     expect(queryJson.matches[0]).toMatchObject({
       symbol: "load_value",
       file: "pkg/cache.py"
@@ -425,6 +443,32 @@ describe("runCli", () => {
       kind: "function",
       file: "pkg/cache.py"
     });
+  });
+
+  test("supports path-filter shorthand for hard path filtering", async () => {
+    const { root } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(
+      [
+        "query",
+        "semantic cache",
+        "--target",
+        root,
+        "--mode",
+        "hybrid",
+        "--path",
+        "pkg/cache.py",
+        "--path-filter",
+        "--kind",
+        "function"
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    const queryJson = JSON.parse(output[1]);
+    expect(queryJson.matches.map((match: { file: string }) => match.file)).toEqual(["pkg/cache.py"]);
   });
 
   test("supports positional query refined with exclude-support-code", async () => {
@@ -928,9 +972,11 @@ describe("runCli", () => {
     const result = JSON.parse(output[1]);
     expect(result.queryStyle).toBe("agent");
     expect(result.rgBaseline).toMatchObject({
+      baselineKind: "lexical",
       questions: 1,
       fileHitAt1: 1,
-      fileHitAt5: 1
+      fileHitAt5: 1,
+      avgContextTokens: expect.any(Number)
     });
     expect(result.rgBaseline.cases[0].topFiles[0]).toMatchObject({
       file: "pkg/cache.py",
@@ -959,8 +1005,44 @@ describe("runCli", () => {
     );
 
     expect(output[1]).toContain("Query style: agent");
+    expect(output[1]).toContain("Avg context tokens:");
     expect(output[1]).toContain("rg-style File Hit@1: 1.00");
     expect(output[1]).toContain("rg-style File Hit@5: 1.00");
+    expect(output[1]).toContain("rg-style Avg context tokens:");
+  });
+
+  test("supports real rg command baseline in benchmark output", async () => {
+    const { root, benchmarkPath } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(
+      [
+        "benchmark",
+        benchmarkPath,
+        "--target",
+        root,
+        "--mode",
+        "hybrid",
+        "--query-style",
+        "agent",
+        "--include-rg-baseline",
+        "--baseline",
+        "command",
+        "--json"
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    const result = JSON.parse(output[1]);
+    expect(result.rgBaseline).toMatchObject({
+      baselineKind: "command",
+      questions: 1
+    });
+    expect(result.rgBaseline.cases[0]).toMatchObject({
+      command: expect.stringContaining("rg"),
+      exitCode: expect.any(Number)
+    });
   });
 
   test("supports concise benchmark miss output for triage", async () => {

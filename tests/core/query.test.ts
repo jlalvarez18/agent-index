@@ -95,15 +95,211 @@ def verify_signature(payload, signature):
       { target: root, mode: "hybrid", limit: 5 }
     );
 
-    expect(result.query).toBe("webhook signature verify webhooks security");
+    expect(result.query).toBe("webhook signature verify");
     expect(result.matches[0]).toMatchObject({
       symbol: "verify_signature",
       kind: "function",
       file: "pkg/webhooks/security.py"
     });
+    expect(result.matches[0].why).toContain("path hint match");
     expect(result.matches.map((match) => match.kind)).not.toContain("class");
     expect(result.matches.map((match) => match.file)).not.toContain("tests/test_webhooks.py");
     expect(result.matches[0].neighbors).toEqual([]);
+  });
+
+  test("applies structured kind and role filters before the FTS candidate cap", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-sql-filter-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    const noisyTests = Array.from(
+      { length: 40 },
+      (_, index) => `def semantic_cache_test_${index}():
+    semantic_cache_loaded = "test helper"
+    return semantic_cache_loaded
+`
+    ).join("\n");
+    await writeFile(path.join(root, "tests", "test_cache.py"), noisyTests);
+    await writeFile(
+      path.join(root, "pkg", "cache.py"),
+      `def load_value(key):
+    semantic_cache_loaded = key
+    return semantic_cache_loaded
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["semantic", "cache", "loaded"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        expand: []
+      },
+      { target: root, mode: "fts", limit: 5 }
+    );
+
+    expect(result.matches.map((match) => match.file)).toEqual(["pkg/cache.py"]);
+    expect(result.matches[0]).toMatchObject({ symbol: "load_value", kind: "function" });
+  });
+
+  test("uses path hints for file-path scoring without turning them into source-text intent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-path-hints-"));
+    await mkdir(path.join(root, "pkg", "templates"), { recursive: true });
+    await mkdir(path.join(root, "pkg", "notes"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "templates", "loader.py"),
+      `def render_to_string(context):
+    selected_template = context
+    return selected_template
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "notes", "loader.py"),
+      `def document_template_loader():
+    """Discuss template loader behavior without rendering the selected template."""
+    return "template loader notes"
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["render", "selected", "template"],
+        symbolKinds: ["function"],
+        pathHints: ["templates"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.query).toBe("render selected template");
+    expect(result.matches[0]).toMatchObject({
+      symbol: "render_to_string",
+      file: "pkg/templates/loader.py"
+    });
+    expect(result.matches[0].why).toContain("path hint match");
+    expect(result.matches.find((match) => match.symbol === "document_template_loader")?.why).not.toContain(
+      "path hint match"
+    );
+  });
+
+  test("can treat structured path hints as hard file-path filters", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-path-filter-"));
+    await mkdir(path.join(root, "pkg", "algorithms", "tests"), { recursive: true });
+    await mkdir(path.join(root, "pkg", "community", "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "algorithms", "tests", "test_cuts.py"),
+      `def test_mixing_expansion():
+    mixing_expansion_conductance_cut_size = "cuts"
+    return mixing_expansion_conductance_cut_size
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "community", "tests", "test_quality.py"),
+      `def test_community_expansion():
+    mixing_expansion_conductance_cut_size = "community"
+    return mixing_expansion_conductance_cut_size
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["mixing_expansion", "conductance", "cut_size"],
+        symbolKinds: ["function"],
+        roles: ["test"],
+        pathHints: ["algorithms/tests/test_cuts.py"],
+        pathMode: "filter",
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches.map((match) => match.file)).toEqual(["pkg/algorithms/tests/test_cuts.py"]);
+  });
+
+  test("boosts tests that contain exact API evidence over generic validator noise", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-test-api-evidence-"));
+    await mkdir(path.join(root, "tests", "validation"), { recursive: true });
+    await writeFile(
+      path.join(root, "tests", "validation", "test_constraints.py"),
+      `def test_full_clean_validate_constraints_false():
+    obj.full_clean(validate_constraints=False)
+    assert obj.errors == {}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "validation", "test_validators.py"),
+      Array.from(
+        { length: 25 },
+        (_, index) => `def test_generic_validator_${index}():
+    validate_constraints = "generic validator noise"
+    full_clean = "mentioned without API call"
+    return validate_constraints, full_clean
+`
+      ).join("\n")
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["Model.full_clean", "full_clean", "validate_constraints"],
+        symbolKinds: ["function"],
+        roles: ["test"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "test_full_clean_validate_constraints_false",
+      file: "tests/validation/test_constraints.py"
+    });
+    expect(result.matches[0].why).toContain("test API evidence match");
+  });
+
+  test("can find Rust core implementation symbols in mixed Python and Rust repos", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-rust-core-"));
+    await mkdir(path.join(root, "pydantic"), { recursive: true });
+    await mkdir(path.join(root, "pydantic-core", "src", "serializers"), { recursive: true });
+    await writeFile(
+      path.join(root, "pydantic", "main.py"),
+      `class BaseModel:
+    def model_dump_json(self):
+        return self.__pydantic_serializer__.to_json().decode()
+`
+    );
+    await writeFile(
+      path.join(root, "pydantic-core", "src", "serializers", "computed_fields.rs"),
+      `pub struct ComputedFields {}
+
+impl ComputedFields {
+    pub fn serialize(&self) {
+        if exclude_computed_fields() {
+            return;
+        }
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["ComputedFields.serialize", "computed_fields", "exclude_computed_fields"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["pydantic-core/src/serializers"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "ComputedFields.serialize",
+      kind: "method",
+      file: "pydantic-core/src/serializers/computed_fields.rs"
+    });
   });
 
   test("filters structured agent queries by stored file role", async () => {

@@ -12,8 +12,10 @@ import type {
   AgentQuery,
   BenchmarkQueryStyle,
   FileRole,
+  QueryResponse,
   QueryExpansion,
   QueryMode,
+  RgBaselineKind,
   SymbolKind
 } from "./core/schema.js";
 
@@ -60,11 +62,13 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--term <term>", "structured query term; repeat or comma-separate", collectOption, [])
     .option("--kind <kind>", "symbol kind: function, method, class, or module; repeat or comma-separate", collectOption, [])
     .option("--path <hint>", "path hint; repeat or comma-separate", collectOption, [])
+    .option("--path-filter", "treat --path values as hard file-path filters instead of ranking hints")
     .option("--role <role>", "file role: source, test, docs, example, fixture, tool, or benchmark; repeat or comma-separate", collectOption, [])
     .option("--expand <relation>", "graph expansion: callers, callees, imports, parents, or children; repeat or comma-separate", collectOption, [])
     .option("--exclude-support-code", "filter tests, docs, examples, fixtures, and tools from structured results")
     .option("--limit <limit>", "maximum result count", "5")
     .option("--mode <mode>", "query mode: symbol, fts, or hybrid", "symbol")
+    .option("--format <format>", "query output format: json or compact", "json")
     .option("--debug", "include ranking diagnostics in query JSON")
     .option("--trace <path>", "append a dogfood trace event to a JSONL file")
     .option("--trace-task <id>", "dogfood trace task id")
@@ -81,17 +85,20 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           term?: string[];
           kind?: string[];
           path?: string[];
+          pathFilter?: boolean;
           role?: string[];
           expand?: string[];
           excludeSupportCode?: boolean;
           limit: string;
           mode: string;
+          format: string;
           debug?: boolean;
           trace?: string;
           traceTask?: string;
         }
       ) => {
       const mode = parseMode(options.mode);
+      const format = parseQueryFormat(options.format);
       const target = parseTargetPath(options.target, options.repo);
       const baseOptions = {
         target,
@@ -121,7 +128,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           excludeSupportCode: Boolean(agentQuery?.excludeSupportCode)
         });
       }
-      io.write(JSON.stringify(response, null, 2));
+      io.write(format === "json" ? JSON.stringify(response, null, 2) : formatQueryCompact(response));
       }
     );
 
@@ -133,18 +140,21 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--mode <mode>", "benchmark mode: symbol, fts, or hybrid", "symbol")
     .option("--query-style <style>", "benchmark query style: question or agent", "question")
     .option("--include-rg-baseline", "include an rg-style lexical file baseline in benchmark results")
+    .option("--baseline <kind>", "rg baseline kind: lexical or command", "lexical")
     .option("--json", "write full benchmark result as JSON")
     .option("--debug", "include ranking diagnostics in JSON benchmark matches")
     .option("--misses", "append concise top-one miss details to text output")
-    .action(async (benchmarkJson: string, options: { target: string; indexPath?: string; mode: string; queryStyle: string; includeRgBaseline?: boolean; json?: boolean; debug?: boolean; misses?: boolean }) => {
+    .action(async (benchmarkJson: string, options: { target: string; indexPath?: string; mode: string; queryStyle: string; includeRgBaseline?: boolean; baseline: string; json?: boolean; debug?: boolean; misses?: boolean }) => {
       const mode = parseMode(options.mode);
       const queryStyle = parseQueryStyle(options.queryStyle);
+      const rgBaselineKind = parseRgBaselineKind(options.baseline);
       const result = await runBenchmark(benchmarkJson, {
         target: options.target,
         indexPath: options.indexPath,
         mode,
         queryStyle,
         includeRgBaseline: Boolean(options.includeRgBaseline),
+        rgBaselineKind,
         debug: Boolean(options.debug)
       });
       io.write(options.json ? JSON.stringify(result, null, 2) : formatBenchmark(result, Boolean(options.misses)));
@@ -243,15 +253,18 @@ function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>, inclu
     `File Hit@5: ${result.fileHitAt5.toFixed(2)}`,
     `File MRR: ${result.fileMrr.toFixed(2)}`,
     `Partial file hits: ${result.partialFileHits.toFixed(2)}`,
-    `Avg latency: ${Math.round(result.avgLatencyMs)}ms`
+    `Avg latency: ${Math.round(result.avgLatencyMs)}ms`,
+    `Avg context tokens: ${Math.round(result.avgContextTokens)}`
   ];
 
   if (result.rgBaseline) {
+    const label = result.rgBaseline.baselineKind === "command" ? "real rg" : "rg-style";
     lines.push(
-      `rg-style File Hit@1: ${result.rgBaseline.fileHitAt1.toFixed(2)}`,
-      `rg-style File Hit@5: ${result.rgBaseline.fileHitAt5.toFixed(2)}`,
-      `rg-style File MRR: ${result.rgBaseline.fileMrr.toFixed(2)}`,
-      `rg-style Avg latency: ${Math.round(result.rgBaseline.avgLatencyMs)}ms`
+      `${label} File Hit@1: ${result.rgBaseline.fileHitAt1.toFixed(2)}`,
+      `${label} File Hit@5: ${result.rgBaseline.fileHitAt5.toFixed(2)}`,
+      `${label} File MRR: ${result.rgBaseline.fileMrr.toFixed(2)}`,
+      `${label} Avg latency: ${Math.round(result.rgBaseline.avgLatencyMs)}ms`,
+      `${label} Avg context tokens: ${Math.round(result.rgBaseline.avgContextTokens)}`
     );
   }
 
@@ -260,6 +273,16 @@ function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>, inclu
   }
 
   return lines.join("\n");
+}
+
+function formatQueryCompact(response: QueryResponse): string {
+  if (response.matches.length === 0) {
+    return "No matches";
+  }
+
+  return response.matches
+    .map((match, index) => `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}`)
+    .join("\n");
 }
 
 function formatAgentEval(result: AgentEvalResult, includeMisses = false): string {
@@ -356,6 +379,27 @@ function parseQueryStyle(style: string): BenchmarkQueryStyle {
   throw new Error(`Invalid query style: ${style}. Expected "question" or "agent".`);
 }
 
+function parseQueryFormat(format: string): "json" | "compact" {
+  if (format === "json" || format === "compact") {
+    return format;
+  }
+  throw new Error(`Invalid query format: ${format}. Expected "json" or "compact".`);
+}
+
+function parsePathMode(mode: string): "hint" | "filter" {
+  if (mode === "hint" || mode === "filter") {
+    return mode;
+  }
+  throw new Error(`Invalid pathMode value: ${mode}. Expected "hint" or "filter".`);
+}
+
+function parseRgBaselineKind(kind: string): RgBaselineKind {
+  if (kind === "lexical" || kind === "command") {
+    return kind;
+  }
+  throw new Error(`Invalid baseline kind: ${kind}. Expected "lexical" or "command".`);
+}
+
 function collectOption(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
@@ -438,6 +482,7 @@ function parseAgentQuery(json: string): AgentQuery {
   return {
     ...agentQuery,
     symbolKinds: agentQuery.symbolKinds ? parseSymbolKinds(agentQuery.symbolKinds) : undefined,
+    pathMode: agentQuery.pathMode ? parsePathMode(agentQuery.pathMode) : undefined,
     roles: agentQuery.roles ? parseFileRoles(agentQuery.roles) : undefined,
     expand: agentQuery.expand ? parseExpansions(agentQuery.expand) : undefined
   };
@@ -447,6 +492,7 @@ function parseShorthandAgentQuery(query: string | undefined, options: {
   term?: string[];
   kind?: string[];
   path?: string[];
+  pathFilter?: boolean;
   role?: string[];
   expand?: string[];
   excludeSupportCode?: boolean;
@@ -460,6 +506,7 @@ function parseShorthandAgentQuery(query: string | undefined, options: {
     optionTerms.length > 0 ||
     kinds.length > 0 ||
     pathHints.length > 0 ||
+    Boolean(options.pathFilter) ||
     roles.length > 0 ||
     expand.length > 0 ||
     Boolean(options.excludeSupportCode);
@@ -482,6 +529,7 @@ function parseShorthandAgentQuery(query: string | undefined, options: {
     terms,
     symbolKinds: kinds.length > 0 ? parseSymbolKinds(kinds) : undefined,
     pathHints: pathHints.length > 0 ? pathHints : undefined,
+    pathMode: options.pathFilter ? "filter" : undefined,
     roles: roles.length > 0 ? parseFileRoles(roles) : undefined,
     excludeSupportCode: Boolean(options.excludeSupportCode),
     expand: expand.length > 0 ? parseExpansions(expand) : undefined

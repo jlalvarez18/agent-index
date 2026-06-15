@@ -96,10 +96,16 @@ function scoreTestFile(
     why.push("test path includes source stem");
   }
 
-  const sharedPathTokens = sourceTokens.filter((token) => token.length >= 3 && normalizedTestPath.includes(token));
+  const sharedPathTokens = sourceTokens.filter((token) => token.length >= 3 && !layoutStopwords.has(token) && normalizedTestPath.includes(token));
   if (sharedPathTokens.length > 0) {
     score += Math.min(sharedPathTokens.length * 4, 16);
     why.push("test path shares source path tokens");
+  }
+
+  const mirroredLayoutTokens = mirroredPackageLayoutTokens(normalizedSource, row.path);
+  if (mirroredLayoutTokens.length > 0) {
+    score += Math.min(10 + mirroredLayoutTokens.length * 6, 22);
+    why.push("test path mirrors source package layout");
   }
 
   if (importsSourceModule(importedModules, sourceModules, sourceStem, normalizedText)) {
@@ -299,6 +305,37 @@ function importsSourceModule(
 function pathTokens(file: string): string[] {
   return normalize(file).split(/\s+/).filter(Boolean);
 }
+
+function mirroredPackageLayoutTokens(sourceFile: string, testFile: string): string[] {
+  const sourceTokens = packageLayoutTokens(sourceFile);
+  const testTokens = packageLayoutTokens(testFile);
+  return sourceTokens.filter((token) => testTokens.includes(token));
+}
+
+function packageLayoutTokens(file: string): string[] {
+  const parts = normalizeSourceFile(file)
+    .replace(/\.[^.]+$/u, "")
+    .split("/")
+    .flatMap((part) => normalize(part).split(/\s+/))
+    .filter((token) => token.length >= 3 && !layoutStopwords.has(token));
+  return uniqueValues(parts);
+}
+
+const layoutStopwords = new Set([
+  "lib",
+  "pkg",
+  "src",
+  "test",
+  "tests",
+  "testing",
+  "unit",
+  "utils",
+  "util",
+  "common",
+  "core",
+  "base",
+  "main"
+]);
 
 function splitCsv(value: string | null): string[] {
   return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean);

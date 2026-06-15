@@ -274,4 +274,57 @@ def test_runtime_factory(kind):
     });
     expect(result.matches[0].why).toContain("parametrized cases mention source target");
   });
+
+  test("uses mirrored package layout when test filenames do not name the source file", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-layout-"));
+    await mkdir(path.join(root, "pkg", "client"), { recursive: true });
+    await mkdir(path.join(root, "tests", "client"), { recursive: true });
+    await mkdir(path.join(root, "tests", "server"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "client", "session.py"), "def open_session():\n    return object()\n");
+    await writeFile(
+      path.join(root, "tests", "client", "test_runtime_behavior.py"),
+      `def test_runtime_behavior():
+    assert True
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "server", "test_runtime_behavior.py"),
+      `def test_runtime_behavior():
+    assert True
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/client/session.py"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/client/test_runtime_behavior.py"
+    });
+    expect(result.matches[0].why).toContain("test path mirrors source package layout");
+    expect(result.matches.map((match) => match.file)).not.toContain("tests/server/test_runtime_behavior.py");
+  });
+
+  test("ignores generic mirrored layout tokens", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-layout-stopwords-"));
+    await mkdir(path.join(root, "pkg", "core"), { recursive: true });
+    await mkdir(path.join(root, "tests", "core"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "core", "engine.py"), "def run_engine():\n    return object()\n");
+    await writeFile(
+      path.join(root, "tests", "core", "test_runtime_behavior.py"),
+      `def test_runtime_behavior():
+    assert True
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/core/engine.py"
+    });
+
+    expect(result.matches).toEqual([]);
+  });
 });

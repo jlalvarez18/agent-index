@@ -151,6 +151,47 @@ Older fixtures may still use `agentIndexQueries`; the runner treats each query a
 For `related-tests`, either pass `sourceFile` explicitly or use `sourceFromStep` with a 1-based prior step number. `sourceFromStep` derives the source file from the actual prior output, which is better for blind map -> test workflows.
 Use `rgOptimizedSteps` to model a stronger rg workflow explicitly. A `files` step runs filename narrowing like `rg --files-with-matches`; a `snippets` step reads bounded context from explicit files or from a prior file-list step. Keep these steps authored in the fixture rather than inferred from expected files.
 
+New fixtures may use `rgOptimizedPlan` version 2 to model a more agent-like `rg` baseline:
+
+```json
+{
+  "searchTerms": {
+    "seed": ["environment", "variable", "disable", "color", "default"]
+  },
+  "rgOptimizedPlan": {
+    "version": 2,
+    "steps": [
+      {
+        "type": "search-files",
+        "terms": ["environment", "variable", "disable", "color", "default"],
+        "scope": "source",
+        "paths": ["src"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "read-snippets",
+        "fromStep": 1,
+        "terms": ["environment", "variable", "disable", "color", "default"],
+        "limit": 5
+      },
+      {
+        "type": "search-files-from-snippets",
+        "fromStep": 2,
+        "includeTerms": ["public_term_seen_in_step_2"],
+        "scope": "test",
+        "paths": ["tests"],
+        "limit": 25
+      }
+    ]
+  }
+}
+```
+
+`search-files-from-snippets` can only derive terms from prior visible snippet output, optionally intersected with `includeTerms`. It must not read `expected.files` or `expected.symbols`.
+
+For behavior-only cases, fairness validation is symmetric: agent-index terms, broad rg terms, optimized rg terms, and optimized rg paths are checked for exact target-symbol or expected-file leakage. Directory scopes such as `src` or `tests` are allowed; paths like `src/click/globals.py` are not.
+
 ## Source To Test Follow-Up
 
 Use `file-clusters` when the agent needs a cheap file map before choosing exact symbols:

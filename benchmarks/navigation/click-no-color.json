@@ -151,21 +151,28 @@
     "rgQueries": [
       ["environment", "variable", "disable", "color", "default"]
     ],
-    "rgOptimizedSteps": [
-      {
-        "type": "files",
-        "terms": ["environment", "variable", "disable", "color", "default"],
-        "paths": ["src"],
-        "globs": ["*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["environment", "variable", "disable", "color", "default"],
-        "fromStep": 1,
-        "limit": 5
-      }
-    ],
+    "searchTerms": {
+      "seed": ["environment", "variable", "disable", "color", "default"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["environment", "variable", "disable", "color", "default"],
+          "scope": "source",
+          "paths": ["src"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["environment", "variable", "disable", "color", "default"],
+          "limit": 5
+        }
+      ]
+    },
     "expected": {
       "files": ["src/click/globals.py", "src/click/termui.py", "src/click/utils.py"],
       "symbols": ["resolve_color_default"],

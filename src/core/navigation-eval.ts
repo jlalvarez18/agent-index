@@ -10,6 +10,7 @@ import type {
   NavigationAgentStep,
   NavigationEvalStepResult,
   NavigationEvalWorkflowResult,
+  NavigationRgOptimizedPlanStep,
   NavigationRgOptimizedStep,
   QueryMatch,
   QueryMode,
@@ -76,6 +77,30 @@ export function validateNavigationEvalCases(cases: NavigationEvalCase[], source 
         );
       }
     }
+
+    for (const [index, terms] of navigationCase.rgQueries.entries()) {
+      const leakedTerms = exactTargetNameTerms(navigationCase, terms);
+      if (leakedTerms.length > 0) {
+        errors.push(
+          `${navigationCase.id}: behavior-only rg query ${index + 1} must not include exact target symbol term(s): ${leakedTerms.join(", ")}`
+        );
+      }
+    }
+
+    for (const [index, step] of optimizedRgStepsForValidation(navigationCase).entries()) {
+      const leakedTerms = exactTargetNameTerms(navigationCase, optimizedRgStepTerms(step));
+      if (leakedTerms.length > 0) {
+        errors.push(
+          `${navigationCase.id}: behavior-only optimized rg step ${index + 1} must not include exact target symbol term(s): ${leakedTerms.join(", ")}`
+        );
+      }
+      const leakedPaths = expectedFilePathsInOptimizedRgStep(navigationCase, step);
+      if (leakedPaths.length > 0) {
+        errors.push(
+          `${navigationCase.id}: behavior-only optimized rg step ${index + 1} must not search expected file path(s): ${leakedPaths.join(", ")}`
+        );
+      }
+    }
   }
 
   if (errors.length > 0) {
@@ -96,11 +121,40 @@ function navigationStepTerms(step: NavigationAgentStep): string[] {
 
 function exactTargetNameTerms(navigationCase: NavigationEvalCase, terms: string[]): string[] {
   const exactNames = new Set(
-    (navigationCase.expected.requiredSymbols ?? navigationCase.expected.symbols ?? [])
+    [
+      ...(navigationCase.expected.requiredSymbols ?? navigationCase.expected.symbols ?? []),
+      ...(navigationCase.searchTerms?.forbiddenExact ?? [])
+    ]
       .flatMap(targetNameVariants)
       .filter((name) => name.length > 0)
   );
   return terms.filter((term) => exactNames.has(normalizeTargetName(term)));
+}
+
+function optimizedRgStepsForValidation(navigationCase: NavigationEvalCase): Array<NavigationRgOptimizedStep | NavigationRgOptimizedPlanStep> {
+  return navigationCase.rgOptimizedPlan?.steps ?? navigationCase.rgOptimizedSteps ?? [];
+}
+
+function optimizedRgStepTerms(step: NavigationRgOptimizedStep | NavigationRgOptimizedPlanStep): string[] {
+  if (step.type === "files" || step.type === "snippets" || step.type === "search-files" || step.type === "read-snippets") {
+    return step.terms ?? [];
+  }
+  return step.includeTerms ?? [];
+}
+
+function expectedFilePathsInOptimizedRgStep(
+  navigationCase: NavigationEvalCase,
+  step: NavigationRgOptimizedStep | NavigationRgOptimizedPlanStep
+): string[] {
+  const paths = "paths" in step ? step.paths ?? [] : [];
+  const files = "files" in step ? step.files ?? [] : [];
+  const searchedPaths = [...paths, ...files].map(normalizeFilePath);
+  const expectedFiles = (navigationCase.expected.requiredFiles ?? navigationCase.expected.files).map(normalizeFilePath);
+  return uniqueValues(
+    searchedPaths.filter((searchedPath) =>
+      expectedFiles.some((expectedFile) => searchedPath === expectedFile || searchedPath.includes(`/${expectedFile}`))
+    )
+  );
 }
 
 function targetNameVariants(symbol: string): string[] {
@@ -111,6 +165,10 @@ function targetNameVariants(symbol: string): string[] {
 
 function normalizeTargetName(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeFilePath(value: string): string {
+  return value.replace(/\\/gu, "/").replace(/^\.\//u, "").replace(/\/+$/u, "");
 }
 
 async function runAgentIndexWorkflow(
@@ -269,6 +327,10 @@ async function runRgWorkflow(navigationCase: NavigationEvalCase, target: string)
 }
 
 async function runOptimizedRgWorkflow(navigationCase: NavigationEvalCase, target: string): Promise<NavigationEvalWorkflowResult> {
+  if (navigationCase.rgOptimizedPlan?.version === 2) {
+    return runOptimizedRgPlanWorkflow(navigationCase, target);
+  }
+
   const steps: NavigationEvalStepResult[] = [];
 
   for (const step of optimizedRgSteps(navigationCase)) {
@@ -316,6 +378,130 @@ async function runOptimizedRgWorkflow(navigationCase: NavigationEvalCase, target
   }
 
   return summarizeWorkflow(steps, navigationCase);
+}
+
+async function runOptimizedRgPlanWorkflow(navigationCase: NavigationEvalCase, target: string): Promise<NavigationEvalWorkflowResult> {
+  const steps: NavigationEvalStepResult[] = [];
+
+  for (const step of navigationCase.rgOptimizedPlan?.steps ?? []) {
+    const started = performance.now();
+    if (step.type === "search-files") {
+      const result = await runRgFilesCommand(step.terms, target, step.globs, optimizedRgSearchPaths(step));
+      const candidateFiles = parseRgFileList(result.stdout);
+      const visibleFiles = step.limit ? candidateFiles.slice(0, step.limit) : candidateFiles;
+      const context = formatRgFileList(visibleFiles);
+      const useful = usefulRgFileMatch(visibleFiles, navigationCase);
+      steps.push({
+        type: "rg-optimized",
+        command: formatRgPlanFilesCommand(step),
+        latencyMs: performance.now() - started,
+        contextChars: context.length,
+        contextTokens: approximateTokens(context.length),
+        usefulRank: useful?.rank ?? null,
+        usefulFile: useful?.file ?? null,
+        foundFiles: matchingRgCandidateFiles(visibleFiles, navigationCase),
+        foundSymbols: [],
+        outputFiles: visibleFiles,
+        outputSymbols: [],
+        outputTerms: step.terms
+      });
+      continue;
+    }
+
+    if (step.type === "read-snippets") {
+      const sourceFiles = steps[step.fromStep - 1]?.outputFiles ?? [];
+      const selectedFiles = sourceFiles.slice(0, step.limit ?? 5);
+      const terms = step.terms ?? steps[step.fromStep - 1]?.outputTerms ?? [];
+      const snippets = await readTopRgSnippets(selectedFiles, terms, target, step.before ?? 2, step.after ?? 2);
+      const context = formatRgSnippets(snippets);
+      const useful = usefulRgFileMatch(selectedFiles, navigationCase);
+      const foundSymbols = matchingRgSnippetSymbols(snippets, navigationCase);
+      steps.push({
+        type: "rg-optimized",
+        command: formatRgPlanSnippetsCommand(step),
+        latencyMs: performance.now() - started,
+        contextChars: context.length,
+        contextTokens: approximateTokens(context.length),
+        usefulRank: useful?.rank ?? null,
+        usefulFile: useful?.file ?? null,
+        foundFiles: matchingRgCandidateFiles(selectedFiles, navigationCase),
+        foundSymbols,
+        outputFiles: selectedFiles,
+        outputSymbols: foundSymbols,
+        outputTerms: extractSnippetTerms(snippets)
+      });
+      continue;
+    }
+
+    const terms = derivedSearchTerms(steps[step.fromStep - 1]?.outputTerms ?? [], step.includeTerms);
+    const result = await runRgFilesCommand(terms, target, step.globs, optimizedRgSearchPaths(step));
+    const candidateFiles = parseRgFileList(result.stdout);
+    const visibleFiles = step.limit ? candidateFiles.slice(0, step.limit) : candidateFiles;
+    const context = formatRgFileList(visibleFiles);
+    const useful = usefulRgFileMatch(visibleFiles, navigationCase);
+    steps.push({
+      type: "rg-optimized",
+      command: formatRgPlanFilesFromSnippetsCommand(step, terms),
+      latencyMs: performance.now() - started,
+      contextChars: context.length,
+      contextTokens: approximateTokens(context.length),
+      usefulRank: useful?.rank ?? null,
+      usefulFile: useful?.file ?? null,
+      foundFiles: matchingRgCandidateFiles(visibleFiles, navigationCase),
+      foundSymbols: [],
+      outputFiles: visibleFiles,
+      outputSymbols: [],
+      outputTerms: terms
+    });
+  }
+
+  return summarizeWorkflow(steps, navigationCase);
+}
+
+function optimizedRgSearchPaths(step: Extract<NavigationRgOptimizedPlanStep, { type: "search-files" | "search-files-from-snippets" }>): string[] {
+  if (step.paths && step.paths.length > 0) {
+    return step.paths;
+  }
+  if (step.scope === "test") {
+    return ["tests"];
+  }
+  return ["."];
+}
+
+function derivedSearchTerms(outputTerms: string[], includeTerms: string[] | undefined): string[] {
+  if (!includeTerms || includeTerms.length === 0) {
+    return outputTerms.slice(0, 5);
+  }
+  const normalizedOutputTerms = new Set(outputTerms.map(normalizeTargetName));
+  return includeTerms.filter((term) => normalizedOutputTerms.has(normalizeTargetName(term)));
+}
+
+function extractSnippetTerms(snippets: RgSnippet[]): string[] {
+  const terms: string[] = [];
+  const stopwords = new Set([
+    "assert",
+    "class",
+    "def",
+    "false",
+    "for",
+    "from",
+    "import",
+    "none",
+    "return",
+    "self",
+    "true"
+  ]);
+  for (const snippet of snippets) {
+    for (const line of snippet.lines) {
+      for (const match of line.matchAll(/\b[A-Za-z_][A-Za-z0-9_]{2,}\b/gu)) {
+        const term = match[0];
+        if (!stopwords.has(term.toLowerCase())) {
+          terms.push(term);
+        }
+      }
+    }
+  }
+  return uniqueValues(terms).slice(0, 25);
 }
 
 function optimizedRgSteps(navigationCase: NavigationEvalCase): NavigationRgOptimizedStep[] {
@@ -776,6 +962,48 @@ function formatRgSnippetsCommand(step: Extract<NavigationRgOptimizedStep, { type
   return ["rg", "--line-number", context, "--color", "never", "-F", ...step.terms.flatMap((term) => ["-e", shellQuote(term)]), source]
     .filter(Boolean)
     .join(" ");
+}
+
+function formatRgPlanFilesCommand(step: Extract<NavigationRgOptimizedPlanStep, { type: "search-files" }>): string {
+  const globs = step.globs?.flatMap((glob) => ["--glob", shellQuote(glob)]).join(" ");
+  const paths = optimizedRgSearchPaths(step).map(shellQuote).join(" ");
+  const limit = step.limit ? ` | head -${step.limit}` : "";
+  return ["rg", "--files-with-matches", "--color", "never", "-F", globs, ...step.terms.flatMap((term) => ["-e", shellQuote(term)]), paths]
+    .filter(Boolean)
+    .join(" ")
+    .concat(limit);
+}
+
+function formatRgPlanSnippetsCommand(step: Extract<NavigationRgOptimizedPlanStep, { type: "read-snippets" }>): string {
+  const terms = step.terms ?? [];
+  const context = `-C ${Math.max(step.before ?? 2, step.after ?? 2)}`;
+  return ["rg", "--line-number", context, "--color", "never", "-F", ...terms.flatMap((term) => ["-e", shellQuote(term)]), `step:${step.fromStep}`]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function formatRgPlanFilesFromSnippetsCommand(
+  step: Extract<NavigationRgOptimizedPlanStep, { type: "search-files-from-snippets" }>,
+  terms: string[]
+): string {
+  const globs = step.globs?.flatMap((glob) => ["--glob", shellQuote(glob)]).join(" ");
+  const paths = optimizedRgSearchPaths(step).map(shellQuote).join(" ");
+  const limit = step.limit ? ` | head -${step.limit}` : "";
+  return [
+    "rg",
+    "--files-with-matches",
+    "--color",
+    "never",
+    "-F",
+    "--from-snippets",
+    `step:${step.fromStep}`,
+    globs,
+    ...terms.flatMap((term) => ["-e", shellQuote(term)]),
+    paths
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .concat(limit);
 }
 
 function firstTermLineIndex(lines: string[], terms: string[]): number {

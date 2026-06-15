@@ -224,6 +224,103 @@ describe("runNavigationEval", () => {
     expect(result.caseResults[0].agentIndex.contextTokens).toBeLessThan(result.caseResults[0].rg.contextTokens);
   });
 
+  test("can evaluate iterative optimized rg plans from prior snippets", async () => {
+    const { root } = await fixtureProject();
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-rg-v2-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "semantic-cache-iterative-rg",
+            task: "Find semantic cache source and related tests using only visible rg snippets for refinement.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["semantic", "cache"],
+                  roles: ["source"]
+                },
+                limit: 3
+              },
+              {
+                type: "related-tests",
+                sourceFromStep: 1,
+                terms: ["semantic", "cache"],
+                limit: 3
+              }
+            ],
+            rgQueries: [["semantic", "cache"]],
+            rgOptimizedPlan: {
+              version: 2,
+              steps: [
+                {
+                  type: "search-files",
+                  terms: ["semantic", "cache"],
+                  scope: "source",
+                  paths: ["pkg"],
+                  globs: ["*.py"],
+                  limit: 10
+                },
+                {
+                  type: "read-snippets",
+                  fromStep: 1,
+                  terms: ["semantic", "cache"],
+                  before: 1,
+                  after: 1,
+                  limit: 3
+                },
+                {
+                  type: "search-files-from-snippets",
+                  fromStep: 2,
+                  includeTerms: ["load_value"],
+                  scope: "test",
+                  paths: ["tests"],
+                  globs: ["*.py"],
+                  limit: 10
+                },
+                {
+                  type: "read-snippets",
+                  fromStep: 3,
+                  terms: ["load_value"],
+                  before: 1,
+                  after: 1,
+                  limit: 3
+                }
+              ]
+            },
+            expected: {
+              files: ["pkg/cache.py", "tests/test_cache.py"],
+              symbols: ["load_value"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].rgOptimized).toMatchObject({
+      commands: 4,
+      foundUseful: true,
+      taskComplete: true,
+      foundFiles: ["pkg/cache.py", "tests/test_cache.py"],
+      foundSymbols: ["load_value"]
+    });
+    expect(result.caseResults[0].rgOptimized.steps[0].command).toContain("pkg");
+    expect(result.caseResults[0].rgOptimized.steps[2]).toMatchObject({
+      command: expect.stringContaining("--from-snippets step:2"),
+      usefulFile: "tests/test_cache.py"
+    });
+  });
+
   test("rejects behavior-only workflows that pass exact related-test symbols", async () => {
     const { root } = await fixtureProject();
     const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-fairness-"));
@@ -306,6 +403,109 @@ describe("runNavigationEval", () => {
 
     await expect(runNavigationEval(navigationEvalPath, { target: root, mode: "hybrid" })).rejects.toThrow(
       /behavior-only step 1 must not include exact target symbol term\(s\): load_value/
+    );
+  });
+
+  test("rejects behavior-only rg baselines that include exact target terms", async () => {
+    const { root } = await fixtureProject();
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-rg-term-fairness-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "semantic-cache-behavior-only",
+            task: "Find semantic cache source without naming the function.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["semantic", "cache"],
+                  roles: ["source"]
+                },
+                limit: 3
+              }
+            ],
+            rgQueries: [["semantic", "cache", "load_value"]],
+            rgOptimizedPlan: {
+              version: 2,
+              steps: [
+                {
+                  type: "search-files",
+                  terms: ["semantic", "cache", "load_value"],
+                  paths: ["pkg"],
+                  limit: 10
+                }
+              ]
+            },
+            expected: {
+              files: ["pkg/cache.py"],
+              symbols: ["load_value"],
+              requiredSymbols: ["load_value"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    await expect(runNavigationEval(navigationEvalPath, { target: root, mode: "hybrid" })).rejects.toThrow(
+      /behavior-only rg query 1 must not include exact target symbol term\(s\): load_value/
+    );
+  });
+
+  test("rejects behavior-only optimized rg paths that point at expected files", async () => {
+    const { root } = await fixtureProject();
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-rg-path-fairness-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "semantic-cache-behavior-only",
+            task: "Find semantic cache source without naming the file.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["semantic", "cache"],
+                  roles: ["source"]
+                },
+                limit: 3
+              }
+            ],
+            rgQueries: [["semantic", "cache"]],
+            rgOptimizedPlan: {
+              version: 2,
+              steps: [
+                {
+                  type: "search-files",
+                  terms: ["semantic", "cache"],
+                  paths: ["pkg/cache.py"],
+                  limit: 10
+                }
+              ]
+            },
+            expected: {
+              files: ["pkg/cache.py"],
+              symbols: ["load_value"],
+              requiredFiles: ["pkg/cache.py"],
+              requiredSymbols: ["load_value"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    await expect(runNavigationEval(navigationEvalPath, { target: root, mode: "hybrid" })).rejects.toThrow(
+      /behavior-only optimized rg step 1 must not search expected file path\(s\): pkg\/cache.py/
     );
   });
 });

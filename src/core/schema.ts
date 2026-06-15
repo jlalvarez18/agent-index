@@ -279,6 +279,43 @@ export type NavigationRgOptimizedStep =
       limit?: number;
     };
 
+export interface NavigationSearchTerms {
+  seed: string[];
+  forbiddenExact?: string[];
+}
+
+export type NavigationRgOptimizedPlanStep =
+  | {
+      type: "search-files";
+      terms: string[];
+      scope?: "source" | "test" | "all";
+      paths?: string[];
+      globs?: string[];
+      limit?: number;
+    }
+  | {
+      type: "read-snippets";
+      fromStep: number;
+      terms?: string[];
+      before?: number;
+      after?: number;
+      limit?: number;
+    }
+  | {
+      type: "search-files-from-snippets";
+      fromStep: number;
+      includeTerms?: string[];
+      scope?: "source" | "test" | "all";
+      paths?: string[];
+      globs?: string[];
+      limit?: number;
+    };
+
+export interface NavigationRgOptimizedPlan {
+  version: 2;
+  steps: NavigationRgOptimizedPlanStep[];
+}
+
 export interface NavigationEvalCase {
   id: string;
   task: string;
@@ -287,6 +324,8 @@ export interface NavigationEvalCase {
   agentIndexSteps?: NavigationAgentStep[];
   rgQueries: string[][];
   rgOptimizedSteps?: NavigationRgOptimizedStep[];
+  searchTerms?: NavigationSearchTerms;
+  rgOptimizedPlan?: NavigationRgOptimizedPlan;
   expected: {
     files: string[];
     symbols?: string[];
@@ -308,6 +347,7 @@ export interface NavigationEvalStepResult {
   foundSymbols: string[];
   outputFiles?: string[];
   outputSymbols?: string[];
+  outputTerms?: string[];
 }
 
 export interface NavigationEvalWorkflowResult {

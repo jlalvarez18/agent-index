@@ -128,4 +128,24 @@ describe("compareNavigationArtifacts", () => {
       ]
     });
   });
+
+  test("optionally fails latency regressions", async () => {
+    const baseline = await writeSummary(suiteResult());
+    const current = await writeSummary(suiteResult({ agentIndexAvgLatencyMs: 70 }));
+
+    await expect(compareNavigationArtifacts(baseline, current)).resolves.toMatchObject({
+      passed: true
+    });
+    await expect(compareNavigationArtifacts(baseline, current, { maxAgentLatencyIncreasePercent: 50 })).resolves.toMatchObject({
+      passed: true
+    });
+    await expect(compareNavigationArtifacts(baseline, current, { maxAgentLatencyIncreaseMs: 10 })).resolves.toMatchObject({
+      passed: false,
+      regressions: [
+        expect.objectContaining({
+          metric: "agentIndexAvgLatencyMs"
+        })
+      ]
+    });
+  });
 });

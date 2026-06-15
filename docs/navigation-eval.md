@@ -58,10 +58,11 @@ Compare two saved suite runs with `nav-compare`:
 
 ```bash
 npm run agent-index -- nav-compare /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
-  --max-agent-token-increase-percent 5
+  --max-agent-token-increase-percent 5 \
+  --max-agent-latency-increase-percent 25
 ```
 
-The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance.
+The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment.
 
 Relative `evalPath`, `target`, and `indexPath` values resolve relative to the manifest file.
 

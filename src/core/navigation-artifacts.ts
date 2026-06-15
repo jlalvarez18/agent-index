@@ -5,6 +5,8 @@ import type { NavigationSuiteRepoResult, NavigationSuiteResult } from "./schema.
 export interface NavigationArtifactCompareOptions {
   maxAgentTokenIncrease?: number;
   maxAgentTokenIncreasePercent?: number;
+  maxAgentLatencyIncreaseMs?: number;
+  maxAgentLatencyIncreasePercent?: number;
 }
 
 export interface NavigationArtifactRegression {
@@ -65,6 +67,7 @@ function findNavigationRegressions(
     current.agentIndexWinsVsOptimizedRg
   );
   compareTokenBudget(regressions, baseline.agentIndexAvgContextTokens, current.agentIndexAvgContextTokens, options);
+  compareLatencyBudget(regressions, baseline.agentIndexAvgLatencyMs, current.agentIndexAvgLatencyMs, options);
   compareRepoResults(regressions, baseline.repoResults, current.repoResults, options);
   return regressions;
 }
@@ -107,6 +110,13 @@ function compareRepoResults(
       options,
       `repo.${baselineRepo.name}.agentIndexAvgContextTokens`
     );
+    compareLatencyBudget(
+      regressions,
+      baselineRepo.result.agentIndexAvgLatencyMs,
+      currentRepo.result.agentIndexAvgLatencyMs,
+      options,
+      `repo.${baselineRepo.name}.agentIndexAvgLatencyMs`
+    );
   }
 }
 
@@ -142,6 +152,30 @@ function compareTokenBudget(
       baseline,
       current,
       message: `${metric} increased from ${baseline} to ${current} above allowed ${Number(allowedCurrent.toFixed(4))}`
+    });
+  }
+}
+
+function compareLatencyBudget(
+  regressions: NavigationArtifactRegression[],
+  baseline: number,
+  current: number,
+  options: NavigationArtifactCompareOptions,
+  metric = "agentIndexAvgLatencyMs"
+): void {
+  if (options.maxAgentLatencyIncreaseMs === undefined && options.maxAgentLatencyIncreasePercent === undefined) {
+    return;
+  }
+
+  const absoluteAllowance = options.maxAgentLatencyIncreaseMs ?? 0;
+  const percentAllowance = baseline * ((options.maxAgentLatencyIncreasePercent ?? 0) / 100);
+  const allowedCurrent = baseline + Math.max(absoluteAllowance, percentAllowance);
+  if (current > allowedCurrent) {
+    regressions.push({
+      metric,
+      baseline,
+      current,
+      message: `${metric} increased from ${baseline}ms to ${current}ms above allowed ${Number(allowedCurrent.toFixed(4))}ms`
     });
   }
 }

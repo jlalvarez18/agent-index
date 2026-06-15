@@ -401,6 +401,12 @@ describe("runCli", () => {
     });
     expect(output[0]).toContain("Navigation artifact comparison: pass");
 
+    await writeFile(path.join(current, "summary.json"), JSON.stringify({ ...summary, agentIndexAvgLatencyMs: 20 }));
+    await expect(
+      runCli(["nav-compare", baseline, current, "--max-agent-latency-increase-ms", "5"], { write: (line) => output.push(line) })
+    ).rejects.toThrow("Navigation artifact comparison failed with 1 regression(s).");
+    expect(output.at(-1)).toContain("agentIndexAvgLatencyMs increased");
+
     await writeFile(path.join(current, "summary.json"), JSON.stringify({ ...summary, agentIndexCompletionRate: 0 }));
     await expect(runCli(["nav-compare", baseline, current], { write: (line) => output.push(line) })).rejects.toThrow(
       "Navigation artifact comparison failed with 1 regression(s)."

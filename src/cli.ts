@@ -318,6 +318,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .argument("<current>", "current navigation artifact directory or summary.json")
     .option("--max-agent-token-increase <tokens>", "allowed absolute increase in average agent-index context tokens", "0")
     .option("--max-agent-token-increase-percent <percent>", "allowed percentage increase in average agent-index context tokens", "0")
+    .option("--max-agent-latency-increase-ms <ms>", "allowed absolute increase in average agent-index latency")
+    .option("--max-agent-latency-increase-percent <percent>", "allowed percentage increase in average agent-index latency")
     .option("--json", "write full comparison result as JSON")
     .action(
       async (
@@ -326,6 +328,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
         options: {
           maxAgentTokenIncrease: string;
           maxAgentTokenIncreasePercent: string;
+          maxAgentLatencyIncreaseMs?: string;
+          maxAgentLatencyIncreasePercent?: string;
           json?: boolean;
         }
       ) => {
@@ -334,7 +338,15 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           maxAgentTokenIncreasePercent: parseNonNegativeNumber(
             options.maxAgentTokenIncreasePercent,
             "--max-agent-token-increase-percent"
-          )
+          ),
+          maxAgentLatencyIncreaseMs:
+            options.maxAgentLatencyIncreaseMs === undefined
+              ? undefined
+              : parseNonNegativeNumber(options.maxAgentLatencyIncreaseMs, "--max-agent-latency-increase-ms"),
+          maxAgentLatencyIncreasePercent:
+            options.maxAgentLatencyIncreasePercent === undefined
+              ? undefined
+              : parseNonNegativeNumber(options.maxAgentLatencyIncreasePercent, "--max-agent-latency-increase-percent")
         });
         io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationArtifactComparison(result));
         if (!result.passed) {

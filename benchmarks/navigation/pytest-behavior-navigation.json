@@ -84,34 +84,43 @@
       ["marker", "keyword", "expression", "deselect"],
       ["keyword", "marker", "deselect", "test"]
     ],
-    "rgOptimizedSteps": [
-      {
-        "type": "files",
-        "terms": ["marker", "keyword", "expression", "deselect"],
-        "paths": ["src"],
-        "globs": ["*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["marker", "keyword", "expression", "deselect"],
-        "fromStep": 1,
-        "limit": 5
-      },
-      {
-        "type": "files",
-        "terms": ["keyword", "marker", "deselect"],
-        "paths": ["testing"],
-        "globs": ["*test*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["keyword", "marker", "deselect"],
-        "fromStep": 3,
-        "limit": 5
-      }
-    ],
+    "searchTerms": {
+      "seed": ["marker", "keyword", "expression", "deselect"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["marker", "keyword", "expression", "deselect"],
+          "scope": "source",
+          "paths": ["src"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["marker", "keyword", "expression", "deselect"],
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["keyword", "marker", "deselect"],
+          "scope": "test",
+          "paths": ["testing"],
+          "globs": ["*test*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["keyword", "marker", "deselect"],
+          "limit": 5
+        }
+      ]
+    },
     "expected": {
       "files": ["src/_pytest/mark/__init__.py", "src/_pytest/mark/expression.py", "testing/test_mark.py", "testing/test_mark_expression.py"],
       "symbols": ["deselect_by_keyword", "deselect_by_mark"],

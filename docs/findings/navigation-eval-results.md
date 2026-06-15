@@ -41,7 +41,7 @@ Multi-repo `nav-suite` result:
 
 | Repos | Cases | agent-index useful | rg broad useful | rg optimized useful | agent-index complete | rg broad complete | rg optimized complete | agent-index avg tokens | rg broad avg tokens | rg optimized avg tokens | agent wins vs broad | agent wins vs optimized |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 5 | 12 | 1.00 | 1.00 | 1.00 | 1.00 | 0.67 | 0.42 | 118 | 179,715 | 833 | 12 | 12 |
+| 5 | 16 | 1.00 | 1.00 | 1.00 | 1.00 | 0.63 | 0.19 | 136 | 202,769 | 852 | 16 | 16 |
 
 The current suite was run with `--reindex`, rebuilding:
 
@@ -55,26 +55,30 @@ Per-repo results:
 
 | Repo | Cases | agent-index complete | rg broad complete | rg optimized complete | agent tokens | rg broad tokens | rg optimized tokens | agent wins vs optimized |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Click | 3 | 1.00 | 1.00 | 0.67 | 91 | 25,271 | 443 | 3 |
+| Click | 4 | 1.00 | 1.00 | 0.50 | 124 | 30,065 | 449 | 4 |
 | NetworkX | 2 | 1.00 | 1.00 | 0.50 | 96 | 472,427 | 268 | 2 |
-| Pydantic | 3 | 1.00 | 0.33 | 0.00 | 126 | 76,683 | 1,376 | 3 |
-| HTTPX | 2 | 1.00 | 0.00 | 0.00 | 163 | 30,232 | 1,287 | 2 |
-| Rich | 2 | 1.00 | 1.00 | 1.00 | 125 | 422,698 | 714 | 2 |
+| Pydantic | 4 | 1.00 | 0.25 | 0.00 | 141 | 106,118 | 1,223 | 4 |
+| HTTPX | 3 | 1.00 | 0.00 | 0.00 | 190 | 48,793 | 1,417 | 3 |
+| Rich | 3 | 1.00 | 1.00 | 0.00 | 120 | 536,114 | 717 | 3 |
 
 ## Per-Case Notes
 
 - `click-no-color-source`: 134 agent-index tokens vs 24,629 broad rg tokens and 623 optimized rg tokens.
 - `click-no-color-tests`: 94 agent-index tokens vs 1,011 broad rg tokens and 240 optimized rg tokens.
 - `click-no-color-source-blind`: 46 agent-index tokens vs 50,173 broad rg tokens and 474 optimized rg tokens, without agent path hints.
+- `click-color-env-default-behavior-only`: 222 agent-index tokens vs 44,447 broad rg tokens and 467 optimized rg tokens, without the constant or function name.
 - `networkx-path-weight-default`: 93 agent-index tokens vs 647,717 broad rg tokens and 366 optimized rg tokens, using direct `query` then `related-tests`.
 - `networkx-weighted-mixing-expansion`: 98 agent-index tokens vs 297,137 broad rg tokens and 170 optimized rg tokens, using direct `query` then `related-tests`.
 - `pydantic-computed-fields-python-api`: 197 agent-index tokens vs 40,134 rg tokens.
 - `pydantic-computed-fields-rust-core`: 116 agent-index tokens vs 94,957 rg tokens.
 - `pydantic-computed-fields-rust-core-blind`: 68 agent-index tokens vs 94,957 broad rg tokens and 1,822 optimized rg tokens, without a Rust path hint.
+- `pydantic-computed-fields-serializer-behavior-only`: 185 agent-index tokens vs 194,422 broad rg tokens and 807 optimized rg tokens, without the Rust type or method name.
 - `httpx-redirect-history-manual-next-request`: 163 agent-index tokens vs 30,232 broad rg tokens and 1,287 optimized rg tokens, using `file-clusters` then task-term-biased `related-tests`.
 - `httpx-redirect-history-blind`: 163 agent-index tokens vs 30,232 broad rg tokens and 1,287 optimized rg tokens, without agent path hints.
+- `httpx-manual-redirect-history-behavior-only`: 245 agent-index tokens vs 85,915 broad rg tokens and 1,678 optimized rg tokens, without the internal request attribute name.
 - `rich-print-json-file-stream`: 188 agent-index tokens vs 422,698 broad rg tokens and 712 optimized rg tokens, using `file-clusters` then `related-tests`.
 - `rich-print-json-file-blind`: 62 agent-index tokens vs 422,698 broad rg tokens and 714 optimized rg tokens, without agent path hints.
+- `rich-json-stream-output-behavior-only`: 109 agent-index tokens vs 762,947 broad rg tokens and 724 optimized rg tokens, without the target function name.
 
 ## Lessons
 
@@ -83,7 +87,7 @@ Per-repo results:
 - `nav-eval` now reports required task completion in addition to first useful hit: each workflow includes found/missing required files and symbols, plus `taskComplete` and suite-level completion rates. Fixtures still keep broader `expected` files/symbols for useful-hit credit.
 - The NetworkX multi-step workflow now has `agent-index completion rate: 1.00` and `rg completion rate: 1.00`, so the token win is no longer just first-hit evidence; both workflows found the required source/test locations and symbols.
 - Click completion is 1.00 for agent-index, broad rg, and optimized rg, but agent-index uses 91 average tokens vs 25,271 broad rg tokens and 443 optimized rg tokens after adding the blind case. Pydantic exposes a mixed-language advantage: agent-index completion is 1.00 while broad rg completion is 0.33 and optimized rg completion is 0.00 because the Rust core symbol is surfaced structurally by the index.
-- `nav-suite` now runs five real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.67 and optimized rg 0.42. Agent-index averages 118 context tokens vs 179,715 broad rg tokens and 833 optimized rg tokens, with 12 wins vs broad rg and 12 wins vs optimized rg.
+- `nav-suite` now runs five real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.63 and optimized rg 0.19. Agent-index averages 136 context tokens vs 202,769 broad rg tokens and 852 optimized rg tokens, with 16 wins vs broad rg and 16 wins vs optimized rg.
 - The new `file-clusters` map view put `networkx/algorithms/cuts.py` first for weighted mixing expansion and `httpx/_client.py` first for redirect-history handling, keeping broad behavior prompts under 150 tokens before the test follow-up.
 - Path-filtered test discovery matters for keeping test-navigation output small.
 - Minimal Rust indexing is enough to make the Pydantic Rust serializer case visible to `agent-index`.
@@ -94,12 +98,13 @@ Per-repo results:
 - Multi-step fixtures now use `sourceFromStep` where possible, so `related-tests` derives its source from the prior `file-clusters` or `query` output instead of being handed the exact source file by the fixture.
 - `related-tests` now strips common source roots such as `src/` when matching import evidence, so `src/pkg/service.py` can match tests that import `pkg.service` or `from pkg import service`.
 - The optimized rg baseline changed the best agent workflow for exact API-name tasks: NetworkX now uses direct `query` followed by `related-tests`, cutting agent context from 360 average tokens to 96.
-- Four blind/no-path-hint cases now exercise real agent navigation pressure: Click `NO_COLOR`, HTTPX redirect history, Rich `print_json(file=...)`, and Pydantic Rust computed fields. Agent-index completed all four, averaging 46-163 tokens per blind case.
+- Eight blind or behavior-only cases now exercise real agent navigation pressure: Click color environment defaults, HTTPX redirect history, Rich JSON stream output, and Pydantic computed-field serialization. Four of those avoid exact target symbol names; agent-index completed all four behavior-only cases in 109-245 tokens.
+- The Click behavior-only miss showed a useful workflow lesson: broad behavior wording should use `file-clusters` as a map layer. A direct `query` found useful color helpers but did not complete the task; switching to file clusters surfaced `src/click/globals.py` and `resolve_color_default` without adding a ranking special case.
 
 ## Next Retrieval Improvements
 
 - Expand `related-tests` with framework conventions, parametrized test names, fixture references, and source/test package layout rules.
 - Add benchmark cases where the correct test file is selected by behavior terms but the exact source symbol is absent from test bodies.
-- Add more blind intent-only fixtures where the task does not include an exact symbol name, especially broad bug reports that require `file-clusters` before any direct `query` is possible.
+- Add more blind intent-only fixtures in new repositories where the task does not include an exact symbol name, especially broad bug reports that require `file-clusters` before any direct `query` is possible.
 - Persist navigation-eval JSON output in CI-style artifacts so regressions can be tracked over time.
 - Add more real-world fixtures beyond Python/Rust once the Python suite remains stable across repeated runs.

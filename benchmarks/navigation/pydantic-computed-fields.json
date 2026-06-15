@@ -130,5 +130,46 @@
       "files": ["pydantic-core/src/serializers/computed_fields.rs"],
       "symbols": ["ComputedFields.serialize"]
     }
+  },
+  {
+    "id": "pydantic-computed-fields-serializer-behavior-only",
+    "task": "Find the implementation area for excluding computed fields during serialization, without using the Rust type or method name.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["serializer", "computed", "fields", "exclude"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"]
+        },
+        "limit": 5
+      }
+    ],
+    "rgQueries": [
+      ["serializer", "computed", "fields", "exclude"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["serializer", "computed", "fields", "exclude"],
+        "paths": ["pydantic-core/src", "pydantic"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["serializer", "computed", "fields", "exclude"],
+        "fromStep": 1,
+        "before": 5,
+        "after": 5,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["pydantic-core/src/serializers/computed_fields.rs", "pydantic/main.py", "pydantic/fields.py"],
+      "symbols": ["ComputedFields.serialize"],
+      "requiredFiles": ["pydantic-core/src/serializers/computed_fields.rs"],
+      "requiredSymbols": ["ComputedFields.serialize"]
+    }
   }
 ]

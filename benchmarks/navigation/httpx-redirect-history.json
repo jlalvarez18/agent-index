@@ -125,5 +125,68 @@
       "requiredFiles": ["httpx/_client.py", "tests/client/test_redirects.py"],
       "requiredSymbols": ["Client._send_handling_redirects"]
     }
+  },
+  {
+    "id": "httpx-manual-redirect-history-behavior-only",
+    "task": "Find where manual redirects preserve prior response history and the tests that cover it, without using the internal request attribute name.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["manual", "redirect", "response", "history", "preserve"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"]
+        },
+        "limit": 6
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "Client._send_handling_redirects",
+        "terms": ["redirect", "history", "response"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["manual", "redirect", "response", "history", "preserve"],
+      ["redirect", "history", "response"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["manual", "redirect", "response", "history", "preserve"],
+        "paths": ["httpx"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["manual", "redirect", "response", "history", "preserve"],
+        "fromStep": 1,
+        "before": 20,
+        "after": 10,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["redirect", "history", "response"],
+        "paths": ["tests"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["redirect", "history", "response"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["httpx/_client.py", "tests/client/test_redirects.py"],
+      "symbols": ["Client._send_handling_redirects", "AsyncClient._send_handling_redirects", "test_next_request_preserves_redirect_history", "test_async_next_request_preserves_redirect_history"],
+      "requiredFiles": ["httpx/_client.py", "tests/client/test_redirects.py"],
+      "requiredSymbols": ["Client._send_handling_redirects"]
+    }
   }
 ]

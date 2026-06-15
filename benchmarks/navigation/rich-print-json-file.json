@@ -120,5 +120,66 @@
       "requiredFiles": ["rich/__init__.py", "tests/test_rich_print.py"],
       "requiredSymbols": ["print_json"]
     }
+  },
+  {
+    "id": "rich-json-stream-output-behavior-only",
+    "task": "Find the top-level JSON output helper that should accept a file-like stream and the related tests, without using its function name.",
+    "kind": "feature",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["json", "output", "stream", "file", "helper"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source"],
+          "limit": 5
+        }
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "print_json",
+        "terms": ["file", "StringIO", "json"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["json", "output", "stream", "file", "helper"],
+      ["json", "file", "StringIO"]
+    ],
+    "rgOptimizedSteps": [
+      {
+        "type": "files",
+        "terms": ["json", "output", "stream", "file", "helper"],
+        "paths": ["rich"],
+        "globs": ["*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["json", "output", "stream", "file", "helper"],
+        "fromStep": 1,
+        "limit": 5
+      },
+      {
+        "type": "files",
+        "terms": ["json", "file", "StringIO"],
+        "paths": ["tests"],
+        "globs": ["*test*.py"],
+        "limit": 25
+      },
+      {
+        "type": "snippets",
+        "terms": ["json", "file", "StringIO"],
+        "fromStep": 3,
+        "limit": 5
+      }
+    ],
+    "expected": {
+      "files": ["rich/__init__.py", "rich/console.py", "rich/json.py", "tests/test_rich_print.py", "tests/test_console.py"],
+      "symbols": ["print_json", "Console.print_json", "JSON.from_data", "test_rich_print_json", "test_print_json"],
+      "requiredFiles": ["rich/__init__.py", "tests/test_rich_print.py"],
+      "requiredSymbols": ["print_json"]
+    }
   }
 ]

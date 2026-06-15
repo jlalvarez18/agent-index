@@ -129,6 +129,9 @@ describe("runNavigationSuite", () => {
       agentIndexAvgFirstUsefulLatencyMs: expect.any(Number),
       rgAvgFirstUsefulLatencyMs: expect.any(Number),
       rgOptimizedAvgFirstUsefulLatencyMs: expect.any(Number),
+      agentIndexAvgFirstUsefulContextTokens: expect.any(Number),
+      rgAvgFirstUsefulContextTokens: expect.any(Number),
+      rgOptimizedAvgFirstUsefulContextTokens: expect.any(Number),
       agentIndexWins: 1,
       rgWins: 0
     });
@@ -173,6 +176,7 @@ describe("runNavigationSuite", () => {
       cases: 1,
       agentIndexCompletionRate: result.agentIndexCompletionRate,
       agentIndexAvgFirstUsefulLatencyMs: result.agentIndexAvgFirstUsefulLatencyMs,
+      agentIndexAvgFirstUsefulContextTokens: result.agentIndexAvgFirstUsefulContextTokens,
       repoResults: [
         {
           name: "fixture",

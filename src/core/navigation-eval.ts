@@ -384,6 +384,9 @@ function summarizeNavigationCases(caseResults: NavigationEvalCaseResult[]): Navi
       caseResults.reduce((sum, result) => sum + result.rgOptimized.contextTokens, 0),
       caseResults.length
     ),
+    agentIndexAvgFirstUsefulContextTokens: averagePresent(caseResults.map((result) => result.agentIndex.firstUsefulContextTokens)),
+    rgAvgFirstUsefulContextTokens: averagePresent(caseResults.map((result) => result.rg.firstUsefulContextTokens)),
+    rgOptimizedAvgFirstUsefulContextTokens: averagePresent(caseResults.map((result) => result.rgOptimized.firstUsefulContextTokens)),
     avgTokenSavings: ratio(caseResults.reduce((sum, result) => sum + result.tokenSavings, 0), caseResults.length),
     avgOptimizedRgTokenSavings: ratio(
       caseResults.reduce((sum, result) => sum + result.optimizedRgTokenSavings, 0),
@@ -412,6 +415,8 @@ function summarizeWorkflow(steps: NavigationEvalStepResult[], navigationCase?: N
   const missingFiles = requiredFiles.filter((file) => !foundFiles.includes(file));
   const missingSymbols = requiredSymbols.filter((symbol) => !foundSymbols.includes(symbol));
   const firstUsefulLatencyMs = usefulIndex === -1 ? null : steps.slice(0, usefulIndex + 1).reduce((sum, step) => sum + step.latencyMs, 0);
+  const firstUsefulContextTokens =
+    usefulIndex === -1 ? null : steps.slice(0, usefulIndex + 1).reduce((sum, step) => sum + step.contextTokens, 0);
   return {
     commands: steps.length,
     foundUseful: usefulIndex !== -1,
@@ -423,6 +428,7 @@ function summarizeWorkflow(steps: NavigationEvalStepResult[], navigationCase?: N
     missingFiles,
     missingSymbols,
     firstUsefulLatencyMs,
+    firstUsefulContextTokens,
     latencyMs: steps.reduce((sum, step) => sum + step.latencyMs, 0),
     contextChars: steps.reduce((sum, step) => sum + step.contextChars, 0),
     contextTokens: steps.reduce((sum, step) => sum + step.contextTokens, 0),

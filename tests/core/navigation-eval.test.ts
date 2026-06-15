@@ -79,6 +79,9 @@ describe("runNavigationEval", () => {
       agentIndexAvgFirstUsefulLatencyMs: expect.any(Number),
       rgAvgFirstUsefulLatencyMs: expect.any(Number),
       rgOptimizedAvgFirstUsefulLatencyMs: expect.any(Number),
+      agentIndexAvgFirstUsefulContextTokens: expect.any(Number),
+      rgAvgFirstUsefulContextTokens: expect.any(Number),
+      rgOptimizedAvgFirstUsefulContextTokens: expect.any(Number),
       agentIndexWins: 1,
       rgWins: 0
     });
@@ -96,17 +99,20 @@ describe("runNavigationEval", () => {
         missingSymbols: [],
         firstUsefulCommand: 1,
         firstUsefulRank: 1,
-        firstUsefulLatencyMs: expect.any(Number)
+        firstUsefulLatencyMs: expect.any(Number),
+        firstUsefulContextTokens: expect.any(Number)
       },
       rg: {
         commands: 1,
         foundUseful: true,
         taskComplete: true,
         firstUsefulCommand: 1,
-        firstUsefulLatencyMs: expect.any(Number)
+        firstUsefulLatencyMs: expect.any(Number),
+        firstUsefulContextTokens: expect.any(Number)
       }
     });
     expect(result.caseResults[0].agentIndex.firstUsefulLatencyMs).toBeLessThanOrEqual(result.caseResults[0].agentIndex.latencyMs);
+    expect(result.caseResults[0].agentIndex.firstUsefulContextTokens).toBeLessThanOrEqual(result.caseResults[0].agentIndex.contextTokens);
     expect(result.caseResults[0].tokenSavings).toBeGreaterThan(0);
   });
 
@@ -194,7 +200,8 @@ describe("runNavigationEval", () => {
         foundSymbols: ["load_value"],
         firstUsefulCommand: 1,
         firstUsefulRank: 1,
-        firstUsefulLatencyMs: expect.any(Number)
+        firstUsefulLatencyMs: expect.any(Number),
+        firstUsefulContextTokens: expect.any(Number)
       }
     });
     expect(result.caseResults[0].agentIndex.steps.map((step) => step.type)).toEqual(["file-clusters", "related-tests"]);

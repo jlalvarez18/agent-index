@@ -67,6 +67,13 @@ function findNavigationRegressions(
     current.agentIndexWinsVsOptimizedRg
   );
   compareTokenBudget(regressions, baseline.agentIndexAvgContextTokens, current.agentIndexAvgContextTokens, options);
+  compareTokenBudget(
+    regressions,
+    baseline.agentIndexAvgFirstUsefulContextTokens,
+    current.agentIndexAvgFirstUsefulContextTokens,
+    options,
+    "agentIndexAvgFirstUsefulContextTokens"
+  );
   compareLatencyBudget(regressions, baseline.agentIndexAvgLatencyMs, current.agentIndexAvgLatencyMs, options);
   compareLatencyBudget(
     regressions,
@@ -117,6 +124,13 @@ function compareRepoResults(
       options,
       `repo.${baselineRepo.name}.agentIndexAvgContextTokens`
     );
+    compareTokenBudget(
+      regressions,
+      baselineRepo.result.agentIndexAvgFirstUsefulContextTokens,
+      currentRepo.result.agentIndexAvgFirstUsefulContextTokens,
+      options,
+      `repo.${baselineRepo.name}.agentIndexAvgFirstUsefulContextTokens`
+    );
     compareLatencyBudget(
       regressions,
       baselineRepo.result.agentIndexAvgLatencyMs,
@@ -152,11 +166,15 @@ function compareNonDecreasing(
 
 function compareTokenBudget(
   regressions: NavigationArtifactRegression[],
-  baseline: number,
-  current: number,
+  baseline: number | undefined,
+  current: number | undefined,
   options: NavigationArtifactCompareOptions,
   metric = "agentIndexAvgContextTokens"
 ): void {
+  if (typeof baseline !== "number" || typeof current !== "number") {
+    return;
+  }
+
   const absoluteAllowance = options.maxAgentTokenIncrease ?? 0;
   const percentAllowance = baseline * ((options.maxAgentTokenIncreasePercent ?? 0) / 100);
   const allowedCurrent = baseline + Math.max(absoluteAllowance, percentAllowance);

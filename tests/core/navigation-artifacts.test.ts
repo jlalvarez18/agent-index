@@ -27,6 +27,9 @@ function suiteResult(overrides: Partial<NavigationSuiteResult> = {}): Navigation
     agentIndexAvgContextTokens: 100,
     rgAvgContextTokens: 1000,
     rgOptimizedAvgContextTokens: 300,
+    agentIndexAvgFirstUsefulContextTokens: 40,
+    rgAvgFirstUsefulContextTokens: 1000,
+    rgOptimizedAvgFirstUsefulContextTokens: 150,
     avgTokenSavings: 900,
     avgOptimizedRgTokenSavings: 200,
     agentIndexWins: 2,
@@ -63,6 +66,9 @@ function suiteResult(overrides: Partial<NavigationSuiteResult> = {}): Navigation
           agentIndexAvgContextTokens: 100,
           rgAvgContextTokens: 1000,
           rgOptimizedAvgContextTokens: 300,
+          agentIndexAvgFirstUsefulContextTokens: 40,
+          rgAvgFirstUsefulContextTokens: 1000,
+          rgOptimizedAvgFirstUsefulContextTokens: 150,
           avgTokenSavings: 900,
           avgOptimizedRgTokenSavings: 200,
           agentIndexWins: 2,
@@ -130,6 +136,23 @@ describe("compareNavigationArtifacts", () => {
       regressions: [
         expect.objectContaining({
           metric: "agentIndexAvgContextTokens"
+        })
+      ]
+    });
+  });
+
+  test("fails first-useful token regressions", async () => {
+    const baseline = await writeSummary(suiteResult());
+    const current = await writeSummary(suiteResult({ agentIndexAvgFirstUsefulContextTokens: 50 }));
+
+    await expect(compareNavigationArtifacts(baseline, current, { maxAgentTokenIncreasePercent: 25 })).resolves.toMatchObject({
+      passed: true
+    });
+    await expect(compareNavigationArtifacts(baseline, current, { maxAgentTokenIncrease: 5 })).resolves.toMatchObject({
+      passed: false,
+      regressions: [
+        expect.objectContaining({
+          metric: "agentIndexAvgFirstUsefulContextTokens"
         })
       ]
     });

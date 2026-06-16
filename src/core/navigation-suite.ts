@@ -11,6 +11,8 @@ export interface NavigationSuiteOptions {
   indexRoot?: string;
   artifactsDir?: string;
   runs?: number;
+  repos?: string[];
+  cases?: string[];
 }
 
 export async function runNavigationSuite(
@@ -18,7 +20,7 @@ export async function runNavigationSuite(
   options: NavigationSuiteOptions = {}
 ): Promise<NavigationSuiteResult> {
   const manifestRoot = path.dirname(path.resolve(manifestPath));
-  const entries = JSON.parse(await readFile(manifestPath, "utf8")) as NavigationSuiteEntry[];
+  const entries = filterSuiteEntries(JSON.parse(await readFile(manifestPath, "utf8")) as NavigationSuiteEntry[], options.repos);
   const repoResults: NavigationSuiteRepoResult[] = [];
   const runs = normalizeRuns(options.runs);
 
@@ -33,7 +35,8 @@ export async function runNavigationSuite(
         await runNavigationEval(resolvedEntry.evalPath, {
           target: resolvedEntry.target,
           indexPath: indexStats?.indexPath ?? resolvedEntry.indexPath,
-          mode: options.mode ?? resolvedEntry.mode
+          mode: options.mode ?? resolvedEntry.mode,
+          caseIds: options.cases
         })
       );
     }
@@ -52,6 +55,14 @@ export async function runNavigationSuite(
     await writeNavigationSuiteArtifacts(suiteResult, options.artifactsDir);
   }
   return suiteResult;
+}
+
+function filterSuiteEntries(entries: NavigationSuiteEntry[], repos: string[] | undefined): NavigationSuiteEntry[] {
+  if (!repos || repos.length === 0) {
+    return entries;
+  }
+  const selectedRepos = new Set(repos);
+  return entries.filter((entry) => selectedRepos.has(entry.name));
 }
 
 async function writeNavigationSuiteArtifacts(result: NavigationSuiteResult, artifactsDir: string): Promise<void> {

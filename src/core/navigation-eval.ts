@@ -26,6 +26,7 @@ export interface NavigationEvalOptions {
   target: string;
   indexPath?: string;
   mode?: QueryMode;
+  caseIds?: string[];
 }
 
 interface RgMatch {
@@ -44,7 +45,7 @@ export async function runNavigationEval(
   navigationEvalPath: string,
   options: NavigationEvalOptions
 ): Promise<NavigationEvalResult> {
-  const cases = JSON.parse(await readFile(navigationEvalPath, "utf8")) as NavigationEvalCase[];
+  const cases = filterNavigationCases(JSON.parse(await readFile(navigationEvalPath, "utf8")) as NavigationEvalCase[], options.caseIds);
   validateNavigationEvalCases(cases, navigationEvalPath);
   const caseResults: NavigationEvalCaseResult[] = [];
 
@@ -56,6 +57,14 @@ export async function runNavigationEval(
   }
 
   return summarizeNavigationCases(caseResults);
+}
+
+function filterNavigationCases(cases: NavigationEvalCase[], caseIds: string[] | undefined): NavigationEvalCase[] {
+  if (!caseIds || caseIds.length === 0) {
+    return cases;
+  }
+  const selectedIds = new Set(caseIds);
+  return cases.filter((navigationCase) => selectedIds.has(navigationCase.id));
 }
 
 export function validateNavigationEvalCases(cases: NavigationEvalCase[], source = "navigation eval"): void {

@@ -62,6 +62,95 @@ async function fixtureSuite() {
   return manifestPath;
 }
 
+async function fixtureSuiteWithTwoRepos() {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-suite-filter-repos-"));
+  const repoA = path.join(root, "repo-a");
+  const repoB = path.join(root, "repo-b");
+  for (const repo of [repoA, repoB]) {
+    await mkdir(path.join(repo, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(repo, "pkg", "cache.py"),
+      `def load_value(key):
+    semantic_cache = {"hit": key}
+    return semantic_cache["hit"]
+`
+    );
+  }
+  const indexA = await indexTarget(repoA);
+  const indexB = await indexTarget(repoB);
+  const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-suite-filter-eval-"));
+  const evalPath = path.join(evalRoot, "navigation-eval.json");
+  await writeFile(
+    evalPath,
+    JSON.stringify([
+      {
+        id: "semantic-cache",
+        task: "Find semantic cache implementation.",
+        kind: "bugfix",
+        agentIndexSteps: [
+          {
+            type: "file-clusters",
+            query: {
+              terms: ["load_value", "semantic", "cache"],
+              roles: ["source"],
+              pathHints: ["pkg/cache.py"]
+            },
+            limit: 3
+          }
+        ],
+        rgQueries: [["load_value", "semantic", "cache"]],
+        expected: {
+          files: ["pkg/cache.py"],
+          symbols: ["load_value"],
+          requiredFiles: ["pkg/cache.py"],
+          requiredSymbols: ["load_value"]
+        }
+      },
+      {
+        id: "missing-case",
+        task: "This case should be filtered out.",
+        kind: "bugfix",
+        agentIndexSteps: [
+          {
+            type: "file-clusters",
+            query: {
+              terms: ["does_not_exist"],
+              roles: ["source"]
+            },
+            limit: 3
+          }
+        ],
+        rgQueries: [["does_not_exist"]],
+        expected: {
+          files: ["pkg/missing.py"],
+          requiredFiles: ["pkg/missing.py"]
+        }
+      }
+    ])
+  );
+  const manifestPath = path.join(evalRoot, "suite.json");
+  await writeFile(
+    manifestPath,
+    JSON.stringify([
+      {
+        name: "repo-a",
+        evalPath: path.basename(evalPath),
+        target: repoA,
+        indexPath: indexA.indexPath,
+        mode: "hybrid"
+      },
+      {
+        name: "repo-b",
+        evalPath: path.basename(evalPath),
+        target: repoB,
+        indexPath: indexB.indexPath,
+        mode: "hybrid"
+      }
+    ])
+  );
+  return manifestPath;
+}
+
 async function fixtureSuiteWithoutIndex() {
   const repoRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-suite-reindex-repos-"));
   const root = path.join(repoRoot, "fixture-repo");
@@ -219,5 +308,17 @@ describe("runNavigationSuite", () => {
     expect(repo.runs).toBe(3);
     expect(repo.runResults).toHaveLength(3);
     expect(repo.result).toEqual(sortedRuns[1]);
+  });
+
+  test("filters suite repositories and navigation cases", async () => {
+    const manifestPath = await fixtureSuiteWithTwoRepos();
+
+    const result = await runNavigationSuite(manifestPath, { repos: ["repo-b"], cases: ["semantic-cache"] });
+
+    expect(result.repos).toBe(1);
+    expect(result.cases).toBe(1);
+    expect(result.repoResults[0].name).toBe("repo-b");
+    expect(result.repoResults[0].result.caseResults.map((caseResult) => caseResult.id)).toEqual(["semantic-cache"]);
+    expect(result.agentIndexCompletionRate).toBe(1);
   });
 });

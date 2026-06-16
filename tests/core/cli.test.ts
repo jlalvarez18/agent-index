@@ -379,6 +379,9 @@ def test_load_value():
     await runCli(["nav-suite", suitePath, "--json", "--runs", "3"], {
       write: (line) => output.push(line)
     });
+    await runCli(["nav-suite", suitePath, "--repo", "fixture", "--case", "semantic-cache-navigation", "--json"], {
+      write: (line) => output.push(line)
+    });
 
     expect(output[1]).toContain("Repos: 1");
     expect(output[1]).toContain("Cases: 1");
@@ -409,6 +412,23 @@ def test_load_value():
           name: "fixture",
           result: {
             cases: 1
+          }
+        }
+      ]
+    });
+    const filteredJson = JSON.parse(output[3]);
+    expect(filteredJson).toMatchObject({
+      repos: 1,
+      cases: 1,
+      repoResults: [
+        {
+          name: "fixture",
+          result: {
+            caseResults: [
+              {
+                id: "semantic-cache-navigation"
+              }
+            ]
           }
         }
       ]

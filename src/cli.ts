@@ -343,6 +343,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--index-root <path>", "write default suite index files under this directory")
     .option("--artifacts-dir <path>", "write navigation suite summary and per-repository JSON artifacts")
     .option("--runs <runs>", "repeat each repository eval and use the median agent-index latency run", "1")
+    .option("--repo <name>", "only run suite entries with this repository name; repeat for multiple repos", collectOption, [])
+    .option("--case <id>", "only run navigation cases with this id; repeat for multiple cases", collectOption, [])
     .option("--json", "write full navigation suite result as JSON")
     .option("--repos", "append per-repository results to text output")
     .action(
@@ -355,6 +357,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           indexRoot?: string;
           artifactsDir?: string;
           runs?: string;
+          repo: string[];
+          case: string[];
           json?: boolean;
           repos?: boolean;
         }
@@ -365,7 +369,9 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           repoRoot: options.repoRoot,
           indexRoot: options.indexRoot,
           artifactsDir: options.artifactsDir,
-          runs: Number.parseInt(options.runs ?? "1", 10)
+          runs: Number.parseInt(options.runs ?? "1", 10),
+          repos: options.repo,
+          cases: options.case
         });
         io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationSuite(result, Boolean(options.repos)));
       }

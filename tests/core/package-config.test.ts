@@ -41,6 +41,14 @@ describe("package configuration", () => {
     );
   });
 
+  test("declares a stricter navigation comparison gate with latency budgets", async () => {
+    const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+
+    expect(packageJson.scripts["nav:compare:strict"]).toBe(
+      "node dist/cli.js nav-compare --require-agent-dominance --max-agent-latency-increase-percent 25"
+    );
+  });
+
   test("published CLI bin matches the TypeScript build output path", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
     const tsconfig = JSON.parse(await readFile("tsconfig.json", "utf8"));

@@ -24,7 +24,8 @@
     "test": "vitest run",
     "agent-index": "tsx src/cli.ts",
     "nav:suite": "node dist/cli.js nav-suite benchmarks/navigation/suite.json --repos",
-    "nav:compare": "node dist/cli.js nav-compare --require-agent-dominance"
+    "nav:compare": "node dist/cli.js nav-compare --require-agent-dominance",
+    "nav:compare:strict": "node dist/cli.js nav-compare --require-agent-dominance --max-agent-latency-increase-percent 25"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",

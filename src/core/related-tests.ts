@@ -86,13 +86,26 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
     terms: options.terms,
     limit: options.limit
   }));
+  const results = scoreRelatedTestsForSourceOptions(db, sourceOptions, options.terms).map(({ result }) => result);
+  const symbolsByPath = queryRelatedTestSymbolsByPath(db, uniqueValues(results.flatMap((result) => result.matches.map((match) => match.file))));
+  return results.map((result) => ({
+    ...result,
+    matches: withRelatedTestSymbols(result.matches, symbolsByPath, options.terms, result.symbol)
+  }));
+}
+
+function scoreRelatedTestsForSourceOptions(
+  db: Database.Database,
+  sourceOptions: RelatedTestsOptions[],
+  terms: string[] = []
+): RelatedTestsInternalResult[] {
   const candidatePathsBySource = sourceOptions.map((sourceOption) => queryCandidateTestPaths(db, sourceOption));
   const allTestPaths = candidatePathsBySource.some((paths) => paths.length === 0) ? queryAllTestPaths(db) : [];
   const analysisCache = analysesByPath(
-    queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))), options.terms)
+    queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))), terms)
   );
 
-  const results = sourceOptions.map((sourceOption, index) => {
+  return sourceOptions.map((sourceOption, index) => {
     const candidatePaths = candidatePathsBySource[index].length > 0 ? candidatePathsBySource[index] : allTestPaths;
     let analyses = candidatePaths.map((candidatePath) => analysisCache.get(candidatePath)).filter((analysis): analysis is TestFileAnalysis => analysis !== undefined);
     let matches = scoreTestAnalyses(analyses, sourceOption);
@@ -103,19 +116,16 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
           : queryAllTestRows(db).map(analyzeTestFile);
       matches = scoreTestAnalyses(analyses, sourceOption);
     }
-    const selectedMatches = matches.slice(0, sourceOption.limit ?? 5);
     return {
-      sourceFile: normalizeSourceFile(sourceOption.sourceFile),
-      symbol: sourceOption.symbol,
-      candidateFilesScored: analyses.length,
-      matches: selectedMatches
+      result: {
+        sourceFile: normalizeSourceFile(sourceOption.sourceFile),
+        symbol: sourceOption.symbol,
+        candidateFilesScored: analyses.length,
+        matches: matches.slice(0, sourceOption.limit ?? 5)
+      },
+      candidateFiles: analyses.map((analysis) => analysis.row.path)
     };
   });
-  const symbolsByPath = queryRelatedTestSymbolsByPath(db, uniqueValues(results.flatMap((result) => result.matches.map((match) => match.file))));
-  return results.map((result) => ({
-    ...result,
-    matches: withRelatedTestSymbols(result.matches, symbolsByPath, options.terms, result.symbol)
-  }));
 }
 
 function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptions): RelatedTestsInternalResult {
@@ -282,20 +292,17 @@ function findRelatedTestsForSources(db: Database.Database, options: RelatedTests
     };
   }
 
-  const results = [
-    primaryResult,
-    ...sourceFiles
-      .filter((sourceFile) => sourceFile !== primarySource)
-      .map((sourceFile) =>
-        runRelatedTestsWithDb(db, {
-          ...options,
-          sourceFile,
-          sourceFiles: undefined,
-          symbol: undefined,
-          preferSymbolPathCandidates: false
-        })
-      )
-  ];
+  const secondarySourceOptions = sourceFiles
+    .filter((sourceFile) => sourceFile !== primarySource)
+    .map((sourceFile) => ({
+      ...options,
+      sourceFile,
+      sourceFiles: undefined,
+      symbol: undefined,
+      preferSymbolPathCandidates: false
+    }));
+  const secondaryResults = scoreRelatedTestsForSourceOptions(db, secondarySourceOptions, options.terms);
+  const results = [primaryResult, ...secondaryResults];
   const bestByFile = new Map<string, RelatedTestMatch>();
   for (const { result } of results) {
     for (const match of result.matches) {

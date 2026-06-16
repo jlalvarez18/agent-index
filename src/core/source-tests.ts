@@ -13,7 +13,7 @@ export interface SourceTestsOptions {
 export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOptions): SourceTestsResult {
   const sourceLimit = options.limit ?? agentQuery.limit ?? 5;
   const testLimit = options.testLimit ?? 2;
-  const sourceResult = findFileClusters(agentQuery, {
+  const sourceResult = findFileClusters(sourceCandidateQuery(agentQuery), {
     target: options.target,
     indexPath: options.indexPath,
     limit: sourceLimit
@@ -46,6 +46,16 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
   return {
     query: sourceResult.query,
     bundles: bundles.sort((a, b) => b.score - a.score || a.source.file.localeCompare(b.source.file))
+  };
+}
+
+function sourceCandidateQuery(agentQuery: AgentQuery): AgentQuery {
+  if (!agentQuery.roles?.includes("source")) {
+    return agentQuery;
+  }
+  return {
+    ...agentQuery,
+    roles: ["source"]
   };
 }
 

@@ -99,4 +99,40 @@ def test_${name}_workflow():
     expect(result.bundles.slice(0, 3).every((bundle) => bundle.tests.length === 1)).toBe(true);
     expect(result.bundles[3].tests).toEqual([]);
   });
+
+  test("does not use test files as source candidates when source role is requested", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-source-role-normalized-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "canvas.py"),
+      `def apply_chain_group_continuation():
+    return "chain group continuation"
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_canvas.py"),
+      `from pkg.canvas import apply_chain_group_continuation
+
+def test_chain_group_continuation():
+    assert apply_chain_group_continuation() == "chain group continuation"
+`
+    );
+    await indexTarget(root);
+
+    const result = findSourceTests(
+      {
+        terms: ["chain", "group", "continuation"],
+        roles: ["source", "test"],
+        pathHints: ["canvas"]
+      },
+      { target: root, limit: 2, testLimit: 1, testFanoutLimit: 1 }
+    );
+
+    expect(result.bundles[0].source.file).toBe("pkg/canvas.py");
+    expect(result.bundles.map((bundle) => bundle.source.file)).not.toContain("tests/test_canvas.py");
+    expect(result.bundles[0].tests[0]).toMatchObject({
+      file: "tests/test_canvas.py"
+    });
+  });
 });

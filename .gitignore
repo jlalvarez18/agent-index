@@ -4,3 +4,4 @@ dist/
 .codeindex/
 work/
 coverage/
+.worktrees/

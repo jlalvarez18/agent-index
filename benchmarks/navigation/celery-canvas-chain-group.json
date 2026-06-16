@@ -19,16 +19,6 @@
         "sourceFromStep": 1,
         "terms": ["chain", "group", "arguments", "branch", "continuation"],
         "limit": 6
-      },
-      {
-        "type": "source-tests",
-        "query": {
-          "terms": ["chain", "group", "arguments", "continuation", "apply_async"],
-          "symbolKinds": ["method", "function"],
-          "roles": ["source", "test"],
-          "pathHints": ["canvas"]
-        },
-        "limit": 8
       }
     ],
     "rgQueries": [

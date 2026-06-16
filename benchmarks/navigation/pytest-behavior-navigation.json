@@ -189,6 +189,80 @@
     }
   },
   {
+    "id": "pytest-k-selection-exact-string-audit",
+    "task": "Audit pytest's public -k selection flag before changing keyword matching behavior. Find where the flag is registered, where keyword expressions are parsed/evaluated, and the tests that exercise -k selection.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["-k", "keyword", "expression", "selection", "deselect", "evaluate"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["mark", "expression"]
+        },
+        "limit": 5
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["-k", "keyword", "expression", "selection"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["test"],
+          "pathHints": ["test_mark", "test_mark_expression"]
+        },
+        "limit": 5
+      }
+    ],
+    "rgQueries": [
+      ["-k", "keyword", "expression", "selection", "deselect", "evaluate"],
+      ["-k", "keyword", "expression", "test"]
+    ],
+    "searchTerms": {
+      "seed": ["-k", "keyword", "expression", "selection", "deselect", "evaluate"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["-k", "keyword", "expression", "selection", "deselect", "evaluate"],
+          "scope": "source",
+          "paths": ["src/_pytest/mark"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["-k", "keyword", "expression", "deselect", "evaluate"],
+          "limit": 6
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["-k", "keyword", "expression"],
+          "scope": "test",
+          "paths": ["testing"],
+          "globs": ["*test*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["-k", "keyword", "expression"],
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": ["src/_pytest/mark/__init__.py", "src/_pytest/mark/expression.py", "testing/test_mark.py", "testing/test_mark_expression.py"],
+      "symbols": ["deselect_by_keyword", "KeywordMatcher.__call__", "Expression.compile", "Expression.evaluate"],
+      "requiredFiles": ["src/_pytest/mark/__init__.py", "src/_pytest/mark/expression.py", "testing/test_mark.py", "testing/test_mark_expression.py"],
+      "requiredSymbols": []
+    }
+  },
+  {
     "id": "pytest-captured-output-report-sections-symptom",
     "task": "Investigate why captured stdout or stderr from setup, call, and teardown phases appears under the wrong report section, and find the related tests, without naming the capture manager or report-section APIs.",
     "kind": "bugfix",

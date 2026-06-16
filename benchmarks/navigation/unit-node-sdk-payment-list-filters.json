@@ -5,24 +5,16 @@
     "kind": "bugfix",
     "agentIndexSteps": [
       {
-        "type": "file-clusters",
+        "type": "source-tests",
         "query": {
           "terms": ["payment", "list", "array", "filters", "status", "type", "direction", "query", "params"],
           "symbolKinds": ["class", "method", "function"],
-          "roles": ["source"],
+          "roles": ["source", "test"],
           "pathHints": ["resources", "payments", "types"]
         },
-        "limit": 8
-      },
-      {
-        "type": "file-clusters",
-        "query": {
-          "terms": ["payment", "list", "array", "filters", "status", "type", "direction", "query", "params"],
-          "symbolKinds": ["class", "method", "function", "module"],
-          "roles": ["test"],
-          "pathHints": ["tests", "payments"]
-        },
-        "limit": 8
+        "limit": 3,
+        "testLimit": 2,
+        "testFanoutLimit": 2
       }
     ],
     "rgQueries": [

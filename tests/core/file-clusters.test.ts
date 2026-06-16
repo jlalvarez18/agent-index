@@ -145,15 +145,16 @@ describe("findFileClusters", () => {
     expect(queryPlan.fallback?.kind).toBe("fts");
   });
 
-  test("skips soft path prefilters for broad task-term queries", () => {
+  test("uses bounded term FTS for broad task-term queries with loose path hints", () => {
     const queryPlan = fileClusterSqlForTesting({
       terms: ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "query", "batch", "merge"],
       symbolKinds: ["class", "method", "function"],
       roles: ["source"],
-      pathHints: ["neighbors", "pairwise distances reduction"]
+      pathHints: ["neighbors", "pairwise distances reduction"],
+      limit: 6
     });
 
-    expect(queryPlan.kind).toBe("fts");
+    expect(queryPlan.kind).toBe("bounded-term-fts");
     expect(queryPlan.fallback).toBeUndefined();
   });
 

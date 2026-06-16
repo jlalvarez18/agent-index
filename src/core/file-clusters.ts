@@ -138,11 +138,13 @@ function usesBroadTaskTerms(agentQuery: AgentQuery): boolean {
 }
 
 function usesBoundedTermFts(agentQuery: AgentQuery, limit: number | undefined): boolean {
+  const requestedLimit = limit ?? agentQuery.limit ?? 8;
+  const pathHintCount = agentQuery.pathHints?.length ?? 0;
   return (
-    (limit ?? agentQuery.limit ?? 8) <= 1 &&
+    (requestedLimit <= 1 || (requestedLimit <= 6 && pathHintCount > 0 && pathHintCount <= 2)) &&
     normalizedQueryTerms(agentQuery).length >= 7 &&
     !usesHardPathFilter(agentQuery) &&
-    (agentQuery.pathHints?.length ?? 0) === 0
+    pathHintCount <= 2
   );
 }
 

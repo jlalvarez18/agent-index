@@ -37,7 +37,7 @@ interface MutableCluster {
 }
 
 interface FileClusterSqlPlan {
-  kind: "fts" | "path-filter" | "path-hint-prefilter";
+  kind: "fts" | "path-filter" | "path-hint-prefilter" | "bounded-term-fts";
   sql: string;
   params: Record<string, unknown>;
   fallback?: FileClusterSqlPlan;
@@ -59,7 +59,7 @@ export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOpt
 
   const db = new Database(dbPath, { readonly: true });
   try {
-    const plan = fileClusterSqlPlan(agentQuery, match);
+    const plan = fileClusterSqlPlan(agentQuery, match, options.limit);
     let rows = db.prepare(plan.sql).all(plan.params) as ClusterRow[];
     let clusters = clusterRows(rows, agentQuery);
     if (plan.fallback && clusters.length < (options.limit ?? 8)) {
@@ -77,10 +77,10 @@ export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOpt
 }
 
 export function fileClusterSqlForTesting(agentQuery: AgentQuery): FileClusterSqlPlan {
-  return fileClusterSqlPlan(agentQuery, ftsMatchQuery(agentQuery.terms.join(" ")) ?? "");
+  return fileClusterSqlPlan(agentQuery, ftsMatchQuery(agentQuery.terms.join(" ")) ?? "", agentQuery.limit);
 }
 
-function fileClusterSqlPlan(agentQuery: AgentQuery, match: string): FileClusterSqlPlan {
+function fileClusterSqlPlan(agentQuery: AgentQuery, match: string, limit: number | undefined): FileClusterSqlPlan {
   if (usesHardPathFilter(agentQuery)) {
     const filter = clusterSqlFilter(agentQuery);
     const termFilter = pathFilteredTermFilter(agentQuery);
@@ -126,11 +126,80 @@ function fileClusterSqlPlan(agentQuery: AgentQuery, match: string): FileClusterS
     };
   }
 
+  if (usesBoundedTermFts(agentQuery, limit)) {
+    return boundedTermFtsPlan(agentQuery, filter);
+  }
+
   return ftsPlan;
 }
 
 function usesBroadTaskTerms(agentQuery: AgentQuery): boolean {
   return normalizedQueryTerms(agentQuery).length >= 8 && (agentQuery.pathHints?.length ?? 0) <= 2;
+}
+
+function usesBoundedTermFts(agentQuery: AgentQuery, limit: number | undefined): boolean {
+  return (
+    (limit ?? agentQuery.limit ?? 8) <= 1 &&
+    normalizedQueryTerms(agentQuery).length >= 7 &&
+    !usesHardPathFilter(agentQuery) &&
+    (agentQuery.pathHints?.length ?? 0) === 0
+  );
+}
+
+function boundedTermFtsPlan(agentQuery: AgentQuery, filter: { sql: string; params: Record<string, unknown> }): FileClusterSqlPlan {
+  const terms = normalizedQueryTerms(agentQuery).slice(0, 10);
+  const params = {
+    ...filter.params,
+    ...Object.fromEntries(terms.map((term, index) => [`boundedTerm${index}`, ftsMatchQuery(term) ?? `"${term}"`]))
+  };
+  return {
+    kind: "bounded-term-fts",
+    sql: boundedTermFtsClusterSql(filter.sql, terms.length),
+    params
+  };
+}
+
+function boundedTermFtsClusterSql(filterSql: string, termCount: number): string {
+  const candidateBranches = Array.from(
+    { length: termCount },
+    (_, index) => `
+            select chunk_id, rank
+            from (
+              select chunk_fts.chunk_id as chunk_id, bm25(chunk_fts) as rank
+              from chunk_fts
+              where chunk_fts match @boundedTerm${index}
+              order by rank
+              limit 80
+            )`
+  ).join("\n          union all\n");
+
+  return `
+        with candidate_chunks(chunk_id, rank) as (
+          select chunk_id, min(rank) as rank
+          from (
+            ${candidateBranches}
+          )
+          group by chunk_id
+        )
+        select
+          c.text as chunk_text,
+          s.qualified_name as symbol_name,
+          s.kind as kind,
+          s.start_line as start_line,
+          s.end_line as end_line,
+          f.path as file_path,
+          f.role as file_role,
+          f.language as language,
+          candidate_chunks.rank as rank
+        from candidate_chunks
+        join chunks c on c.id = candidate_chunks.chunk_id
+        join symbols s on s.id = c.symbol_id
+        join files f on f.id = c.file_id
+        where 1 = 1
+          ${filterSql}
+        order by candidate_chunks.rank
+        limit 250
+        `;
 }
 
 function ftsClusterSql(filterSql: string): string {

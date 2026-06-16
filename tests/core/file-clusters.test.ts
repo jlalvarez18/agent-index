@@ -157,6 +157,30 @@ describe("findFileClusters", () => {
     expect(queryPlan.fallback).toBeUndefined();
   });
 
+  test("uses bounded per-term FTS for broad behavior queries without path hints", () => {
+    const queryPlan = fileClusterSqlForTesting({
+      terms: ["streaming", "async", "iterator", "response", "cleanup", "completion", "resources"],
+      symbolKinds: ["method", "function"],
+      roles: ["source"],
+      limit: 1
+    });
+
+    expect(queryPlan.kind).toBe("bounded-term-fts");
+    expect(queryPlan.sql).toContain("candidate_chunks");
+    expect(queryPlan.sql).toContain("boundedTerm0");
+  });
+
+  test("keeps regular FTS for broad behavior queries that need several clusters", () => {
+    const queryPlan = fileClusterSqlForTesting({
+      terms: ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+      symbolKinds: ["method", "function"],
+      roles: ["source"],
+      limit: 5
+    });
+
+    expect(queryPlan.kind).toBe("fts");
+  });
+
   test("keeps soft path prefilters for broad queries with several module hints", () => {
     const queryPlan = fileClusterSqlForTesting({
       terms: ["lock file", "lock entries", "same version", "source", "repository", "environment marker", "install operations"],

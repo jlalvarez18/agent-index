@@ -452,7 +452,21 @@ export interface NavigationSuiteRepoResult extends NavigationSuiteEntry {
   indexStats?: IndexStats;
   runs?: number;
   runResults?: NavigationEvalResult[];
+  runStats?: NavigationSuiteRunStats;
   result: NavigationEvalResult;
+}
+
+export interface NavigationSuiteMetricSpread {
+  min: number;
+  median: number;
+  max: number;
+  spread: number;
+}
+
+export interface NavigationSuiteRunStats {
+  agentIndexAvgLatencyMs: NavigationSuiteMetricSpread;
+  agentIndexAvgFirstUsefulLatencyMs: NavigationSuiteMetricSpread;
+  agentIndexAvgCompletionLatencyMs: NavigationSuiteMetricSpread;
 }
 
 export interface NavigationSuiteResult {

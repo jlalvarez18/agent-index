@@ -379,6 +379,9 @@ def test_load_value():
     await runCli(["nav-suite", suitePath, "--json", "--runs", "3"], {
       write: (line) => output.push(line)
     });
+    await runCli(["nav-suite", suitePath, "--repos", "--runs", "3"], {
+      write: (line) => output.push(line)
+    });
     await runCli(["nav-suite", suitePath, "--repo", "fixture", "--case", "semantic-cache-navigation", "--json"], {
       write: (line) => output.push(line)
     });
@@ -399,6 +402,14 @@ def test_load_value():
           cases: 1
         })
       ]),
+      runStats: {
+        agentIndexAvgLatencyMs: {
+          min: expect.any(Number),
+          median: expect.any(Number),
+          max: expect.any(Number),
+          spread: expect.any(Number)
+        }
+      },
       result: {
         cases: 1,
         agentIndexCompletionRate: 1
@@ -416,7 +427,8 @@ def test_load_value():
         }
       ]
     });
-    const filteredJson = JSON.parse(output[3]);
+    expect(output[3]).toContain("agentLatency=");
+    const filteredJson = JSON.parse(output[4]);
     expect(filteredJson).toMatchObject({
       repos: 1,
       cases: 1,

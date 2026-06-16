@@ -308,6 +308,14 @@ describe("runNavigationSuite", () => {
     expect(repo.runs).toBe(3);
     expect(repo.runResults).toHaveLength(3);
     expect(repo.result).toEqual(sortedRuns[1]);
+    expect(repo.runStats).toMatchObject({
+      agentIndexAvgLatencyMs: {
+        min: sortedRuns[0].agentIndexAvgLatencyMs,
+        median: sortedRuns[1].agentIndexAvgLatencyMs,
+        max: sortedRuns[2].agentIndexAvgLatencyMs,
+        spread: sortedRuns[2].agentIndexAvgLatencyMs - sortedRuns[0].agentIndexAvgLatencyMs
+      }
+    });
   });
 
   test("filters suite repositories and navigation cases", async () => {

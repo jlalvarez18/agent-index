@@ -806,16 +806,23 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
           `agentCompletionTokens=${Math.round(repo.result.agentIndexAvgCompletionContextTokens)}`,
           `rgBroadTokens=${Math.round(repo.result.rgAvgContextTokens)}`,
           `rgOptimizedTokens=${Math.round(repo.result.rgOptimizedAvgContextTokens)}`,
+          repo.runStats ? `agentLatency=${formatRunSpread(repo.runStats.agentIndexAvgLatencyMs)}` : undefined,
           repo.indexStats ? `indexed=${repo.indexStats.files}files/${repo.indexStats.symbols}symbols` : "indexed=prebuilt",
           `agentWinsBroad=${repo.result.agentIndexWins}`,
           `agentWinsOptimized=${repo.result.agentIndexWinsVsOptimizedRg}`,
           `rgOptimizedWins=${repo.result.rgOptimizedWins}`
-        ].join("  ")
+        ]
+          .filter((part): part is string => part !== undefined)
+          .join("  ")
       )
     );
   }
 
   return lines.join("\n");
+}
+
+function formatRunSpread(spread: { min: number; median: number; max: number }): string {
+  return `${Math.round(spread.min)}/${Math.round(spread.median)}/${Math.round(spread.max)}ms`;
 }
 
 function formatNavigationArtifactComparison(result: NavigationArtifactCompareResult): string {

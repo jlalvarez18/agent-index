@@ -1,6 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { NavigationSuiteEntry, NavigationSuiteRepoResult, NavigationSuiteResult, QueryMode } from "./schema.js";
+import type {
+  NavigationEvalResult,
+  NavigationSuiteEntry,
+  NavigationSuiteMetricSpread,
+  NavigationSuiteRepoResult,
+  NavigationSuiteResult,
+  NavigationSuiteRunStats,
+  QueryMode
+} from "./schema.js";
 import { indexTarget } from "./indexer.js";
 import { runNavigationEval } from "./navigation-eval.js";
 
@@ -45,7 +53,7 @@ export async function runNavigationSuite(
       ...resolvedEntry,
       indexPath: indexStats?.indexPath ?? resolvedEntry.indexPath,
       indexStats,
-      ...(runs > 1 ? { runs, runResults } : {}),
+      ...(runs > 1 ? { runs, runResults, runStats: summarizeRunStats(runResults) } : {}),
       result
     });
   }
@@ -96,6 +104,27 @@ function resolveSuiteEntry(
 function medianLatencyResult(results: NavigationSuiteRepoResult["runResults"]): NavigationSuiteRepoResult["result"] {
   const sorted = [...(results ?? [])].sort((a, b) => a.agentIndexAvgLatencyMs - b.agentIndexAvgLatencyMs);
   return sorted[Math.floor(sorted.length / 2)];
+}
+
+function summarizeRunStats(results: NavigationEvalResult[]): NavigationSuiteRunStats {
+  return {
+    agentIndexAvgLatencyMs: metricSpread(results.map((result) => result.agentIndexAvgLatencyMs)),
+    agentIndexAvgFirstUsefulLatencyMs: metricSpread(results.map((result) => result.agentIndexAvgFirstUsefulLatencyMs)),
+    agentIndexAvgCompletionLatencyMs: metricSpread(results.map((result) => result.agentIndexAvgCompletionLatencyMs))
+  };
+}
+
+function metricSpread(values: number[]): NavigationSuiteMetricSpread {
+  const sorted = [...values].sort((a, b) => a - b);
+  const min = sorted[0] ?? 0;
+  const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+  const max = sorted[sorted.length - 1] ?? 0;
+  return {
+    min,
+    median,
+    max,
+    spread: max - min
+  };
 }
 
 function normalizeRuns(value: number | undefined): number {

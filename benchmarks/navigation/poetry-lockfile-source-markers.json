@@ -5,20 +5,15 @@
     "kind": "bugfix",
     "agentIndexSteps": [
       {
-        "type": "file-clusters",
+        "type": "source-tests",
         "query": {
           "terms": ["lock file", "lock entries", "same version", "source", "repository", "environment marker", "install operations"],
           "symbolKinds": ["method", "function"],
           "roles": ["source"],
           "pathHints": ["installation", "packages", "puzzle"]
         },
-        "limit": 8
-      },
-      {
-        "type": "related-tests",
-        "sourceFromStep": 1,
-        "terms": ["lock entry", "same version", "source", "marker", "platform", "install"],
-        "limit": 8
+        "limit": 8,
+        "testLimit": 2
       }
     ],
     "rgQueries": [

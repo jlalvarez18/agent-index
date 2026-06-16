@@ -5,7 +5,7 @@
     "kind": "bugfix",
     "agentIndexSteps": [
       {
-        "type": "file-clusters",
+        "type": "source-tests",
         "query": {
           "terms": ["cursor", "row count", "preserve", "memoize", "closed", "select", "insert", "update", "delete", "execution option"],
           "symbolKinds": ["method", "function"],
@@ -13,13 +13,8 @@
           "pathHints": ["lib/sqlalchemy/engine"],
           "pathMode": "filter"
         },
-        "limit": 8
-      },
-      {
-        "type": "related-tests",
-        "sourceFromStep": 1,
-        "terms": ["cursor", "rowcount", "preserve", "select", "insert", "update", "delete"],
-        "limit": 8
+        "limit": 6,
+        "testLimit": 2
       }
     ],
     "rgQueries": [

@@ -28,10 +28,11 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
       limit: testLimit
     });
     const contextChars = formatBundleContextChars(source, related.matches);
+    const topTest = related.matches[0];
     return {
       source,
       tests: related.matches,
-      score: source.score + (related.matches[0]?.score ?? 0) / 10,
+      score: source.score + (topTest?.score ?? 0) / 10 + sourceTestPairScore(topTest),
       contextChars,
       contextTokens: approximateTokens(contextChars)
     };
@@ -41,6 +42,29 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
     query: sourceResult.query,
     bundles: bundles.sort((a, b) => b.score - a.score || a.source.file.localeCompare(b.source.file))
   };
+}
+
+function sourceTestPairScore(test: SourceTestBundle["tests"][number] | undefined): number {
+  if (!test) {
+    return 0;
+  }
+  let score = 0;
+  if (test.why.includes("test imports source module")) {
+    score += 35;
+  }
+  if (test.why.includes("test calls source symbol")) {
+    score += 20;
+  }
+  if (test.why.includes("test body mentions source symbol")) {
+    score += 12;
+  }
+  if (test.why.includes("test path includes source stem")) {
+    score += 10;
+  }
+  if (test.why.includes("test path shares source path tokens")) {
+    score += 6;
+  }
+  return score;
 }
 
 function formatBundleContextChars(source: SourceTestBundle["source"], tests: SourceTestBundle["tests"]): number {

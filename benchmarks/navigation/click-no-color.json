@@ -145,7 +145,7 @@
           "symbolKinds": ["function"],
           "roles": ["source"]
         },
-        "limit": 8
+        "limit": 5
       }
     ],
     "rgQueries": [

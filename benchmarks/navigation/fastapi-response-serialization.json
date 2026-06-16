@@ -17,7 +17,7 @@
         "type": "related-tests",
         "sourceFromStep": 1,
         "terms": ["validate", "serialize", "endpoint", "return", "response", "model"],
-        "limit": 10
+        "limit": 6
       }
     ],
     "rgQueries": [

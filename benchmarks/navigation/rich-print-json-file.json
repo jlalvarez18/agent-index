@@ -12,13 +12,13 @@
           "roles": ["source"],
           "pathHints": ["rich/__init__.py", "rich/console.py", "rich/json.py"]
         },
-        "limit": 6
+        "limit": 3
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
         "symbol": "print_json",
-        "limit": 6
+        "limit": 3
       }
     ],
     "rgQueries": [

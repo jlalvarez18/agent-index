@@ -64,5 +64,11 @@
     "evalPath": "poetry-lockfile-source-markers.json",
     "target": "poetry",
     "mode": "hybrid"
+  },
+  {
+    "name": "unit-node-sdk",
+    "evalPath": "unit-node-sdk-payment-list-filters.json",
+    "target": "unit-node-sdk",
+    "mode": "hybrid"
   }
 ]

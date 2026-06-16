@@ -1,0 +1,74 @@
+[
+  {
+    "id": "unit-node-sdk-payment-list-array-filters",
+    "task": "Investigate why Unit Node SDK payment list filters serialize array-valued status, type, and direction parameters inconsistently across resource methods. Find the payment resource implementation, list parameter type surface, and existing payment tests.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["payment", "list", "array", "filters", "status", "type", "direction", "query", "params"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["resources", "payments", "types"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["payment", "list", "array", "filters", "status", "type", "direction", "query", "params"],
+          "symbolKinds": ["class", "method", "function", "module"],
+          "roles": ["test"],
+          "pathHints": ["tests", "payments"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["payment", "list", "array", "filters", "status", "type", "direction", "params"],
+      ["payments", "filter[status]", "filter[type]", "filter[direction]", "list"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["payment", "list", "array", "filters", "status", "type", "direction", "params"],
+          "paths": ["resources", "types"],
+          "globs": ["*.ts"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["filter[status]", "filter[type]", "filter[direction]", "PaymentListParams"],
+          "fromStep": 1,
+          "before": 8,
+          "after": 8,
+          "limit": 6
+        },
+        {
+          "type": "search-files",
+          "terms": ["payments", "list", "type", "status", "direction"],
+          "paths": ["tests"],
+          "globs": ["*.ts"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["payments.list", "type", "status", "direction"],
+          "fromStep": 3,
+          "before": 8,
+          "after": 8,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": ["resources/payments.ts", "tests/payments.spec.ts"],
+      "symbols": ["Payments.list", "PaymentListParams"],
+      "requiredFiles": ["resources/payments.ts", "tests/payments.spec.ts"],
+      "requiredSymbols": ["Payments.list", "PaymentListParams"]
+    }
+  }
+]

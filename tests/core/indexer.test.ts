@@ -173,6 +173,51 @@ impl ComputedFields {
     );
   });
 
+  test("indexes TypeScript and TSX files alongside Python files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-typescript-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "src", "views"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "main.py"), "def dashboard():\n    return 'python api'\n");
+    await writeFile(
+      path.join(root, "src", "views", "DashboardScreen.tsx"),
+      `import { invoke } from "@tauri-apps/api/core";
+
+export const DashboardScreen = () => {
+  invoke("get_roadmap");
+  return null;
+};
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("src/views/DashboardScreen.tsx");
+    const edges = db
+      .prepare("select target_name, kind from edges where source_symbol_id is not null order by target_name")
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "pkg/main.py", language: "python" },
+      { path: "src/views/DashboardScreen.tsx", language: "typescript" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "src/views/DashboardScreen.tsx", kind: "module" },
+        { qualified_name: "DashboardScreen", kind: "function" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        { target_name: "@tauri-apps/api/core", kind: "symbol_imports_module" },
+        { target_name: "invoke", kind: "symbol_calls_name" }
+      ])
+    );
+  });
+
   test("rejects a missing target before creating an index directory", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-missing-"));
     const missing = path.join(root, "missing-project");

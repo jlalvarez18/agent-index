@@ -16,6 +16,7 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, ".codeindex"), { recursive: true });
     await mkdir(path.join(root, "__pycache__"), { recursive: true });
     await mkdir(path.join(root, "node_modules", "dep"), { recursive: true });
+    await mkdir(path.join(root, "dist"), { recursive: true });
 
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
     await writeFile(path.join(root, "README.md"), "# ignore me\n");
@@ -23,6 +24,7 @@ describe("scanPythonFiles", () => {
     await writeFile(path.join(root, ".codeindex", "index.py"), "def generated(): pass\n");
     await writeFile(path.join(root, "__pycache__", "cached.py"), "def cached(): pass\n");
     await writeFile(path.join(root, "node_modules", "dep", "vendored.py"), "def vendored(): pass\n");
+    await writeFile(path.join(root, "dist", "generated.py"), "def generated(): pass\n");
 
     const files = await scanPythonFiles(root);
 
@@ -57,21 +59,24 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
   });
 
-  test("can scan mixed Python, Rust, and Cython template source files for indexing", async () => {
+  test("can scan mixed Python, Rust, Cython template, and TypeScript source files for indexing", async () => {
     const root = await fixtureDir();
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "core", "src"), { recursive: true });
     await mkdir(path.join(root, "sklearn", "metrics"), { recursive: true });
+    await mkdir(path.join(root, "src", "views"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
     await writeFile(path.join(root, "core", "src", "serializer.rs"), "pub struct ComputedFields {}\n");
     await writeFile(path.join(root, "sklearn", "metrics", "_radius_neighbors.pyx.tp"), "cdef class RadiusNeighbors{{name_suffix}}:\n    pass\n");
+    await writeFile(path.join(root, "src", "views", "DashboardScreen.tsx"), "export function DashboardScreen() { return null }\n");
 
     const files = await scanCodeFiles(root);
 
     expect(files.map((file) => ({ relativePath: file.relativePath, language: file.language }))).toEqual([
       { relativePath: "core/src/serializer.rs", language: "rust" },
       { relativePath: "pkg/service.py", language: "python" },
-      { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" }
+      { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" },
+      { relativePath: "src/views/DashboardScreen.tsx", language: "typescript" }
     ]);
   });
 

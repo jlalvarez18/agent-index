@@ -9,6 +9,11 @@ const IGNORED_DIRS = new Set([
   ".venv",
   "venv",
   "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  "target",
+  ".next",
   ".codeindex",
   "__pycache__"
 ]);
@@ -53,7 +58,7 @@ export async function scanPythonFiles(target: string, options: ScanOptions = {})
 }
 
 export async function scanCodeFiles(target: string, options: ScanOptions = {}): Promise<SourceFile[]> {
-  return scanFiles(target, options, [".py", ".rs", ".pyx", ".pxd", ".pxi", ".pyx.tp", ".pxd.tp", ".pxi.tp"]);
+  return scanFiles(target, options, [".py", ".rs", ".ts", ".tsx", ".pyx", ".pxd", ".pxi", ".pyx.tp", ".pxd.tp", ".pxi.tp"]);
 }
 
 async function scanFiles(target: string, options: ScanOptions, suffixes: string[]): Promise<SourceFile[]> {
@@ -110,6 +115,9 @@ function codeSuffix(fileName: string, suffixes: Set<string>): string | undefined
 function languageForSuffix(suffix: string): Language {
   if (suffix === ".rs") {
     return "rust";
+  }
+  if (suffix === ".ts" || suffix === ".tsx") {
+    return "typescript";
   }
   if (suffix === ".pyx" || suffix === ".pxd" || suffix === ".pxi" || suffix === ".pyx.tp" || suffix === ".pxd.tp" || suffix === ".pxi.tp") {
     return "cython";

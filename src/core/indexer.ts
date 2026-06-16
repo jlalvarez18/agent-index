@@ -5,6 +5,7 @@ import path from "node:path";
 import { extractCython } from "./extractors/cython.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRust } from "./extractors/rust.js";
+import { extractTypeScript } from "./extractors/typescript.js";
 import { scanCodeFiles } from "./scanner.js";
 import type { CodeEdge, CodeSymbol, ExtractionResult, IndexStats } from "./schema.js";
 
@@ -30,6 +31,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "cython") {
         return extractCython(file);
+      }
+      if (file.language === "typescript") {
+        return extractTypeScript(file);
       }
       return extractPython(file);
     });

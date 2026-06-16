@@ -14,7 +14,8 @@
           "pathMode": "filter"
         },
         "limit": 6,
-        "testLimit": 2
+        "testLimit": 2,
+        "testFanoutLimit": 1
       }
     ],
     "rgQueries": [

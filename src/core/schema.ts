@@ -257,6 +257,7 @@ export type NavigationAgentStep =
       query: AgentQuery;
       limit?: number;
       testLimit?: number;
+      testFanoutLimit?: number;
     }
   | {
       type: "related-tests";

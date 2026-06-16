@@ -202,6 +202,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--exclude-support-code", "filter tests, docs, examples, fixtures, and tools from structured results")
     .option("--limit <limit>", "maximum source file clusters to return", "5")
     .option("--test-limit <limit>", "maximum related test files per source", "2")
+    .option("--test-fanout-limit <limit>", "maximum source clusters to use for related-test fanout")
     .option("--json", "write full source-tests result as JSON")
     .action(
       (
@@ -218,6 +219,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           excludeSupportCode?: boolean;
           limit: string;
           testLimit: string;
+          testFanoutLimit?: string;
           json?: boolean;
         }
       ) => {
@@ -230,7 +232,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           target: options.target,
           indexPath: options.indexPath,
           limit: Number.parseInt(options.limit, 10),
-          testLimit: Number.parseInt(options.testLimit, 10)
+          testLimit: Number.parseInt(options.testLimit, 10),
+          testFanoutLimit: options.testFanoutLimit ? Number.parseInt(options.testFanoutLimit, 10) : undefined
         });
         io.write(options.json ? JSON.stringify(result, null, 2) : formatSourceTests(result));
       }

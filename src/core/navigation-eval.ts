@@ -248,13 +248,14 @@ async function runAgentStep(
       target: options.target,
       indexPath: options.indexPath,
       limit: step.limit ?? step.query.limit ?? 5,
-      testLimit: step.testLimit ?? 2
+      testLimit: step.testLimit ?? 2,
+      testFanoutLimit: step.testFanoutLimit
     });
     const context = formatCompactSourceTests(result.bundles);
     const useful = usefulSourceTestBundle(result.bundles, navigationCase);
     return {
       type: "source-tests",
-      command: formatSourceTestsCommand(step.query),
+      command: formatSourceTestsCommand(step),
       latencyMs: performance.now() - started,
       contextChars: context.length,
       contextTokens: approximateTokens(context.length),
@@ -958,8 +959,9 @@ function formatFileClustersCommand(agentQuery: AgentQuery): string {
   return `agent-index file-clusters ${agentQuery.terms.map(shellQuote).join(" ")}`;
 }
 
-function formatSourceTestsCommand(agentQuery: AgentQuery): string {
-  return `agent-index source-tests ${agentQuery.terms.map(shellQuote).join(" ")}`;
+function formatSourceTestsCommand(step: Extract<NavigationAgentStep, { type: "source-tests" }>): string {
+  const fanout = step.testFanoutLimit === undefined ? "" : ` --test-fanout-limit ${step.testFanoutLimit}`;
+  return `agent-index source-tests ${step.query.terms.map(shellQuote).join(" ")}${fanout}`;
 }
 
 function formatRelatedTestsCommand(step: Extract<NavigationAgentStep, { type: "related-tests" }>): string {

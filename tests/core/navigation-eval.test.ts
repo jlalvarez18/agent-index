@@ -263,7 +263,8 @@ describe("runNavigationEval", () => {
                   pathHints: ["pkg/cache.py"]
                 },
                 limit: 3,
-                testLimit: 2
+                testLimit: 2,
+                testFanoutLimit: 1
               }
             ],
             rgQueries: [
@@ -297,7 +298,7 @@ describe("runNavigationEval", () => {
     });
     expect(result.caseResults[0].agentIndex.steps[0]).toMatchObject({
       type: "source-tests",
-      command: "agent-index source-tests load_value semantic cache",
+      command: "agent-index source-tests load_value semantic cache --test-fanout-limit 1",
       usefulFile: "pkg/cache.py"
     });
   });

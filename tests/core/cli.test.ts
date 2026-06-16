@@ -231,7 +231,7 @@ def test_load_value():
     await runCli(["source-tests", "semantic cache", "--target", root, "--term", "load_value", "--role", "source"], {
       write: (line) => output.push(line)
     });
-    await runCli(["source-tests", "semantic cache", "--target", root, "--term", "load_value", "--role", "source", "--json"], {
+    await runCli(["source-tests", "semantic cache", "--target", root, "--term", "load_value", "--role", "source", "--test-fanout-limit", "1", "--json"], {
       write: (line) => output.push(line)
     });
 

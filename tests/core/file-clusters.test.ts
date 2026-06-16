@@ -296,4 +296,30 @@ class DefaultExecutionContext:
       expect.arrayContaining(["DefaultExecutionContext._has_rowcount", "DefaultExecutionContext._setup_result_proxy"])
     );
   });
+
+  test("reranks symbols for soft path-hinted clusters so late behavior helpers stay visible", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-soft-symbol-relevance-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "canvas.py"),
+      `${Array.from({ length: 18 }, (_, index) => `class Generic${index}:\n    def generic_${index}(self):\n        return "chain group apply_async options canvas"\n`).join("\n")}
+
+def chain_group_apply_async_options(options, tasks):
+    return "chain group apply_async options canvas"
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["canvas", "chain", "group", "apply_async", "options"],
+        symbolKinds: ["class", "method", "function"],
+        roles: ["source"],
+        pathHints: ["pkg", "canvas"]
+      },
+      { target: root, limit: 1 }
+    );
+
+    expect(result.clusters[0].symbols.map((symbol) => symbol.name)).toContain("chain_group_apply_async_options");
+  });
 });

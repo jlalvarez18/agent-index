@@ -223,7 +223,7 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
 }
 
 function rankedClusterSymbols(cluster: MutableCluster, agentQuery: AgentQuery): FileClusterMatch["symbols"] {
-  if (!usesHardPathFilter(agentQuery)) {
+  if (!usesHardPathFilter(agentQuery) && !(agentQuery.pathHints && agentQuery.pathHints.length > 0)) {
     return cluster.symbols;
   }
 

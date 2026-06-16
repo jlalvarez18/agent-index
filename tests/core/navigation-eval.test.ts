@@ -303,6 +303,73 @@ describe("runNavigationEval", () => {
     });
   });
 
+  test("credits qualified Python test method symbols against unqualified expected names", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-qualified-tests-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "canvas.py"),
+      `def run_canvas_chain_group(value):
+    return value + 1
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_canvas.py"),
+      `from pkg.canvas import run_canvas_chain_group
+
+
+class test_chain:
+    def test_chain_inside_group_receives_arguments(self):
+        assert run_canvas_chain_group(13) == 14
+`
+    );
+    await indexTarget(root);
+
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-qualified-tests-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "qualified-python-test-method",
+            task: "Find the canvas chain group implementation and its class-scoped test.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "source-tests",
+                query: {
+                  terms: ["canvas", "chain", "group", "arguments"],
+                  roles: ["source", "test"]
+                },
+                limit: 3
+              }
+            ],
+            rgQueries: [["canvas", "chain", "group", "arguments", "test_chain_inside_group_receives_arguments"]],
+            expected: {
+              files: ["pkg/canvas.py", "tests/test_canvas.py"],
+              symbols: ["run_canvas_chain_group", "test_chain_inside_group_receives_arguments"],
+              requiredSymbols: ["test_chain_inside_group_receives_arguments"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].agentIndex).toMatchObject({
+      taskComplete: true,
+      foundSymbols: ["run_canvas_chain_group", "test_chain_inside_group_receives_arguments"],
+      missingSymbols: []
+    });
+  });
+
   test("related-tests can follow multiple source candidates from a prior navigation step", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-multi-source-tests-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

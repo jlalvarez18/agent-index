@@ -1,0 +1,94 @@
+[
+  {
+    "id": "celery-canvas-chain-group-continuation-isolation",
+    "task": "Investigate a Celery canvas bug where a chain feeding into a group can cause one group branch's remaining continuation to leak into a sibling branch. The workflow `add.s(5, 6) | group((add.s(1) | add.s(2), add.s(3)))` should produce `[14, 14]`, not execute extra continuation tasks on only one branch. Find the implementation and tests without naming the internal helper that prepares chain options.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["canvas", "chain", "group", "branch", "continuation", "arguments", "leak", "apply_async", "options"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["celery", "canvas"]
+        },
+        "limit": 6
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["chain", "group", "arguments", "branch", "continuation"],
+        "limit": 6
+      },
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["chain", "group", "arguments", "continuation", "apply_async"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["canvas"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["canvas", "chain", "group", "branch", "continuation", "arguments", "leak", "apply_async", "options"],
+      ["chain", "group", "arguments", "branch", "continuation", "test"]
+    ],
+    "searchTerms": {
+      "seed": ["canvas", "chain", "group", "branch", "continuation", "arguments", "leak", "apply_async", "options"],
+      "forbiddenExact": ["_prepare_chain_from_options", "test_chain_inside_group_receives_arguments"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["canvas", "chain", "group", "continuation", "arguments", "apply_async", "options"],
+          "paths": ["celery", "t"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["chain", "group", "arguments", "apply_async"],
+          "fromStep": 1,
+          "before": 12,
+          "after": 12,
+          "limit": 8
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["chain", "group", "arguments"],
+          "paths": ["t"],
+          "globs": ["test_*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["chain", "group", "arguments", "continuation"],
+          "fromStep": 3,
+          "before": 12,
+          "after": 12,
+          "limit": 8
+        }
+      ]
+    },
+    "expected": {
+      "files": ["celery/canvas.py", "t/integration/test_canvas.py", "t/unit/tasks/test_canvas.py"],
+      "symbols": [
+        "_chain.run",
+        "_chain.prepare_steps",
+        "_prepare_chain_from_options",
+        "group.apply_async",
+        "group._prepared",
+        "test_chain_inside_group_receives_arguments",
+        "test_chain_single_child_result",
+        "test_chain_single_child_group_result"
+      ],
+      "requiredFiles": ["celery/canvas.py", "t/integration/test_canvas.py"],
+      "requiredSymbols": ["_prepare_chain_from_options", "test_chain_inside_group_receives_arguments"]
+    }
+  }
+]

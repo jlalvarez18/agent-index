@@ -741,8 +741,8 @@ function averagePresent(values: Array<number | null>): number {
 
 function usefulAgentMatch(matches: QueryMatch[], navigationCase: NavigationEvalCase): { rank: number; file: string; symbol: string } | undefined {
   const expectedFiles = new Set(navigationCase.expected.files);
-  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
-  const index = matches.findIndex((match) => expectedFiles.has(match.file) || expectedSymbols.has(match.symbol));
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
+  const index = matches.findIndex((match) => expectedFiles.has(match.file) || matchesExpectedSymbol(match.symbol, expectedSymbols));
   if (index === -1) {
     return undefined;
   }
@@ -755,8 +755,8 @@ function matchingAgentFiles(matches: QueryMatch[], navigationCase: NavigationEva
 }
 
 function matchingAgentSymbols(matches: QueryMatch[], navigationCase: NavigationEvalCase): string[] {
-  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
-  return uniqueValues(matches.map((match) => match.symbol).filter((symbol) => expectedSymbols.has(symbol)));
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
+  return uniqueValues(matches.map((match) => expectedSymbolMatch(match.symbol, expectedSymbols)).filter((symbol): symbol is string => Boolean(symbol)));
 }
 
 function usefulFileCluster(
@@ -764,15 +764,15 @@ function usefulFileCluster(
   navigationCase: NavigationEvalCase
 ): { rank: number; file: string; symbol: string | null } | undefined {
   const expectedFiles = new Set(navigationCase.expected.files);
-  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
   const index = clusters.findIndex(
-    (cluster) => expectedFiles.has(cluster.file) || cluster.symbols.some((symbol) => expectedSymbols.has(symbol.name))
+    (cluster) => expectedFiles.has(cluster.file) || cluster.symbols.some((symbol) => matchesExpectedSymbol(symbol.name, expectedSymbols))
   );
   if (index === -1) {
     return undefined;
   }
-  const symbol = clusters[index].symbols.find((clusterSymbol) => expectedSymbols.has(clusterSymbol.name));
-  return { rank: index + 1, file: clusters[index].file, symbol: symbol?.name ?? null };
+  const symbol = clusters[index].symbols.find((clusterSymbol) => matchesExpectedSymbol(clusterSymbol.name, expectedSymbols));
+  return { rank: index + 1, file: clusters[index].file, symbol: symbol ? (expectedSymbolMatch(symbol.name, expectedSymbols) ?? null) : null };
 }
 
 function matchingClusterFiles(clusters: FileClusterMatch[], navigationCase: NavigationEvalCase): string[] {
@@ -781,8 +781,12 @@ function matchingClusterFiles(clusters: FileClusterMatch[], navigationCase: Navi
 }
 
 function matchingClusterSymbols(clusters: FileClusterMatch[], navigationCase: NavigationEvalCase): string[] {
-  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
-  return uniqueValues(clusters.flatMap((cluster) => cluster.symbols.map((symbol) => symbol.name)).filter((symbol) => expectedSymbols.has(symbol)));
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
+  return uniqueValues(
+    clusters
+      .flatMap((cluster) => cluster.symbols.map((symbol) => expectedSymbolMatch(symbol.name, expectedSymbols)))
+      .filter((symbol): symbol is string => Boolean(symbol))
+  );
 }
 
 function usefulRelatedTest(
@@ -800,8 +804,12 @@ function matchingRelatedTestFiles(matches: RelatedTestMatch[], navigationCase: N
 }
 
 function matchingRelatedTestSymbols(matches: RelatedTestMatch[], navigationCase: NavigationEvalCase): string[] {
-  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
-  return uniqueValues(matches.flatMap((match) => match.symbols).filter((symbol) => expectedSymbols.has(symbol)));
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
+  return uniqueValues(
+    matches
+      .flatMap((match) => match.symbols.map((symbol) => expectedSymbolMatch(symbol, expectedSymbols)))
+      .filter((symbol): symbol is string => Boolean(symbol))
+  );
 }
 
 function usefulSourceTestBundle(
@@ -809,19 +817,19 @@ function usefulSourceTestBundle(
   navigationCase: NavigationEvalCase
 ): { rank: number; file: string; symbol: string | null } | undefined {
   const expectedFiles = new Set(navigationCase.expected.files);
-  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
   const index = bundles.findIndex(
     (bundle) =>
       expectedFiles.has(bundle.source.file) ||
       bundle.tests.some((test) => expectedFiles.has(test.file)) ||
-      bundle.source.symbols.some((symbol) => expectedSymbols.has(symbol.name)) ||
-      bundle.tests.some((test) => test.symbols.some((symbol) => expectedSymbols.has(symbol)))
+      bundle.source.symbols.some((symbol) => matchesExpectedSymbol(symbol.name, expectedSymbols)) ||
+      bundle.tests.some((test) => test.symbols.some((symbol) => matchesExpectedSymbol(symbol, expectedSymbols)))
   );
   if (index === -1) {
     return undefined;
   }
-  const symbol = bundles[index].source.symbols.find((sourceSymbol) => expectedSymbols.has(sourceSymbol.name));
-  return { rank: index + 1, file: bundles[index].source.file, symbol: symbol?.name ?? null };
+  const symbol = bundles[index].source.symbols.find((sourceSymbol) => matchesExpectedSymbol(sourceSymbol.name, expectedSymbols));
+  return { rank: index + 1, file: bundles[index].source.file, symbol: symbol ? (expectedSymbolMatch(symbol.name, expectedSymbols) ?? null) : null };
 }
 
 function matchingSourceTestFiles(bundles: SourceTestBundle[], navigationCase: NavigationEvalCase): string[] {
@@ -832,11 +840,12 @@ function matchingSourceTestFiles(bundles: SourceTestBundle[], navigationCase: Na
 }
 
 function matchingSourceTestSymbols(bundles: SourceTestBundle[], navigationCase: NavigationEvalCase): string[] {
-  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
+  const expectedSymbols = navigationCase.expected.symbols ?? [];
   return uniqueValues(
     bundles
       .flatMap((bundle) => [...bundle.source.symbols.map((symbol) => symbol.name), ...bundle.tests.flatMap((test) => test.symbols)])
-      .filter((symbol) => expectedSymbols.has(symbol))
+      .map((symbol) => expectedSymbolMatch(symbol, expectedSymbols))
+      .filter((symbol): symbol is string => Boolean(symbol))
   );
 }
 
@@ -877,6 +886,14 @@ function matchingRgSnippetSymbols(snippets: RgSnippet[], navigationCase: Navigat
   const expectedSymbols = navigationCase.expected.symbols ?? [];
   const text = snippets.flatMap((snippet) => snippet.lines).join("\n");
   return expectedSymbols.filter((symbol) => text.includes(symbol));
+}
+
+function matchesExpectedSymbol(actual: string, expectedSymbols: string[]): boolean {
+  return Boolean(expectedSymbolMatch(actual, expectedSymbols));
+}
+
+function expectedSymbolMatch(actual: string, expectedSymbols: string[]): string | undefined {
+  return expectedSymbols.find((expected) => actual === expected || actual.endsWith(`.${expected}`));
 }
 
 function formatCompactMatches(matches: QueryMatch[]): string {

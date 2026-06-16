@@ -70,5 +70,11 @@
     "evalPath": "unit-node-sdk-payment-list-filters.json",
     "target": "unit-node-sdk",
     "mode": "hybrid"
+  },
+  {
+    "name": "celery",
+    "evalPath": "celery-canvas-chain-group.json",
+    "target": "celery",
+    "mode": "hybrid"
   }
 ]

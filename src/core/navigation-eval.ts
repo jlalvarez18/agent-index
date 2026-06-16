@@ -897,7 +897,7 @@ function formatCompactClusters(clusters: FileClusterMatch[]): string {
   }
   return clusters
     .map((cluster, index) => {
-      const symbols = cluster.symbols.slice(0, 2).map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
+      const symbols = cluster.symbols.slice(0, 1).map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
       return `${index + 1} ${cluster.file} role=${cluster.role} chunks=${cluster.matchedChunks} symbols=${symbols}${formatEvidence(cluster.evidence)}`;
     })
     .join("\n");

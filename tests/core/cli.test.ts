@@ -165,6 +165,17 @@ describe("runCli", () => {
   test("supports file-cluster summaries for low-token repository mapping", async () => {
     const { root } = await fixtureProject();
     const output: string[] = [];
+    await writeFile(
+      path.join(root, "pkg", "cache.py"),
+      `def load_value(key):
+    semantic_cache = {"hit": key}
+    return semantic_cache["hit"]
+
+def store_value(key, value):
+    semantic_cache = {key: value}
+    return semantic_cache
+`
+    );
 
     await runCli(["index", root], { write: (line) => output.push(line) });
     await runCli(
@@ -201,6 +212,7 @@ describe("runCli", () => {
 
     expect(output[1]).toContain("1 pkg/cache.py role=source");
     expect(output[1]).toContain("evidence=");
+    expect(output[1]).not.toContain("; ");
     expect(output[1]).not.toContain("score=");
     expect(output[1]).not.toContain("tokens=");
     expect(output[1]).not.toContain("why=");

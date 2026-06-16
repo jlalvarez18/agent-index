@@ -543,8 +543,8 @@ function formatFileClusters(result: FileClusterResult): string {
 
   return result.clusters
     .map((cluster, index) => {
-      const symbols = cluster.symbols.map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
-      return `${index + 1} ${cluster.file} role=${cluster.role} score=${cluster.score} chunks=${cluster.matchedChunks} tokens=${cluster.contextTokens} symbols=${symbols} why=${cluster.why.join(", ")}${formatEvidence(cluster.evidence)}`;
+      const symbols = cluster.symbols.slice(0, 2).map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
+      return `${index + 1} ${cluster.file} role=${cluster.role} chunks=${cluster.matchedChunks} symbols=${symbols}${formatEvidence(cluster.evidence)}`;
     })
     .join("\n");
 }
@@ -787,7 +787,7 @@ function formatRelatedTests(result: ReturnType<typeof findRelatedTests>): string
   return result.matches
     .map((match, index) => {
       const line = match.firstLine === null ? "" : `:${match.firstLine}`;
-      return `${index + 1} ${match.file}${line} score=${match.score} why=${match.why.join(", ")}`;
+      return `${index + 1} ${match.file}${line} score=${match.score}`;
     })
     .join("\n");
 }

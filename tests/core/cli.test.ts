@@ -200,12 +200,17 @@ describe("runCli", () => {
     );
 
     expect(output[1]).toContain("1 pkg/cache.py role=source");
-    expect(output[1]).toContain("tokens=");
     expect(output[1]).toContain("evidence=");
+    expect(output[1]).not.toContain("score=");
+    expect(output[1]).not.toContain("tokens=");
+    expect(output[1]).not.toContain("why=");
     const json = JSON.parse(output[2]);
     expect(json.clusters[0]).toMatchObject({
       file: "pkg/cache.py",
-      role: "source"
+      role: "source",
+      score: expect.any(Number),
+      contextTokens: expect.any(Number),
+      why: expect.any(Array)
     });
   });
 
@@ -501,9 +506,14 @@ def test_load_value():
     );
 
     expect(output[1]).toContain("1 tests/test_cache.py:1");
-    expect(output[1]).toContain("test body mentions source symbol");
+    expect(output[1]).toContain("score=");
+    expect(output[1]).not.toContain("why=");
+    expect(output[1]).not.toContain("test body mentions source symbol");
     const json = JSON.parse(output[2]);
-    expect(json.matches[0]).toMatchObject({ file: "tests/test_cache.py" });
+    expect(json.matches[0]).toMatchObject({
+      file: "tests/test_cache.py",
+      why: expect.arrayContaining(["test body mentions source symbol"])
+    });
   });
 
   test("supports related test discovery from multiple source candidates", async () => {

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { indexTarget } from "../../src/core/indexer.js";
-import { findRelatedTests, findRelatedTestsBatch } from "../../src/core/related-tests.js";
+import { findRelatedTests, findRelatedTestsBatch, relatedTestCandidateSqlForTesting } from "../../src/core/related-tests.js";
 
 describe("findRelatedTests", () => {
   test("ranks tests by source path and symbol evidence", async () => {
@@ -424,6 +424,45 @@ def test_execute_cursor():
       file: "tests/sql/test_resultset.py"
     });
     expect(result.matches[0].why).toContain("strong task-term coverage");
+  });
+
+  test("uses FTS task-term candidates before substring fallback scans", () => {
+    const candidateQuery = relatedTestCandidateSqlForTesting({
+      target: "/repo",
+      sourceFile: "django/http/response.py",
+      terms: ["streaming", "async", "cleanup", "iterator", "resources"]
+    });
+
+    expect(candidateQuery.sql).toContain("chunk_fts match");
+    expect(candidateQuery.fallbackSql).toContain("lower(candidate_c.text) like");
+  });
+
+  test("falls back to substring task-term candidates when FTS tokenization misses compounds", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-fts-fallback-"));
+    await mkdir(path.join(root, "pkg", "engine"), { recursive: true });
+    await mkdir(path.join(root, "tests", "sql"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "engine", "default.py"), "def setup_result_proxy(cursor):\n    return cursor.rowcount\n");
+    await writeFile(
+      path.join(root, "tests", "sql", "test_resultset.py"),
+      `def test_rowcount_preserved():
+    cursor = "cursor"
+    rowcount = "rowcount"
+    preserve = "preserve"
+    assert cursor and rowcount and preserve
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/engine/default.py",
+      terms: ["cursor", "row count", "preserve"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/sql/test_resultset.py"
+    });
   });
 
   test("matches imports for common src package layouts", async () => {

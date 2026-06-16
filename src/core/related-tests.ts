@@ -132,22 +132,36 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
 }
 
 function queryCandidateTestPaths(db: Database.Database, options: RelatedTestsOptions): string[] {
-  const candidateQuery = testCandidateSqlQuery(options);
-  const rows = db
-    .prepare(
-      `
+  const fastCandidateQuery = testCandidateSqlQuery(options, "fts");
+  const fastRows = queryCandidateTestPathRows(db, fastCandidateQuery);
+  const minimumCandidates = options.limit ?? 5;
+  if (!usesTaskTermCandidates(options) || fastRows.length >= minimumCandidates) {
+    return fastRows.map((row) => row.path);
+  }
+
+  const fallbackCandidateQuery = testCandidateSqlQuery(options, "fallback");
+  const fallbackRows = queryCandidateTestPathRows(db, fallbackCandidateQuery);
+  return fallbackRows.map((row) => row.path);
+}
+
+function queryCandidateTestPathRows(
+  db: Database.Database,
+  candidateQuery: { sql: string; params: Record<string, unknown> }
+): Array<{ path: string }> {
+  return db.prepare(candidatePathSql(candidateQuery.sql)).all(candidateQuery.params) as Array<{ path: string }>;
+}
+
+function candidatePathSql(candidateQuerySql: string): string {
+  return `
         with candidate_files(file_id) as (
-          ${candidateQuery.sql}
+          ${candidateQuerySql}
         )
         select path
         from files
         join candidate_files on candidate_files.file_id = files.id
         where role = 'test'
         order by path
-        `
-    )
-    .all(candidateQuery.params) as Array<{ path: string }>;
-  return rows.map((row) => row.path);
+        `;
 }
 
 function queryAllTestPaths(db: Database.Database): string[] {
@@ -321,7 +335,12 @@ function queryAllTestRows(db: Database.Database): TestFileRow[] {
     .all() as TestFileRow[];
 }
 
-function testCandidateSqlQuery(options: RelatedTestsOptions): { sql: string; params: Record<string, unknown> } {
+type TaskTermCandidateStrategy = "fts" | "fallback";
+
+function testCandidateSqlQuery(
+  options: RelatedTestsOptions,
+  taskTermStrategy: TaskTermCandidateStrategy = "fts"
+): { sql: string; params: Record<string, unknown> } {
   const normalizedSource = normalizeSourceFile(options.sourceFile);
   const sourceStem = fileStem(normalizedSource);
   const sourceModules = moduleNamesForSource(normalizedSource);
@@ -358,28 +377,7 @@ function testCandidateSqlQuery(options: RelatedTestsOptions): { sql: string; par
 
   const candidateTerms = taskTermCandidateTokens(options.terms ?? []);
   if (candidateTerms.length > 0) {
-    candidateTerms.forEach((term, index) => {
-      params[`candidateTerm${index}`] = `%${term}%`;
-    });
-    branches.push(`
-      select file_id
-      from (
-        ${candidateTerms
-          .map(
-            (_, index) => `
-            select candidate_c.file_id
-                 , ${index} as term_index
-            from chunks candidate_c
-            join files candidate_f on candidate_f.id = candidate_c.file_id
-            where candidate_f.role = 'test'
-              and lower(candidate_c.text) like @candidateTerm${index}
-          `
-          )
-          .join("\nunion\n")}
-      )
-      group by file_id
-      having count(distinct term_index) = ${candidateTerms.length}
-    `);
+    branches.push(taskTermCandidateSql(candidateTerms, params, taskTermStrategy));
   }
 
   if (symbolLeaf) {
@@ -407,6 +405,70 @@ function testCandidateSqlQuery(options: RelatedTestsOptions): { sql: string; par
   }
 
   return { sql: branches.join("\nunion\n"), params };
+}
+
+export function relatedTestCandidateSqlForTesting(options: RelatedTestsOptions): {
+  sql: string;
+  fallbackSql: string;
+  params: Record<string, unknown>;
+} {
+  const fast = testCandidateSqlQuery(options, "fts");
+  const fallback = testCandidateSqlQuery(options, "fallback");
+  return {
+    sql: fast.sql,
+    fallbackSql: fallback.sql,
+    params: { ...fast.params, ...fallback.params }
+  };
+}
+
+function usesTaskTermCandidates(options: RelatedTestsOptions): boolean {
+  return taskTermCandidateTokens(options.terms ?? []).length > 0;
+}
+
+function taskTermCandidateSql(
+  candidateTerms: string[],
+  params: Record<string, unknown>,
+  strategy: TaskTermCandidateStrategy
+): string {
+  candidateTerms.forEach((term, index) => {
+    params[`candidateTerm${index}`] = strategy === "fts" ? ftsTermMatch(term) : `%${term}%`;
+  });
+
+  return `
+      select file_id
+      from (
+        ${candidateTerms
+          .map((_, index) =>
+            strategy === "fts" ? ftsTaskTermCandidateBranch(index) : fallbackTaskTermCandidateBranch(index)
+          )
+          .join("\nunion\n")}
+      )
+      group by file_id
+      having count(distinct term_index) = ${candidateTerms.length}
+    `;
+}
+
+function ftsTaskTermCandidateBranch(index: number): string {
+  return `
+            select candidate_c.file_id
+                 , ${index} as term_index
+            from chunk_fts
+            join chunks candidate_c on candidate_c.id = chunk_fts.chunk_id
+            join files candidate_f on candidate_f.id = candidate_c.file_id
+            where candidate_f.role = 'test'
+              and chunk_fts match @candidateTerm${index}
+          `;
+}
+
+function fallbackTaskTermCandidateBranch(index: number): string {
+  return `
+            select candidate_c.file_id
+                 , ${index} as term_index
+            from chunks candidate_c
+            join files candidate_f on candidate_f.id = candidate_c.file_id
+            where candidate_f.role = 'test'
+              and lower(candidate_c.text) like @candidateTerm${index}
+          `;
 }
 
 function scoreTestFile(
@@ -541,6 +603,10 @@ function taskTermCandidateTokens(terms: string[]): string[] {
       .filter((term) => term.length >= 5 && !layoutStopwords.has(term))
   );
   return tokens.slice(0, Math.min(3, tokens.length));
+}
+
+function ftsTermMatch(term: string): string {
+  return `"${term.replace(/"/gu, '""')}"`;
 }
 
 function firstUsefulLine(

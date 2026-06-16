@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { compareNavigationArtifacts } from "../../src/core/navigation-artifacts.js";
-import type { NavigationSuiteResult } from "../../src/core/schema.js";
+import type { NavigationEvalCaseResult, NavigationSuiteResult, NavigationTaskKind } from "../../src/core/schema.js";
 
 function suiteResult(overrides: Partial<NavigationSuiteResult> = {}): NavigationSuiteResult {
   const result: NavigationSuiteResult = {
@@ -92,6 +92,32 @@ async function writeSummary(result: NavigationSuiteResult): Promise<string> {
   await mkdir(path.join(root, "repos"));
   await writeFile(path.join(root, "summary.json"), `${JSON.stringify(result, null, 2)}\n`);
   return root;
+}
+
+function navigationCaseResult(
+  id: string,
+  kind: NavigationTaskKind,
+  winner: NavigationEvalCaseResult["winner"],
+  optimizedRgWinner: NavigationEvalCaseResult["optimizedRgWinner"]
+): NavigationEvalCaseResult {
+  return {
+    id,
+    task: id,
+    kind,
+    expectedFiles: [],
+    expectedSymbols: [],
+    agentIndex: {} as NavigationEvalCaseResult["agentIndex"],
+    rg: {} as NavigationEvalCaseResult["rg"],
+    rgOptimized: {} as NavigationEvalCaseResult["rgOptimized"],
+    tokenSavings: 0,
+    tokenSavingsRatio: null,
+    optimizedRgTokenSavings: 0,
+    optimizedRgTokenSavingsRatio: null,
+    commandSavings: 0,
+    optimizedRgCommandSavings: 0,
+    winner,
+    optimizedRgWinner
+  };
 }
 
 describe("compareNavigationArtifacts", () => {
@@ -222,6 +248,89 @@ describe("compareNavigationArtifacts", () => {
         expect.objectContaining({ metric: "dominance.agentIndexCompletionRate" }),
         expect.objectContaining({ metric: "dominance.agentIndexWinsVsOptimizedRg" }),
         expect.objectContaining({ metric: "dominance.agentIndexAvgContextTokens" })
+      ])
+    });
+  });
+
+  test("agent dominance exempts exact-string audits from win-count requirements", async () => {
+    const fixtureRepo = suiteResult().repoResults[0];
+    const caseResults = [
+      navigationCaseResult("feature-tracing", "feature", "agent-index", "agent-index"),
+      navigationCaseResult("diagnostic-code-audit", "exact-string-audit", "rg", "rg-optimized")
+    ];
+    const artifact = suiteResult({
+        cases: 2,
+        agentIndexWins: 1,
+        rgWins: 1,
+        agentIndexWinsVsOptimizedRg: 1,
+        rgOptimizedWins: 1,
+        repoResults: [
+          {
+            ...fixtureRepo,
+            result: {
+              ...fixtureRepo.result,
+              cases: 2,
+              agentIndexWins: 1,
+              rgWins: 1,
+              agentIndexWinsVsOptimizedRg: 1,
+              rgOptimizedWins: 1,
+              caseResults
+            }
+          }
+        ]
+      });
+    const baseline = await writeSummary(artifact);
+    const current = await writeSummary(artifact);
+
+    await expect(compareNavigationArtifacts(baseline, current, { requireAgentDominance: true })).resolves.toMatchObject({
+      passed: true
+    });
+  });
+
+  test("agent dominance still requires non-exact navigation cases to beat optimized rg", async () => {
+    const fixtureRepo = suiteResult().repoResults[0];
+    const caseResults = [
+      navigationCaseResult("feature-tracing", "feature", "agent-index", "rg-optimized"),
+      navigationCaseResult("diagnostic-code-audit", "exact-string-audit", "rg", "rg-optimized")
+    ];
+    const baseline = await writeSummary(suiteResult());
+    const current = await writeSummary(
+      suiteResult({
+        cases: 2,
+        agentIndexWins: 1,
+        rgWins: 1,
+        agentIndexWinsVsOptimizedRg: 0,
+        rgOptimizedWins: 2,
+        repoResults: [
+          {
+            ...fixtureRepo,
+            result: {
+              ...fixtureRepo.result,
+              cases: 2,
+              agentIndexWins: 1,
+              rgWins: 1,
+              agentIndexWinsVsOptimizedRg: 0,
+              rgOptimizedWins: 2,
+              caseResults
+            }
+          }
+        ]
+      })
+    );
+
+    await expect(compareNavigationArtifacts(baseline, current, { requireAgentDominance: true })).resolves.toMatchObject({
+      passed: false,
+      regressions: expect.arrayContaining([
+        expect.objectContaining({
+          metric: "dominance.agentIndexWinsVsOptimizedRg",
+          baseline: 1,
+          current: 0
+        }),
+        expect.objectContaining({
+          metric: "repo.fixture.dominance.agentIndexWinsVsOptimizedRg",
+          baseline: 1,
+          current: 0
+        })
       ])
     });
   });

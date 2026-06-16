@@ -1,0 +1,67 @@
+[
+  {
+    "id": "redux-toolkit-create-slice-selector-bugfix",
+    "task": "Investigate createSlice selector generation and reducer path handling so a bug fix can update implementation and matching createSlice tests.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["createSlice", "selectors", "reducerPath", "slice", "caseReducers", "getSelectors"],
+          "symbolKinds": ["function"],
+          "roles": ["source", "test"],
+          "pathHints": ["packages/toolkit/src/createSlice", "createSlice.test"]
+        },
+        "limit": 4,
+        "testLimit": 3,
+        "testFanoutLimit": 2
+      }
+    ],
+    "rgQueries": [
+      ["createSlice", "selectors", "reducerPath", "caseReducers", "getSelectors"],
+      ["createSlice", "selectors", "reducerPath", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["createSlice", "selectors", "reducerPath", "getSelectors"],
+          "paths": ["packages/toolkit/src"],
+          "globs": ["*.ts", "*.tsx"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["createSlice", "selectors", "reducerPath", "getSelectors"],
+          "fromStep": 1,
+          "before": 10,
+          "after": 10,
+          "limit": 6
+        },
+        {
+          "type": "search-files",
+          "terms": ["createSlice", "selectors", "reducerPath", "getSelectors"],
+          "scope": "test",
+          "paths": ["packages/toolkit/src"],
+          "globs": ["*.test.ts", "*.spec.ts"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["createSlice", "selectors", "reducerPath", "getSelectors"],
+          "fromStep": 3,
+          "before": 10,
+          "after": 10,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": ["packages/toolkit/src/createSlice.ts", "packages/toolkit/src/tests/createSlice.test.ts"],
+      "symbols": ["createSlice", "buildCreateSlice"],
+      "requiredFiles": ["packages/toolkit/src/createSlice.ts", "packages/toolkit/src/tests/createSlice.test.ts"],
+      "requiredSymbols": ["createSlice"]
+    }
+  }
+]

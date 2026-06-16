@@ -1,0 +1,71 @@
+[
+  {
+    "id": "vite-env-prefix-config-build-tooling",
+    "task": "Trace how Vite resolves envPrefix from user config through config loading and environment exposure, including the tests that guard invalid prefixes.",
+    "kind": "config-build",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["envPrefix", "resolveEnvPrefix", "loadEnv", "config", "defineConfig", "environment"],
+          "symbolKinds": ["function"],
+          "roles": ["source", "test"],
+          "pathHints": ["packages/vite/src/node/config", "packages/vite/src/node/env"]
+        },
+        "limit": 4,
+        "testLimit": 2,
+        "testFanoutLimit": 2
+      }
+    ],
+    "rgQueries": [
+      ["envPrefix", "resolveEnvPrefix", "loadEnv", "defineConfig", "environment"],
+      ["envPrefix", "throws", "config", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["envPrefix", "resolveEnvPrefix", "loadEnv"],
+          "paths": ["packages/vite/src/node"],
+          "globs": ["*.ts"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["envPrefix", "resolveEnvPrefix", "loadEnv"],
+          "fromStep": 1,
+          "before": 8,
+          "after": 8,
+          "limit": 6
+        },
+        {
+          "type": "search-files",
+          "terms": ["envPrefix", "resolveEnvPrefix", "loadEnv"],
+          "scope": "test",
+          "paths": ["packages/vite/src/node"],
+          "globs": ["*.spec.ts", "*.test.ts"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["envPrefix", "resolveEnvPrefix", "loadEnv"],
+          "fromStep": 3,
+          "before": 8,
+          "after": 8,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "packages/vite/src/node/config.ts",
+        "packages/vite/src/node/env.ts",
+        "packages/vite/src/node/__tests__/config.spec.ts"
+      ],
+      "symbols": ["resolveConfig", "resolveEnvPrefix", "loadEnv"],
+      "requiredFiles": ["packages/vite/src/node/config.ts", "packages/vite/src/node/env.ts"],
+      "requiredSymbols": ["resolveEnvPrefix", "loadEnv"]
+    }
+  }
+]

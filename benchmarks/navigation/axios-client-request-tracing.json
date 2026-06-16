@@ -1,0 +1,54 @@
+[
+  {
+    "id": "axios-request-transform-client-method-tracing",
+    "task": "Investigate where Axios request config is merged, transformed, and dispatched when axios.get/post call into the shared client request method.",
+    "kind": "sdk-tracing",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Axios", "request", "dispatchRequest", "transformRequest", "mergeConfig", "interceptors", "client"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source"],
+          "pathHints": ["lib/core", "Axios", "dispatchRequest"]
+        },
+        "limit": 5
+      }
+    ],
+    "rgQueries": [
+      ["Axios", "request", "dispatchRequest", "transformRequest", "mergeConfig", "interceptors"],
+      ["prototype.request", "dispatchRequest", "mergeConfig"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["Axios", "request", "dispatchRequest", "mergeConfig"],
+          "paths": ["lib/core"],
+          "globs": ["*.js"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["Axios.prototype.request", "dispatchRequest", "mergeConfig", "transformRequest"],
+          "fromStep": 1,
+          "before": 10,
+          "after": 10,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "lib/core/Axios.js",
+        "lib/core/dispatchRequest.js",
+        "lib/core/mergeConfig.js",
+        "lib/defaults/index.js"
+      ],
+      "symbols": ["Axios.request", "dispatchRequest", "mergeConfig"],
+      "requiredFiles": ["lib/core/Axios.js", "lib/core/dispatchRequest.js"],
+      "requiredSymbols": ["Axios.request", "dispatchRequest"]
+    }
+  }
+]

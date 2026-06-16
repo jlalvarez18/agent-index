@@ -72,6 +72,48 @@
     "mode": "hybrid"
   },
   {
+    "name": "react",
+    "evalPath": "react-use-sync-external-store.json",
+    "target": "react",
+    "mode": "hybrid"
+  },
+  {
+    "name": "next.js",
+    "evalPath": "nextjs-router-component-navigation.json",
+    "target": "next.js",
+    "mode": "hybrid"
+  },
+  {
+    "name": "axios",
+    "evalPath": "axios-client-request-tracing.json",
+    "target": "axios",
+    "mode": "hybrid"
+  },
+  {
+    "name": "vite",
+    "evalPath": "vite-config-env-prefix.json",
+    "target": "vite",
+    "mode": "hybrid"
+  },
+  {
+    "name": "typescript",
+    "evalPath": "typescript-exact-string-diagnostics.json",
+    "target": "TypeScript",
+    "mode": "hybrid"
+  },
+  {
+    "name": "redux-toolkit",
+    "evalPath": "redux-toolkit-create-slice-bugfix.json",
+    "target": "redux-toolkit",
+    "mode": "hybrid"
+  },
+  {
+    "name": "tanstack-query",
+    "evalPath": "tanstack-query-infinite-query-feature.json",
+    "target": "query",
+    "mode": "hybrid"
+  },
+  {
     "name": "celery",
     "evalPath": "celery-canvas-chain-group.json",
     "target": "celery",

@@ -203,6 +203,32 @@ async function fixtureSuiteWithoutIndex() {
 }
 
 describe("runNavigationSuite", () => {
+  test("navigation manifest includes broad TypeScript and JavaScript benchmark coverage", async () => {
+    const manifestPath = path.resolve("benchmarks/navigation/suite.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Array<{ name: string; evalPath: string }>;
+    const tsJsRepos = new Set(["unit-node-sdk", "react", "next.js", "axios", "vite", "typescript", "redux-toolkit", "tanstack-query"]);
+    const entries = manifest.filter((entry) => tsJsRepos.has(entry.name));
+    const cases = (
+      await Promise.all(
+        entries.map(async (entry) => JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as Array<{ kind?: string }>)
+      )
+    ).flat();
+
+    expect(entries.map((entry) => entry.name)).toEqual([
+      "unit-node-sdk",
+      "react",
+      "next.js",
+      "axios",
+      "vite",
+      "typescript",
+      "redux-toolkit",
+      "tanstack-query"
+    ]);
+    expect(new Set(cases.map((navigationCase) => navigationCase.kind))).toEqual(
+      new Set(["bugfix", "test-discovery", "component-navigation", "sdk-tracing", "config-build", "exact-string-audit", "feature"])
+    );
+  });
+
   test("aggregates multi-repository navigation metrics from a manifest", async () => {
     const manifestPath = await fixtureSuite();
 

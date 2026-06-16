@@ -895,4 +895,215 @@ def test_captured_stdout_setup_call_teardown_sections():
       /behavior-only optimized rg step 1 must not search expected file path\(s\): pkg\/cache.py/
     );
   });
+
+  test("evaluates JavaScript SDK method tracing with source and related tests", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-js-sdk-"));
+    await mkdir(path.join(root, "lib", "core"), { recursive: true });
+    await mkdir(path.join(root, "test", "specs", "core"), { recursive: true });
+    await writeFile(
+      path.join(root, "lib", "core", "Axios.js"),
+      `function Axios(defaultConfig) {
+  this.defaults = defaultConfig;
+}
+
+Axios.prototype.request = function request(config) {
+  const merged = mergeConfig(this.defaults, config);
+  return dispatchRequest(merged);
+};
+
+${Array.from({ length: 60 }, (_, index) => `const requestNoise${index} = "request dispatch config noise";`).join("\n")}
+`
+    );
+    await writeFile(path.join(root, "lib", "core", "dispatchRequest.js"), "export default function dispatchRequest(config) {\n  return config;\n}\n");
+    await writeFile(path.join(root, "lib", "core", "mergeConfig.js"), "export default function mergeConfig(defaults, config) {\n  return { ...defaults, ...config };\n}\n");
+    await writeFile(
+      path.join(root, "test", "specs", "core", "Axios.spec.js"),
+      `import Axios from "../../../lib/core/Axios";
+
+describe("Axios.prototype.request", () => {
+  it("merges config before dispatch", () => {
+    const client = new Axios({ timeout: 100 });
+    return client.request({ url: "/payments" });
+  });
+});
+`
+    );
+    await indexTarget(root);
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-js-sdk-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "axios-request-js-sdk-source-tests",
+            task: "Trace the JavaScript SDK request method from config merge into dispatch and find its tests.",
+            kind: "sdk-tracing",
+            agentIndexSteps: [
+              {
+                type: "source-tests",
+                query: {
+                  terms: ["Axios", "request", "mergeConfig", "dispatchRequest", "config"],
+                  symbolKinds: ["function", "method"],
+                  roles: ["source", "test"],
+                  pathHints: ["lib/core", "Axios"]
+                },
+                limit: 3,
+                testLimit: 2,
+                testFanoutLimit: 2
+              }
+            ],
+            rgQueries: [
+              ["Axios", "request", "mergeConfig", "dispatchRequest", "config"],
+              ["Axios.prototype.request", "mergeConfig", "dispatchRequest"]
+            ],
+            rgOptimizedPlan: {
+              version: 2,
+              steps: [
+                {
+                  type: "search-files",
+                  terms: ["Axios", "request", "mergeConfig", "dispatchRequest"],
+                  paths: ["lib/core"],
+                  globs: ["*.js"],
+                  limit: 10
+                },
+                {
+                  type: "read-snippets",
+                  terms: ["Axios.prototype.request", "mergeConfig", "dispatchRequest"],
+                  fromStep: 1,
+                  before: 6,
+                  after: 6,
+                  limit: 3
+                },
+                {
+                  type: "search-files",
+                  terms: ["Axios.prototype.request", "mergeConfig", "dispatchRequest"],
+                  paths: ["test"],
+                  globs: ["*.js"],
+                  limit: 10
+                },
+                {
+                  type: "read-snippets",
+                  terms: ["Axios.prototype.request", "request"],
+                  fromStep: 3,
+                  before: 6,
+                  after: 6,
+                  limit: 3
+                }
+              ]
+            },
+            expected: {
+              files: ["lib/core/Axios.js", "test/specs/core/Axios.spec.js"],
+              symbols: ["Axios.request"],
+              requiredFiles: ["lib/core/Axios.js", "test/specs/core/Axios.spec.js"],
+              requiredSymbols: ["Axios.request"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, { target: root, mode: "hybrid" });
+
+    expect(result.caseResults[0]).toMatchObject({
+      id: "axios-request-js-sdk-source-tests",
+      agentIndex: {
+        commands: 1,
+        foundUseful: true,
+        taskComplete: true,
+        foundFiles: ["lib/core/Axios.js", "test/specs/core/Axios.spec.js"],
+        foundSymbols: ["Axios.request"]
+      },
+      optimizedRgWinner: "agent-index"
+    });
+    expect(result.caseResults[0].agentIndex.contextTokens).toBeLessThan(result.caseResults[0].rgOptimized.contextTokens);
+  });
+
+  test("can evaluate exact-string JSON audits while keeping optimized rg competitive", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-json-exact-"));
+    await mkdir(path.join(root, "src", "compiler"), { recursive: true });
+    await mkdir(path.join(root, "tests", "baselines", "reference", "api"), { recursive: true });
+    await writeFile(path.join(root, "src", "compiler", "diagnosticMessages.json"), "{\"key\":\"TS2304\",\"message\":\"Cannot find name\"}\n");
+    await writeFile(
+      path.join(root, "tests", "baselines", "reference", "api", "diagnosticMessages.generated.json"),
+      "{\"key\":\"TS2304\",\"category\":\"Error\"}\n"
+    );
+    await writeFile(path.join(root, "src", "compiler", "checker.ts"), "export function checkName() { return 'diagnostic'; }\n");
+    await indexTarget(root);
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-json-exact-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "json-diagnostic-exact-string-audit",
+            task: "Audit every JSON source and baseline location for exact diagnostic string TS2304.",
+            kind: "exact-string-audit",
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["TS2304"],
+                  roles: ["source", "test"],
+                  pathHints: ["src/compiler", "tests/baselines"],
+                  limit: 4
+                },
+                limit: 4
+              }
+            ],
+            rgQueries: [["TS2304"]],
+            rgOptimizedPlan: {
+              version: 2,
+              steps: [
+                {
+                  type: "search-files",
+                  terms: ["TS2304"],
+                  paths: ["."],
+                  globs: ["*.json"],
+                  limit: 10
+                },
+                {
+                  type: "read-snippets",
+                  terms: ["TS2304"],
+                  fromStep: 1,
+                  before: 1,
+                  after: 1,
+                  limit: 4
+                }
+              ]
+            },
+            expected: {
+              files: [
+                "src/compiler/diagnosticMessages.json",
+                "tests/baselines/reference/api/diagnosticMessages.generated.json"
+              ],
+              requiredFiles: [
+                "src/compiler/diagnosticMessages.json",
+                "tests/baselines/reference/api/diagnosticMessages.generated.json"
+              ]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, { target: root, mode: "hybrid" });
+
+    expect(result.caseResults[0]).toMatchObject({
+      id: "json-diagnostic-exact-string-audit",
+      agentIndex: {
+        foundUseful: true,
+        taskComplete: true
+      },
+      rgOptimized: {
+        foundUseful: true,
+        taskComplete: true
+      }
+    });
+  });
 });

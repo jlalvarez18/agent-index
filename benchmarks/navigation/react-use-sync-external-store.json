@@ -1,0 +1,73 @@
+[
+  {
+    "id": "react-use-sync-external-store-source-tests",
+    "task": "Trace how React's useSyncExternalStore shim reads snapshots and find the related shared tests that cover subscribe/getSnapshot behavior.",
+    "kind": "test-discovery",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["useSyncExternalStore", "subscribe", "getSnapshot", "shim", "external", "store"],
+          "symbolKinds": ["function"],
+          "roles": ["source", "test"],
+          "pathHints": ["packages/use-sync-external-store/src", "useSyncExternalStore"]
+        },
+        "limit": 3,
+        "testLimit": 2,
+        "testFanoutLimit": 2
+      }
+    ],
+    "rgQueries": [
+      ["useSyncExternalStore", "subscribe", "getSnapshot", "shim", "external", "store"],
+      ["useSyncExternalStore", "subscribe", "getSnapshot", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["useSyncExternalStore", "subscribe", "getSnapshot", "shim"],
+          "paths": ["packages/use-sync-external-store/src"],
+          "globs": ["*.js"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["useSyncExternalStore", "subscribe", "getSnapshot"],
+          "fromStep": 1,
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        },
+        {
+          "type": "search-files",
+          "terms": ["useSyncExternalStore", "subscribe", "getSnapshot"],
+          "scope": "test",
+          "paths": ["packages/use-sync-external-store/src/__tests__"],
+          "globs": ["*.js"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["useSyncExternalStore", "subscribe", "getSnapshot"],
+          "fromStep": 3,
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "packages/use-sync-external-store/src/useSyncExternalStoreShimClient.js",
+        "packages/use-sync-external-store/src/__tests__/useSyncExternalStoreShared-test.js"
+      ],
+      "symbols": ["useSyncExternalStore"],
+      "requiredFiles": [
+        "packages/use-sync-external-store/src/useSyncExternalStoreShimClient.js",
+        "packages/use-sync-external-store/src/__tests__/useSyncExternalStoreShared-test.js"
+      ],
+      "requiredSymbols": ["useSyncExternalStore"]
+    }
+  }
+]

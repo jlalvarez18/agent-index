@@ -1,0 +1,74 @@
+[
+  {
+    "id": "tanstack-query-infinite-query-feature-tracing",
+    "task": "Trace the infinite query feature from the React hook into query-core behavior, especially how pageParam and getNextPageParam flow through fetches and tests.",
+    "kind": "feature",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["useInfiniteQuery", "infiniteQueryBehavior", "pageParam", "getNextPageParam", "fetchNextPage"],
+          "symbolKinds": ["function"],
+          "roles": ["source", "test"],
+          "pathHints": ["packages/react-query/src", "packages/query-core/src", "infiniteQuery"]
+        },
+        "limit": 4,
+        "testLimit": 2,
+        "testFanoutLimit": 2
+      }
+    ],
+    "rgQueries": [
+      ["useInfiniteQuery", "infiniteQueryBehavior", "pageParam", "getNextPageParam", "fetchNextPage"],
+      ["useInfiniteQuery", "pageParam", "getNextPageParam", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["useInfiniteQuery", "infiniteQueryBehavior", "pageParam"],
+          "paths": ["packages"],
+          "globs": ["*.ts", "*.tsx"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["useInfiniteQuery", "infiniteQueryBehavior", "pageParam", "getNextPageParam"],
+          "fromStep": 1,
+          "before": 10,
+          "after": 10,
+          "limit": 6
+        },
+        {
+          "type": "search-files",
+          "terms": ["useInfiniteQuery", "pageParam", "getNextPageParam"],
+          "scope": "test",
+          "paths": ["packages"],
+          "globs": ["*.test.ts", "*.test.tsx"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["useInfiniteQuery", "pageParam", "getNextPageParam"],
+          "fromStep": 3,
+          "before": 10,
+          "after": 10,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "packages/react-query/src/useInfiniteQuery.ts",
+        "packages/query-core/src/infiniteQueryBehavior.ts",
+        "packages/react-query/src/__tests__/useInfiniteQuery.test.tsx"
+      ],
+      "symbols": ["useInfiniteQuery", "infiniteQueryBehavior"],
+      "requiredFiles": [
+        "packages/react-query/src/useInfiniteQuery.ts",
+        "packages/query-core/src/infiniteQueryBehavior.ts"
+      ],
+      "requiredSymbols": ["useInfiniteQuery", "infiniteQueryBehavior"]
+    }
+  }
+]

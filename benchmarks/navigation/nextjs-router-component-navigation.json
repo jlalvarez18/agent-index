@@ -1,0 +1,66 @@
+[
+  {
+    "id": "nextjs-app-router-redirect-component-navigation",
+    "task": "Follow the App Router redirect flow from the client navigation helpers into the redirect error helper and identify the component-facing API surface.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["redirect", "app", "router", "navigation", "client", "component", "error", "digest"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["packages/next/src/client/components", "navigation", "redirect"]
+        },
+        "limit": 4
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["useRouter", "next/navigation", "AppRouterInstance", "component"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["packages/next/src/client/components/navigation.ts"]
+        },
+        "limit": 4
+      }
+    ],
+    "rgQueries": [
+      ["redirect", "app", "router", "navigation", "client", "component", "error", "digest"],
+      ["NEXT_REDIRECT", "redirect", "navigation"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["redirect", "navigation", "client", "component", "error"],
+          "paths": ["packages/next/src/client/components"],
+          "globs": ["*.ts", "*.tsx"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["redirect", "NEXT_REDIRECT", "getRedirectError", "useRouter"],
+          "fromStep": 1,
+          "before": 10,
+          "after": 10,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "packages/next/src/client/components/navigation.ts",
+        "packages/next/src/client/components/redirect.ts",
+        "packages/next/src/client/components/redirect-error.ts"
+      ],
+      "symbols": ["redirect", "getRedirectError", "isRedirectError"],
+      "requiredFiles": [
+        "packages/next/src/client/components/navigation.ts",
+        "packages/next/src/client/components/redirect.ts"
+      ],
+      "requiredSymbols": ["redirect"]
+    }
+  }
+]

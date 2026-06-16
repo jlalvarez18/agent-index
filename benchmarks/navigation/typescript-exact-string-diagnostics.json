@@ -1,0 +1,46 @@
+[
+  {
+    "id": "typescript-diagnostic-code-exact-string-audit",
+    "task": "Audit every source and test location for the exact diagnostic identifier 'Cannot_find_name_0' before changing how missing-name errors are reported.",
+    "kind": "exact-string-audit",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Cannot_find_name_0"],
+          "roles": ["source", "test"],
+          "pathHints": ["src", "tests"],
+          "limit": 8
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["Cannot_find_name_0"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["Cannot_find_name_0"],
+          "scope": "all",
+          "paths": ["."],
+          "globs": ["*.ts", "*.tsx", "*.js", "*.json"],
+          "limit": 50
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["Cannot_find_name_0"],
+          "fromStep": 1,
+          "before": 2,
+          "after": 2,
+          "limit": 12
+        }
+      ]
+    },
+    "expected": {
+      "files": ["src/compiler/checker.ts", "src/services/codefixes/addMissingConst.ts"],
+      "symbols": [],
+      "requiredFiles": ["src/compiler/checker.ts"]
+    }
+  }
+]

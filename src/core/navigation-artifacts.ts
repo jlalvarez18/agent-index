@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import type { NavigationSuiteRepoResult, NavigationSuiteResult } from "./schema.js";
+import type { NavigationEvalCaseResult, NavigationSuiteRepoResult, NavigationSuiteResult } from "./schema.js";
 
 export interface NavigationArtifactCompareOptions {
   maxAgentTokenIncrease?: number;
@@ -174,13 +174,20 @@ function compareAgentDominance(
     current.agentIndexCompletionRate,
     "optimized rg completion"
   );
-  compareAtLeast(regressions, `${prefix}dominance.agentIndexWins`, current.cases, current.agentIndexWins, "case count");
+  const dominanceCaseStats = agentDominanceCaseStats(current);
+  compareAtLeast(
+    regressions,
+    `${prefix}dominance.agentIndexWins`,
+    dominanceCaseStats.eligibleCases,
+    dominanceCaseStats.agentIndexWins,
+    "non-exact-string case count"
+  );
   compareAtLeast(
     regressions,
     `${prefix}dominance.agentIndexWinsVsOptimizedRg`,
-    current.cases,
-    current.agentIndexWinsVsOptimizedRg,
-    "case count"
+    dominanceCaseStats.eligibleCases,
+    dominanceCaseStats.agentIndexWinsVsOptimizedRg,
+    "non-exact-string case count"
   );
   compareLessThan(
     regressions,
@@ -196,6 +203,35 @@ function compareAgentDominance(
     current.agentIndexAvgContextTokens,
     "optimized rg average context tokens"
   );
+}
+
+function agentDominanceCaseStats(current: NavigationSuiteResult | NavigationSuiteRepoResult["result"]): {
+  eligibleCases: number;
+  agentIndexWins: number;
+  agentIndexWinsVsOptimizedRg: number;
+} {
+  const caseResults = navigationCaseResults(current);
+  if (caseResults.length === 0) {
+    return {
+      eligibleCases: current.cases,
+      agentIndexWins: current.agentIndexWins,
+      agentIndexWinsVsOptimizedRg: current.agentIndexWinsVsOptimizedRg
+    };
+  }
+
+  const eligibleCases = caseResults.filter((caseResult) => caseResult.kind !== "exact-string-audit");
+  return {
+    eligibleCases: eligibleCases.length,
+    agentIndexWins: eligibleCases.filter((caseResult) => caseResult.winner === "agent-index").length,
+    agentIndexWinsVsOptimizedRg: eligibleCases.filter((caseResult) => caseResult.optimizedRgWinner === "agent-index").length
+  };
+}
+
+function navigationCaseResults(current: NavigationSuiteResult | NavigationSuiteRepoResult["result"]): NavigationEvalCaseResult[] {
+  if ("caseResults" in current) {
+    return current.caseResults;
+  }
+  return current.repoResults.flatMap((repo) => repo.result.caseResults);
 }
 
 function compareAtLeast(

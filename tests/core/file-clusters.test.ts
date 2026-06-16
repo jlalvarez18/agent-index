@@ -192,4 +192,46 @@ def build_manual_next_request(request):
     expect(result.clusters[0].evidence).toContain("set_streaming_iterator");
     expect(result.clusters[0].why).toContain("file name matches task terms");
   });
+
+  test("retains enough matched symbols for downstream completion scoring", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-symbol-cap-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "backend.py"),
+      `class RadiusNeighbors:
+    def compute(self):
+        return self._finalize_results()
+
+    def _parallel_on_X_prange_iter_finalize(self):
+        return self._merge_vectors()
+
+    def _parallel_on_Y_finalize(self):
+        return self._merge_vectors()
+
+    def _parallel_on_Y_init(self):
+        return self.chunks
+
+    def _parallel_on_X_init(self):
+        return self.chunks
+
+    def _merge_vectors(self):
+        return []
+
+    def _finalize_results(self):
+        return []
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["radius", "neighbors", "sort", "results", "merge", "vectors", "finalize"],
+        symbolKinds: ["class", "method"],
+        roles: ["source"]
+      },
+      { target: root, limit: 1 }
+    );
+
+    expect(result.clusters[0].symbols.map((symbol) => symbol.name)).toContain("RadiusNeighbors._merge_vectors");
+  });
 });

@@ -36,6 +36,12 @@
     "mode": "hybrid"
   },
   {
+    "name": "scikit-learn",
+    "evalPath": "scikit-learn-radius-neighbors.json",
+    "target": "scikit-learn",
+    "mode": "hybrid"
+  },
+  {
     "name": "rich",
     "evalPath": "rich-print-json-file.json",
     "target": "rich",

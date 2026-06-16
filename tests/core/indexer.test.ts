@@ -128,6 +128,43 @@ impl ComputedFields {
     );
   });
 
+  test("indexes Cython template source files alongside Python files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-cython-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "sklearn", "metrics", "_pairwise_distances_reduction"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "main.py"), "def radius_neighbors():\n    return 'python api'\n");
+    await writeFile(
+      path.join(root, "sklearn", "metrics", "_pairwise_distances_reduction", "_radius_neighbors.pyx.tp"),
+      `cdef class RadiusNeighbors{{name_suffix}}:
+    def compute(self, sort_results=False):
+        return self._finalize_results()
+
+    def _finalize_results(self):
+        return []
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("sklearn/metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp");
+    db.close();
+
+    expect(files).toEqual([
+      { path: "pkg/main.py", language: "python" },
+      { path: "sklearn/metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp", language: "cython" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "RadiusNeighbors", kind: "class" },
+        { qualified_name: "RadiusNeighbors.compute", kind: "method" },
+        { qualified_name: "RadiusNeighbors._finalize_results", kind: "method" }
+      ])
+    );
+  });
+
   test("rejects a missing target before creating an index directory", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-missing-"));
     const missing = path.join(root, "missing-project");

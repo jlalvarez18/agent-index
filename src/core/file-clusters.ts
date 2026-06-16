@@ -140,7 +140,7 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
         matchedChunks: cluster.matchedChunks,
         contextChars: cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0),
         contextTokens: approximateTokens(cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0)),
-        symbols: cluster.symbols.slice(0, 5),
+        symbols: cluster.symbols.slice(0, 12),
         why: [...cluster.why],
         evidence: cluster.evidence
       };

@@ -1,0 +1,98 @@
+[
+  {
+    "id": "sklearn-radius-neighbors-sort-results-mixed-language",
+    "task": "Investigate why radius-neighbor queries that request distance-ordered results can return unsorted or inconsistent neighbors on the brute-force fast path, especially for float32 data or small query batches. Find the public estimator implementation, the lower-level distance-reduction backend, and the related tests for sorted radius results without naming the Cython backend methods.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "query", "batch", "merge"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["neighbors", "pairwise distances reduction"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["radius", "neighbors", "sort", "results", "distance", "float32", "brute", "merge"],
+        "limit": 10
+      }
+    ],
+    "rgQueries": [
+      ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "merge"],
+      ["radius_neighbors", "sort_results", "float32", "test"]
+    ],
+    "searchTerms": {
+      "seed": ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "query", "batch", "merge"],
+      "forbiddenExact": ["_merge_vectors", "_parallel_on_X_prange_iter_finalize", "_finalize_results"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "merge"],
+          "scope": "source",
+          "paths": ["sklearn"],
+          "globs": ["*.py", "*.pyx.tp", "*.pxd.tp"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "merge"],
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["radius", "neighbors", "sort", "results", "distance", "float32"],
+          "scope": "test",
+          "paths": ["sklearn"],
+          "globs": ["test_*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["radius_neighbors", "sort_results", "float32", "distance"],
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "sklearn/neighbors/_base.py",
+        "sklearn/metrics/_pairwise_distances_reduction/_dispatcher.py",
+        "sklearn/metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp",
+        "sklearn/neighbors/tests/test_neighbors.py",
+        "sklearn/metrics/tests/test_pairwise_distances_reduction.py"
+      ],
+      "symbols": [
+        "RadiusNeighborsMixin.radius_neighbors",
+        "RadiusNeighborsMixin.radius_neighbors_graph",
+        "RadiusNeighbors.compute",
+        "RadiusNeighbors._parallel_on_X_prange_iter_finalize",
+        "RadiusNeighbors._merge_vectors",
+        "RadiusNeighbors._finalize_results",
+        "test_radius_neighbors_sort_results",
+        "test_pairwise_distances_radius_neighbors"
+      ],
+      "requiredFiles": [
+        "sklearn/neighbors/_base.py",
+        "sklearn/metrics/_pairwise_distances_reduction/_dispatcher.py",
+        "sklearn/metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp",
+        "sklearn/neighbors/tests/test_neighbors.py",
+        "sklearn/metrics/tests/test_pairwise_distances_reduction.py"
+      ],
+      "requiredSymbols": ["RadiusNeighbors._merge_vectors"]
+    }
+  }
+]

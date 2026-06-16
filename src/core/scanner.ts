@@ -53,14 +53,14 @@ export async function scanPythonFiles(target: string, options: ScanOptions = {})
 }
 
 export async function scanCodeFiles(target: string, options: ScanOptions = {}): Promise<SourceFile[]> {
-  return scanFiles(target, options, [".py", ".rs"]);
+  return scanFiles(target, options, [".py", ".rs", ".pyx", ".pxd", ".pxi", ".pyx.tp", ".pxd.tp", ".pxi.tp"]);
 }
 
-async function scanFiles(target: string, options: ScanOptions, extensions: string[]): Promise<SourceFile[]> {
+async function scanFiles(target: string, options: ScanOptions, suffixes: string[]): Promise<SourceFile[]> {
   const root = path.resolve(target);
   const files: SourceFile[] = [];
   const includeSupportCode = options.includeSupportCode ?? true;
-  const extensionSet = new Set(extensions);
+  const suffixSet = new Set(suffixes);
 
   async function visit(directory: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true });
@@ -77,7 +77,12 @@ async function scanFiles(target: string, options: ScanOptions, extensions: strin
         continue;
       }
 
-      if (!entry.isFile() || !extensionSet.has(path.extname(entry.name))) {
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const suffix = codeSuffix(entry.name, suffixSet);
+      if (!suffix) {
         continue;
       }
 
@@ -87,7 +92,7 @@ async function scanFiles(target: string, options: ScanOptions, extensions: strin
       files.push({
         absolutePath,
         relativePath,
-        language: languageForExtension(path.extname(entry.name)),
+        language: languageForSuffix(suffix),
         role: classifyFileRole(relativePath),
         text
       });
@@ -98,9 +103,16 @@ async function scanFiles(target: string, options: ScanOptions, extensions: strin
   return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 }
 
-function languageForExtension(extension: string): Language {
-  if (extension === ".rs") {
+function codeSuffix(fileName: string, suffixes: Set<string>): string | undefined {
+  return [...suffixes].sort((a, b) => b.length - a.length).find((suffix) => fileName.endsWith(suffix));
+}
+
+function languageForSuffix(suffix: string): Language {
+  if (suffix === ".rs") {
     return "rust";
+  }
+  if (suffix === ".pyx" || suffix === ".pxd" || suffix === ".pxi" || suffix === ".pyx.tp" || suffix === ".pxd.tp" || suffix === ".pxi.tp") {
+    return "cython";
   }
   return "python";
 }

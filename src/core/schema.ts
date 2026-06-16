@@ -1,4 +1,4 @@
-export type Language = "python" | "rust";
+export type Language = "python" | "rust" | "cython";
 
 export type FileRole = "source" | "test" | "docs" | "example" | "fixture" | "tool" | "benchmark";
 

@@ -57,18 +57,21 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
   });
 
-  test("can scan mixed Python and Rust source files for indexing", async () => {
+  test("can scan mixed Python, Rust, and Cython template source files for indexing", async () => {
     const root = await fixtureDir();
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "core", "src"), { recursive: true });
+    await mkdir(path.join(root, "sklearn", "metrics"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
     await writeFile(path.join(root, "core", "src", "serializer.rs"), "pub struct ComputedFields {}\n");
+    await writeFile(path.join(root, "sklearn", "metrics", "_radius_neighbors.pyx.tp"), "cdef class RadiusNeighbors{{name_suffix}}:\n    pass\n");
 
     const files = await scanCodeFiles(root);
 
     expect(files.map((file) => ({ relativePath: file.relativePath, language: file.language }))).toEqual([
       { relativePath: "core/src/serializer.rs", language: "rust" },
-      { relativePath: "pkg/service.py", language: "python" }
+      { relativePath: "pkg/service.py", language: "python" },
+      { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" }
     ]);
   });
 

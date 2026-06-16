@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { stat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
+import { extractCython } from "./extractors/cython.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRust } from "./extractors/rust.js";
 import { scanCodeFiles } from "./scanner.js";
@@ -23,7 +24,15 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
   try {
     createSchema(db);
     const files = await scanCodeFiles(root, { includeSupportCode: options.includeSupportCode });
-    const extractions = files.map((file) => file.language === "rust" ? extractRust(file) : extractPython(file));
+    const extractions = files.map((file) => {
+      if (file.language === "rust") {
+        return extractRust(file);
+      }
+      if (file.language === "cython") {
+        return extractCython(file);
+      }
+      return extractPython(file);
+    });
     const stats = writeExtractions(db, extractions);
     return { ...stats, indexPath };
   } finally {

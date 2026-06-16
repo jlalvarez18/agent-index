@@ -111,6 +111,42 @@ def test_bravo_workflow():
     expect(results.map((result) => result.matches[0].file)).toEqual(["tests/test_alpha.py", "tests/test_bravo.py"]);
   });
 
+  test("multi-source discovery counts shared candidate rows once", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-shared-candidates-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "alpha.py"), "def alpha_workflow():\n    return 'alpha'\n");
+    await writeFile(path.join(root, "pkg", "bravo.py"), "def bravo_workflow():\n    return 'bravo'\n");
+    await writeFile(
+      path.join(root, "tests", "test_alpha.py"),
+      `from pkg.alpha import alpha_workflow
+
+def test_alpha_workflow():
+    assert alpha_workflow() == "alpha"
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_bravo.py"),
+      `from pkg.bravo import bravo_workflow
+
+def test_bravo_workflow():
+    assert bravo_workflow() == "bravo"
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/alpha.py",
+      sourceFiles: ["pkg/alpha.py", "pkg/bravo.py"],
+      terms: ["workflow"],
+      limit: 2
+    });
+
+    expect(result.candidateFilesScored).toBe(2);
+    expect(result.matches.map((match) => match.file)).toEqual(["tests/test_alpha.py", "tests/test_bravo.py"]);
+  });
+
   test("prunes unrelated test files before scoring full text", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-pruned-candidates-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

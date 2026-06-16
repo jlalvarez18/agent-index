@@ -36,6 +36,11 @@ interface TestFileRowsResult {
   pruned: boolean;
 }
 
+interface RelatedTestsInternalResult {
+  result: RelatedTestsResult;
+  candidateFiles: string[];
+}
+
 export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResult {
   const sourceFiles = uniqueValues((options.sourceFiles && options.sourceFiles.length > 0 ? options.sourceFiles : [options.sourceFile]).map(normalizeSourceFile));
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
@@ -44,7 +49,7 @@ export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResu
     if (sourceFiles.length > 1) {
       return findRelatedTestsForSources(db, options, sourceFiles);
     }
-    return findRelatedTestsWithDb(db, options);
+    return runRelatedTestsWithDb(db, options).result;
   } finally {
     db.close();
   }
@@ -54,22 +59,45 @@ export function findRelatedTestsBatch(options: RelatedTestsBatchOptions): Relate
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
   try {
-    return options.sources.map((source) =>
-      findRelatedTestsWithDb(db, {
-        target: options.target,
-        indexPath: options.indexPath,
-        sourceFile: source.sourceFile,
-        symbol: source.symbol,
-        terms: options.terms,
-        limit: options.limit
-      })
-    );
+    return runRelatedTestsBatchWithDb(db, options);
   } finally {
     db.close();
   }
 }
 
-function findRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptions): RelatedTestsResult {
+function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTestsBatchOptions): RelatedTestsResult[] {
+  const sourceOptions = options.sources.map((source) => ({
+    target: options.target,
+    indexPath: options.indexPath,
+    sourceFile: source.sourceFile,
+    symbol: source.symbol,
+    terms: options.terms,
+    limit: options.limit
+  }));
+  const candidatePathsBySource = sourceOptions.map((sourceOption) => queryCandidateTestPaths(db, sourceOption));
+  const allTestPaths = candidatePathsBySource.some((paths) => paths.length === 0) ? queryAllTestPaths(db) : [];
+  const rowCache = rowsByPath(
+    queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))))
+  );
+
+  return sourceOptions.map((sourceOption, index) => {
+    const candidatePaths = candidatePathsBySource[index].length > 0 ? candidatePathsBySource[index] : allTestPaths;
+    let rows = candidatePaths.map((candidatePath) => rowCache.get(candidatePath)).filter((row): row is TestFileRow => row !== undefined);
+    let matches = scoreTestRows(rows, sourceOption);
+    if (candidatePathsBySource[index].length > 0 && matches.length < (sourceOption.limit ?? 5)) {
+      rows = allTestPaths.length > 0 ? allTestPaths.map((testPath) => rowCache.get(testPath)).filter((row): row is TestFileRow => row !== undefined) : queryAllTestRows(db);
+      matches = scoreTestRows(rows, sourceOption);
+    }
+    return {
+      sourceFile: normalizeSourceFile(sourceOption.sourceFile),
+      symbol: sourceOption.symbol,
+      candidateFilesScored: rows.length,
+      matches: matches.slice(0, sourceOption.limit ?? 5)
+    };
+  });
+}
+
+function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptions): RelatedTestsInternalResult {
   let { rows, pruned } = queryTestRows(db, options);
   let matches = scoreTestRows(rows, options);
   if (pruned && matches.length < (options.limit ?? 5)) {
@@ -78,17 +106,53 @@ function findRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOpti
     matches = scoreTestRows(rows, options);
   }
   return {
-    sourceFile: normalizeSourceFile(options.sourceFile),
-    sourceFiles: options.sourceFiles,
-    symbol: options.symbol,
-    candidateFilesScored: rows.length,
-    matches: matches.slice(0, options.limit ?? 5)
+    result: {
+      sourceFile: normalizeSourceFile(options.sourceFile),
+      sourceFiles: options.sourceFiles,
+      symbol: options.symbol,
+      candidateFilesScored: rows.length,
+      matches: matches.slice(0, options.limit ?? 5)
+    },
+    candidateFiles: rows.map((row) => row.path)
   };
+}
+
+function queryCandidateTestPaths(db: Database.Database, options: RelatedTestsOptions): string[] {
+  const candidateFilter = testCandidateSqlFilter(options);
+  const rows = db
+    .prepare(
+      `
+        select path
+        from files
+        where role = 'test' ${candidateFilter.sql}
+        order by path
+        `
+    )
+    .all(candidateFilter.params) as Array<{ path: string }>;
+  return rows.map((row) => row.path);
+}
+
+function queryAllTestPaths(db: Database.Database): string[] {
+  const rows = db
+    .prepare(
+      `
+        select path
+        from files
+        where role = 'test'
+        order by path
+        `
+    )
+    .all() as Array<{ path: string }>;
+  return rows.map((row) => row.path);
+}
+
+function rowsByPath(rows: TestFileRow[]): Map<string, TestFileRow> {
+  return new Map(rows.map((row) => [row.path, row]));
 }
 
 function findRelatedTestsForSources(db: Database.Database, options: RelatedTestsOptions, sourceFiles: string[]): RelatedTestsResult {
   const results = sourceFiles.map((sourceFile) =>
-    findRelatedTestsWithDb(db, {
+    runRelatedTestsWithDb(db, {
       ...options,
       sourceFile,
       sourceFiles: undefined,
@@ -96,7 +160,7 @@ function findRelatedTestsForSources(db: Database.Database, options: RelatedTests
     })
   );
   const bestByFile = new Map<string, RelatedTestMatch>();
-  for (const result of results) {
+  for (const { result } of results) {
     for (const match of result.matches) {
       const existing = bestByFile.get(match.file);
       if (!existing || match.score > existing.score) {
@@ -109,7 +173,7 @@ function findRelatedTestsForSources(db: Database.Database, options: RelatedTests
     sourceFile: normalizeSourceFile(options.sourceFile),
     sourceFiles,
     symbol: options.symbol,
-    candidateFilesScored: results.reduce((sum, result) => sum + result.candidateFilesScored, 0),
+    candidateFilesScored: uniqueValues(results.flatMap((result) => result.candidateFiles)).length,
     matches: [...bestByFile.values()].sort((a, b) => b.score - a.score || a.file.localeCompare(b.file)).slice(0, options.limit ?? 5)
   };
 }
@@ -162,6 +226,48 @@ function queryTestRows(db: Database.Database, options: RelatedTestsOptions): Tes
     return { rows, pruned: true };
   }
   return { rows: queryAllTestRows(db), pruned: false };
+}
+
+function queryTestRowsByPaths(db: Database.Database, paths: string[]): TestFileRow[] {
+  if (paths.length === 0) {
+    return [];
+  }
+  const params = Object.fromEntries(paths.map((pathValue, index) => [`path${index}`, pathValue]));
+  const pathList = paths.map((_, index) => `@path${index}`).join(", ");
+  return db
+    .prepare(
+      `
+        with test_text as (
+          select file_id, group_concat(text, char(10)) as text
+          from chunks
+          where file_id in (select id from files where role = 'test' and path in (${pathList}))
+          group by file_id
+        ),
+        test_edges as (
+          select
+            s.file_id,
+            group_concat(distinct case when e.kind = 'symbol_imports_module' then e.target_name end) as imported_modules,
+            group_concat(distinct case when e.kind = 'symbol_calls_name' then e.target_name end) as called_names
+          from symbols s
+          join edges e on e.source_symbol_id = s.id
+          group by s.file_id
+        )
+        select f.path, test_text.text, test_edges.imported_modules, test_edges.called_names
+        , test_symbols.symbols
+        from files f
+        join test_text on test_text.file_id = f.id
+        left join test_edges on test_edges.file_id = f.id
+        left join (
+          select file_id, group_concat(qualified_name) as symbols
+          from symbols
+          where kind in ('function', 'method', 'class')
+          group by file_id
+        ) test_symbols on test_symbols.file_id = f.id
+        where f.role = 'test' and f.path in (${pathList})
+        order by f.path
+        `
+    )
+    .all(params) as TestFileRow[];
 }
 
 function queryAllTestRows(db: Database.Database): TestFileRow[] {

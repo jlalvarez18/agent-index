@@ -450,6 +450,57 @@ def test_execute_cursor():
     expect(rowQuery).toContain("test_edges");
   });
 
+  test("hydrates compact task-relevant symbols for large related test files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-compact-symbols-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "result.py"),
+      `class CursorResult:
+    def rowcount(self):
+        return 1
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_resultset.py"),
+      `from pkg.result import CursorResult
+
+
+class CursorResultTest:
+${Array.from({ length: 80 }, (_, index) => `    def test_unrelated_${index}(self):\n        assert True\n`).join("\n")}
+    def cursor_wrapper(self):
+        return CursorResult()
+
+    def test_no_rowcount_on_selects_inserts(self):
+        result = self.cursor_wrapper()
+        assert result.rowcount() == 1
+
+    def test_rowcount_always_called_when_preserve_rowcount(self):
+        result = self.cursor_wrapper()
+        assert result.rowcount() == 1
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/result.py",
+      symbol: "CursorResult.rowcount",
+      terms: ["cursor", "rowcount", "select", "insert", "preserve"],
+      limit: 1
+    });
+
+    expect(result.matches[0].symbols).toEqual(
+      expect.arrayContaining([
+        "CursorResultTest.cursor_wrapper",
+        "CursorResultTest.test_no_rowcount_on_selects_inserts",
+        "CursorResultTest.test_rowcount_always_called_when_preserve_rowcount"
+      ])
+    );
+    expect(result.matches[0].symbols).not.toContain("CursorResultTest.test_unrelated_0");
+    expect(result.matches[0].symbols.length).toBeLessThanOrEqual(32);
+  });
+
   test("falls back to substring task-term candidates when FTS tokenization misses compounds", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-fts-fallback-"));
     await mkdir(path.join(root, "pkg", "engine"), { recursive: true });

@@ -113,7 +113,7 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
   const symbolsByPath = queryRelatedTestSymbolsByPath(db, uniqueValues(results.flatMap((result) => result.matches.map((match) => match.file))));
   return results.map((result) => ({
     ...result,
-    matches: withRelatedTestSymbols(result.matches, symbolsByPath)
+    matches: withRelatedTestSymbols(result.matches, symbolsByPath, options.terms, result.symbol)
   }));
 }
 
@@ -131,7 +131,7 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
       sourceFiles: options.sourceFiles,
       symbol: options.symbol,
       candidateFilesScored: rows.length,
-      matches: hydrateRelatedTestSymbols(db, matches.slice(0, options.limit ?? 5))
+      matches: hydrateRelatedTestSymbols(db, matches.slice(0, options.limit ?? 5), options)
     },
     candidateFiles: rows.map((row) => row.path)
   };
@@ -303,19 +303,88 @@ function queryAllTestRows(db: Database.Database): TestFileRow[] {
   return db.prepare(testRowSql("", false)).all() as TestFileRow[];
 }
 
-function hydrateRelatedTestSymbols(db: Database.Database, matches: RelatedTestMatch[]): RelatedTestMatch[] {
+function hydrateRelatedTestSymbols(db: Database.Database, matches: RelatedTestMatch[], options: RelatedTestsOptions): RelatedTestMatch[] {
   if (matches.length === 0) {
     return matches;
   }
   const symbolsByPath = queryRelatedTestSymbolsByPath(db, matches.map((match) => match.file));
-  return withRelatedTestSymbols(matches, symbolsByPath);
+  return withRelatedTestSymbols(matches, symbolsByPath, options.terms, options.symbol);
 }
 
-function withRelatedTestSymbols(matches: RelatedTestMatch[], symbolsByPath: Map<string, string[]>): RelatedTestMatch[] {
+function withRelatedTestSymbols(
+  matches: RelatedTestMatch[],
+  symbolsByPath: Map<string, string[]>,
+  terms: string[] = [],
+  sourceSymbol?: string
+): RelatedTestMatch[] {
   return matches.map((match) => ({
     ...match,
-    symbols: symbolsByPath.get(match.file) ?? []
+    symbols: compactRelatedTestSymbols(symbolsByPath.get(match.file) ?? [], terms, sourceSymbol)
   }));
+}
+
+function compactRelatedTestSymbols(symbols: string[], terms: string[], sourceSymbol: string | undefined): string[] {
+  const maxSymbols = 32;
+  if (symbols.length <= maxSymbols) {
+    return symbols;
+  }
+
+  const hintTerms = symbolHintTerms(terms, sourceSymbol);
+  const ranked = symbols
+    .map((symbol, index) => ({
+      symbol,
+      index,
+      score: relatedSymbolScore(symbol, hintTerms),
+      leafScore: relatedSymbolLeafScore(symbol, hintTerms)
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  const leafMatches = ranked.filter((entry) => entry.leafScore > 0);
+  const selected = leafMatches.length > 0 ? leafMatches : ranked;
+  return selected.slice(0, maxSymbols).map((entry) => entry.symbol);
+}
+
+function relatedSymbolScore(symbol: string, hintTerms: string[]): number {
+  const normalizedSymbol = normalize(symbol);
+  const leaf = normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol);
+  let score = 0;
+  if (leaf.startsWith("test")) {
+    score += 8;
+  }
+  if (!leaf.startsWith("test") && hintTerms.some((term) => leaf.includes(term))) {
+    score += 10;
+  }
+  for (const term of hintTerms) {
+    if (leaf.includes(term)) {
+      score += 12;
+    } else if (normalizedSymbol.includes(term)) {
+      score += 3;
+    }
+  }
+  return score;
+}
+
+function relatedSymbolLeafScore(symbol: string, hintTerms: string[]): number {
+  const leaf = normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol);
+  return hintTerms.reduce((score, term) => (leaf.includes(term) ? score + 1 : score), 0);
+}
+
+function symbolHintTerms(terms: string[], sourceSymbol: string | undefined): string[] {
+  const sourceParts = sourceSymbol
+    ? sourceSymbol
+        .split(/[^A-Za-z0-9_]+/u)
+        .flatMap((part) => splitIdentifierTerms(part))
+    : [];
+  return uniqueValues([
+    ...terms.flatMap((term) => normalize(term).split(/\s+/u)),
+    ...sourceParts.map(normalize)
+  ]).filter((term) => term.length >= 3);
+}
+
+function splitIdentifierTerms(value: string): string[] {
+  return value
+    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .split(/[^A-Za-z0-9_]+|_/u)
+    .filter(Boolean);
 }
 
 function queryRelatedTestSymbolsByPath(db: Database.Database, paths: string[]): Map<string, string[]> {

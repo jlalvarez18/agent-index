@@ -14,7 +14,8 @@ import type {
   NavigationRgOptimizedStep,
   QueryMatch,
   QueryMode,
-  RelatedTestMatch
+  RelatedTestMatch,
+  RelatedTestsResult
 } from "./schema.js";
 import { findFileClusters } from "./file-clusters.js";
 import { queryAgentIndex } from "./query.js";
@@ -241,18 +242,23 @@ async function runAgentStep(
     };
   }
 
-  const sourceFile = resolveRelatedTestsSource(step, previousSteps);
-  const symbol = step.symbol ?? resolveRelatedTestsSymbol(previousSteps);
-  const result = findRelatedTests({
-    target: options.target,
-    indexPath: options.indexPath,
-    sourceFile,
-    symbol,
-    terms: step.terms,
-    limit: step.limit ?? 5
-  });
-  const context = formatCompactRelatedTests(result.matches);
-  const useful = usefulRelatedTest(result.matches, navigationCase);
+  const sourceFiles = resolveRelatedTestsSources(step, previousSteps);
+  const symbol = step.symbol ?? (sourceFiles.length === 1 ? resolveRelatedTestsSymbol(previousSteps) : undefined);
+  const result = mergeRelatedTestMatches(
+    sourceFiles.map((sourceFile) =>
+      findRelatedTests({
+        target: options.target,
+        indexPath: options.indexPath,
+        sourceFile,
+        symbol,
+        terms: step.terms,
+        limit: step.limit ?? 5
+      })
+    ),
+    step.limit ?? 5
+  );
+  const context = formatCompactRelatedTests(result);
+  const useful = usefulRelatedTest(result, navigationCase);
   return {
     type: "related-tests",
     command: formatRelatedTestsCommand(step),
@@ -261,27 +267,40 @@ async function runAgentStep(
     contextTokens: approximateTokens(context.length),
     usefulRank: useful?.rank ?? null,
     usefulFile: useful?.file ?? null,
-    foundFiles: matchingRelatedTestFiles(result.matches, navigationCase),
-    foundSymbols: matchingRelatedTestSymbols(result.matches, navigationCase),
-    outputFiles: uniqueValues(result.matches.map((match) => match.file)),
-    outputSymbols: compactOutputValues(result.matches.flatMap((match) => match.symbols))
+    foundFiles: matchingRelatedTestFiles(result, navigationCase),
+    foundSymbols: matchingRelatedTestSymbols(result, navigationCase),
+    outputFiles: uniqueValues(result.map((match) => match.file)),
+    outputSymbols: compactOutputValues(result.flatMap((match) => match.symbols))
   };
 }
 
-function resolveRelatedTestsSource(
+function resolveRelatedTestsSources(
   step: Extract<NavigationAgentStep, { type: "related-tests" }>,
   previousSteps: NavigationEvalStepResult[]
-): string {
+): string[] {
   if (step.sourceFile) {
-    return step.sourceFile;
+    return [step.sourceFile];
   }
 
   const sourceStep = step.sourceFromStep ? previousSteps[step.sourceFromStep - 1] : previousSteps.at(-1);
-  const sourceFile = sourceStep?.outputFiles?.[0];
-  if (!sourceFile) {
+  const sourceFiles = uniqueValues(sourceStep?.outputFiles ?? []).slice(0, step.sourceLimit ?? 3);
+  if (sourceFiles.length === 0) {
     throw new Error("related-tests step needs sourceFile or a previous step with at least one output file");
   }
-  return sourceFile;
+  return sourceFiles;
+}
+
+function mergeRelatedTestMatches(results: RelatedTestsResult[], limit: number): RelatedTestMatch[] {
+  const bestByFile = new Map<string, RelatedTestMatch>();
+  for (const result of results) {
+    for (const match of result.matches) {
+      const existing = bestByFile.get(match.file);
+      if (!existing || match.score > existing.score) {
+        bestByFile.set(match.file, match);
+      }
+    }
+  }
+  return [...bestByFile.values()].sort((a, b) => b.score - a.score || a.file.localeCompare(b.file)).slice(0, limit);
 }
 
 function resolveRelatedTestsSymbol(previousSteps: NavigationEvalStepResult[]): string | undefined {

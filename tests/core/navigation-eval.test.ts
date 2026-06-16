@@ -224,6 +224,107 @@ describe("runNavigationEval", () => {
     expect(result.caseResults[0].agentIndex.contextTokens).toBeLessThan(result.caseResults[0].rg.contextTokens);
   });
 
+  test("related-tests can follow multiple source candidates from a prior navigation step", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-multi-source-tests-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "reporting.py"),
+      `def format_report_section(phase):
+    report_section = f"captured output during {phase}"
+    captured_stdout = report_section
+    captured_stderr = report_section
+    return captured_stdout, captured_stderr
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "capture.py"),
+      `def route_captured_output(phase):
+    captured_stdout = f"stdout during {phase}"
+    captured_stderr = f"stderr during {phase}"
+    report_section = phase
+    return report_section, captured_stdout, captured_stderr
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_reporting.py"),
+      `from pkg.reporting import format_report_section
+
+
+def test_report_section_label():
+    assert format_report_section("setup")[0]
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_capture.py"),
+      `from pkg.capture import route_captured_output
+
+
+def test_captured_stdout_setup_call_teardown_sections():
+    for phase in ["setup", "call", "teardown"]:
+        section, stdout, stderr = route_captured_output(phase)
+        assert section in stdout
+        assert section in stderr
+`
+    );
+    await indexTarget(root);
+
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-multi-source-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "captured-output-sections-behavior-only",
+            task: "Investigate why captured stdout and stderr from setup, call, and teardown appear under the wrong report section, and find related tests without naming internal APIs.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+                  roles: ["source"],
+                  symbolKinds: ["function"]
+                },
+                limit: 2
+              },
+              {
+                type: "related-tests",
+                sourceFromStep: 1,
+                terms: ["captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+                limit: 1
+              }
+            ],
+            rgQueries: [["captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"]],
+            expected: {
+              files: ["pkg/capture.py", "tests/test_capture.py"],
+              symbols: ["route_captured_output"],
+              requiredFiles: ["pkg/capture.py", "tests/test_capture.py"],
+              requiredSymbols: []
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].agentIndex).toMatchObject({
+      taskComplete: true,
+      foundFiles: ["pkg/capture.py", "tests/test_capture.py"]
+    });
+    expect(result.caseResults[0].agentIndex.steps[1]).toMatchObject({
+      command: "agent-index related-tests --source step:1 --term captured --term stdout --term stderr --term setup --term call --term teardown --term report --term section",
+      usefulFile: "tests/test_capture.py"
+    });
+  });
+
   test("can evaluate iterative optimized rg plans from prior snippets", async () => {
     const { root } = await fixtureProject();
     const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-rg-v2-"));

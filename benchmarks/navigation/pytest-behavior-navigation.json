@@ -187,5 +187,75 @@
       "requiredFiles": ["src/_pytest/mark/__init__.py", "testing/test_mark.py"],
       "requiredSymbols": ["deselect_by_keyword"]
     }
+  },
+  {
+    "id": "pytest-captured-output-report-sections-symptom",
+    "task": "Investigate why captured stdout or stderr from setup, call, and teardown phases appears under the wrong report section, and find the related tests, without naming the capture manager or report-section APIs.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+      ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "test"]
+    ],
+    "searchTerms": {
+      "seed": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+      "forbiddenExact": ["CaptureManager", "item_capture", "add_report_section", "capstdout", "capstderr"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+          "scope": "source",
+          "paths": ["src"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+          "scope": "test",
+          "paths": ["testing"],
+          "globs": ["*test*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": ["src/_pytest/runner.py", "src/_pytest/capture.py", "src/_pytest/nodes.py", "testing/test_capture.py"],
+      "symbols": ["call_and_report", "CaptureManager.item_capture", "Item.add_report_section", "test_setup_failure_captured_stdout", "test_teardown_capturing"],
+      "requiredFiles": ["src/_pytest/capture.py", "testing/test_capture.py"],
+      "requiredSymbols": []
+    }
   }
 ]

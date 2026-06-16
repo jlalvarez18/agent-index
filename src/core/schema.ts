@@ -256,6 +256,7 @@ export type NavigationAgentStep =
       type: "related-tests";
       sourceFile?: string;
       sourceFromStep?: number;
+      sourceLimit?: number;
       symbol?: string;
       terms?: string[];
       limit?: number;

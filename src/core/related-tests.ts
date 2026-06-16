@@ -10,6 +10,7 @@ export interface RelatedTestsOptions {
   symbol?: string;
   terms?: string[];
   limit?: number;
+  preferSymbolPathCandidates?: boolean;
 }
 
 export interface RelatedTestsBatchOptions {
@@ -120,7 +121,11 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
 function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptions): RelatedTestsInternalResult {
   let { rows, pruned } = queryTestRows(db, options);
   let matches = scoreTestRows(rows, options);
-  if (pruned && matches.length < (options.limit ?? 5)) {
+  if (
+    pruned &&
+    matches.length < (options.limit ?? 5) &&
+    !(options.preferSymbolPathCandidates && hasEnoughPrimarySymbolPathMatches(matches, options.limit ?? 5))
+  ) {
     rows = queryAllTestRows(db);
     pruned = false;
     matches = scoreTestRows(rows, options);
@@ -138,6 +143,19 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
 }
 
 function queryCandidateTestPaths(db: Database.Database, options: RelatedTestsOptions): string[] {
+  const symbolPathRows = options.preferSymbolPathCandidates ? querySymbolPathCandidateRows(db, options) : [];
+  if (options.preferSymbolPathCandidates && usesTaskTermCandidates(options) && symbolPathRows.length >= Math.min(options.limit ?? 5, 3)) {
+    return symbolPathRows.map((row) => row.path);
+  }
+
+  if (options.preferSymbolPathCandidates) {
+    const highSignalCandidateQuery = testCandidateSqlQuery(options, "none");
+    const highSignalRows = queryCandidateTestPathRows(db, highSignalCandidateQuery);
+    if (usesTaskTermCandidates(options) && highSignalRows.length >= Math.min(options.limit ?? 5, 3)) {
+      return highSignalRows.map((row) => row.path);
+    }
+  }
+
   const fastCandidateQuery = testCandidateSqlQuery(options, "fts");
   const fastRows = queryCandidateTestPathRows(db, fastCandidateQuery);
   const minimumCandidates = options.limit ?? 5;
@@ -155,6 +173,24 @@ function queryCandidateTestPathRows(
   candidateQuery: { sql: string; params: Record<string, unknown> }
 ): Array<{ path: string }> {
   return db.prepare(candidatePathSql(candidateQuery.sql)).all(candidateQuery.params) as Array<{ path: string }>;
+}
+
+function querySymbolPathCandidateRows(db: Database.Database, options: RelatedTestsOptions): Array<{ path: string }> {
+  if (!options.symbol) {
+    return [];
+  }
+  const symbolLeaf = normalize(options.symbol.includes(".") ? options.symbol.slice(options.symbol.lastIndexOf(".") + 1) : options.symbol);
+  return db
+    .prepare(
+      `
+        select path
+        from files
+        where role = 'test'
+          and lower(path) like @symbolPath
+        order by path
+        `
+    )
+    .all({ symbolPath: `%${symbolLeaf.split(/\s+/u).join("%")}%` }) as Array<{ path: string }>;
 }
 
 function candidatePathSql(candidateQuerySql: string): string {
@@ -189,14 +225,38 @@ function analysesByPath(rows: TestFileRow[]): Map<string, TestFileAnalysis> {
 }
 
 function findRelatedTestsForSources(db: Database.Database, options: RelatedTestsOptions, sourceFiles: string[]): RelatedTestsResult {
-  const results = sourceFiles.map((sourceFile) =>
-    runRelatedTestsWithDb(db, {
-      ...options,
-      sourceFile,
-      sourceFiles: undefined,
-      symbol: sourceFile === normalizeSourceFile(options.sourceFile) ? options.symbol : undefined
-    })
-  );
+  const primarySource = normalizeSourceFile(options.sourceFile);
+  const primaryResult = runRelatedTestsWithDb(db, {
+    ...options,
+    sourceFile: primarySource,
+    sourceFiles: undefined,
+    symbol: options.symbol,
+    preferSymbolPathCandidates: sourceFiles.length <= 2
+  });
+  if (options.symbol && sourceFiles.length <= 2 && hasEnoughPrimarySymbolPathMatches(primaryResult.result.matches, options.limit ?? 5)) {
+    return {
+      ...primaryResult.result,
+      sourceFile: primarySource,
+      sourceFiles,
+      symbol: options.symbol,
+      candidateFilesScored: primaryResult.candidateFiles.length
+    };
+  }
+
+  const results = [
+    primaryResult,
+    ...sourceFiles
+      .filter((sourceFile) => sourceFile !== primarySource)
+      .map((sourceFile) =>
+        runRelatedTestsWithDb(db, {
+          ...options,
+          sourceFile,
+          sourceFiles: undefined,
+          symbol: undefined,
+          preferSymbolPathCandidates: false
+        })
+      )
+  ];
   const bestByFile = new Map<string, RelatedTestMatch>();
   for (const { result } of results) {
     for (const match of result.matches) {
@@ -214,6 +274,10 @@ function findRelatedTestsForSources(db: Database.Database, options: RelatedTests
     candidateFilesScored: uniqueValues(results.flatMap((result) => result.candidateFiles)).length,
     matches: [...bestByFile.values()].sort((a, b) => b.score - a.score || a.file.localeCompare(b.file)).slice(0, options.limit ?? 5)
   };
+}
+
+function hasEnoughPrimarySymbolPathMatches(matches: RelatedTestMatch[], limit: number): boolean {
+  return matches.filter((match) => match.why.includes("test path includes symbol name")).length >= Math.min(limit, 3);
 }
 
 function scoreTestRows(rows: TestFileRow[], options: RelatedTestsOptions): RelatedTestMatch[] {
@@ -442,7 +506,7 @@ function queryRelatedTestSymbolsByPath(db: Database.Database, paths: string[]): 
   return new Map(rows.map((row) => [row.path, splitCsv(row.symbols)]));
 }
 
-type TaskTermCandidateStrategy = "fts" | "fallback";
+type TaskTermCandidateStrategy = "fts" | "fallback" | "none";
 
 function testCandidateSqlQuery(
   options: RelatedTestsOptions,
@@ -482,12 +546,20 @@ function testCandidateSqlQuery(
     `);
   }
 
-  const candidateTerms = taskTermCandidateTokens(options.terms ?? []);
+  const candidateTerms = taskTermStrategy === "none" ? [] : taskTermCandidateTokens(options.terms ?? []);
   if (candidateTerms.length > 0) {
     branches.push(taskTermCandidateSql(candidateTerms, params, taskTermStrategy));
   }
 
   if (symbolLeaf) {
+    params.candidateSymbolPath = `%${symbolLeaf.split(/\s+/u).join("%")}%`;
+    branches.push(`
+      select id as file_id
+      from files
+      where role = 'test'
+        and lower(path) like @candidateSymbolPath
+    `);
+
     params.candidateCall = symbolLeaf;
     branches.push(`
       select distinct candidate_s.file_id

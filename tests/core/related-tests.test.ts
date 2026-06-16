@@ -166,9 +166,27 @@ def test_endpoint_response_model_schema():
     assert applications.response_model_endpoint("validate serialize endpoint return response model")
 `
     );
+    for (let index = 0; index < 20; index += 1) {
+      await writeFile(
+        path.join(root, "tests", `test_schema_ref_${index}.py`),
+        `from pkg import applications
+
+def test_endpoint_response_model_schema_${index}():
+    assert applications.response_model_endpoint("validate serialize endpoint return response model")
+`
+      );
+    }
     await writeFile(
       path.join(root, "tests", "test_serialize_response_model.py"),
       `def test_response_model_return_value_is_serialized():
+    response_model = {"name": "x"}
+    serialized = "endpoint return response model"
+    assert response_model and serialized
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_serialize_response_plain.py"),
+      `def test_response_model_return_value_is_serialized_plain():
     response_model = {"name": "x"}
     serialized = "endpoint return response model"
     assert response_model and serialized
@@ -185,9 +203,53 @@ def test_endpoint_response_model_schema():
       limit: 2
     });
 
+    expect(result.candidateFilesScored).toBeLessThan(10);
     expect(result.matches[0]).toMatchObject({
       file: "tests/test_serialize_response_model.py"
     });
+    expect(result.matches[0].why).toContain("test path includes symbol name");
+  });
+
+  test("uses source-symbol path candidates before broad task-term test floods", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-symbol-path-prune-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests", "noise"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "routing.py"), "def serialize_response(value):\n    return value\n");
+    await writeFile(path.join(root, "pkg", "applications.py"), "def serialize_endpoint(value):\n    return value\n");
+    for (const suffix of ["model", "dataclass", "plain"]) {
+      await writeFile(
+        path.join(root, "tests", `test_serialize_response_${suffix}.py`),
+        `def test_serialize_response_${suffix}():
+    response_model = "endpoint return response model"
+    assert response_model
+`
+      );
+    }
+    for (let index = 0; index < 30; index += 1) {
+      await writeFile(
+        path.join(root, "tests", "noise", `test_schema_${index}.py`),
+        `def test_schema_${index}():
+    assert "validate serialize endpoint return response model"
+`
+      );
+    }
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/routing.py",
+      sourceFiles: ["pkg/routing.py", "pkg/applications.py"],
+      symbol: "serialize_response",
+      terms: ["validate", "serialize", "endpoint", "return", "response", "model"],
+      limit: 3
+    });
+
+    expect(result.candidateFilesScored).toBeLessThan(10);
+    expect(result.matches.map((match) => match.file)).toEqual([
+      "tests/test_serialize_response_model.py",
+      "tests/test_serialize_response_dataclass.py",
+      "tests/test_serialize_response_plain.py"
+    ]);
     expect(result.matches[0].why).toContain("test path includes symbol name");
   });
 

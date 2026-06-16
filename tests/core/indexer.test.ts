@@ -52,7 +52,15 @@ describe("indexTarget", () => {
         expect.objectContaining({ symbol_name: "load_value", file_path: "pkg/cache.py" })
       ])
     );
-    expect(indexes).toEqual(["idx_chunks_file_id", "idx_edges_source_symbol_id", "idx_files_role", "idx_symbols_file_id"]);
+    expect(indexes).toEqual([
+      "idx_chunks_file_id",
+      "idx_edges_source_kind_target",
+      "idx_edges_source_symbol_id",
+      "idx_files_role",
+      "idx_files_role_path",
+      "idx_symbols_file_id",
+      "idx_symbols_file_kind_qualified"
+    ]);
   });
 
   test("writes file roles into the local index", async () => {

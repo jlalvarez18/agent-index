@@ -132,17 +132,21 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
 }
 
 function queryCandidateTestPaths(db: Database.Database, options: RelatedTestsOptions): string[] {
-  const candidateFilter = testCandidateSqlFilter(options);
+  const candidateQuery = testCandidateSqlQuery(options);
   const rows = db
     .prepare(
       `
+        with candidate_files(file_id) as (
+          ${candidateQuery.sql}
+        )
         select path
         from files
-        where role = 'test' ${candidateFilter.sql}
+        join candidate_files on candidate_files.file_id = files.id
+        where role = 'test'
         order by path
         `
     )
-    .all(candidateFilter.params) as Array<{ path: string }>;
+    .all(candidateQuery.params) as Array<{ path: string }>;
   return rows.map((row) => row.path);
 }
 
@@ -221,41 +225,8 @@ function analyzeTestFile(row: TestFileRow): TestFileAnalysis {
 }
 
 function queryTestRows(db: Database.Database, options: RelatedTestsOptions): TestFileRowsResult {
-  const candidateFilter = testCandidateSqlFilter(options);
-  const rows = db
-    .prepare(
-      `
-        with test_text as (
-          select file_id, group_concat(text, char(10)) as text
-          from chunks
-          where file_id in (select id from files where role = 'test' ${candidateFilter.sql})
-          group by file_id
-        ),
-        test_edges as (
-          select
-            s.file_id,
-            group_concat(distinct case when e.kind = 'symbol_imports_module' then e.target_name end) as imported_modules,
-            group_concat(distinct case when e.kind = 'symbol_calls_name' then e.target_name end) as called_names
-          from symbols s
-          join edges e on e.source_symbol_id = s.id
-          group by s.file_id
-        )
-        select f.path, test_text.text, test_edges.imported_modules, test_edges.called_names
-        , test_symbols.symbols
-        from files f
-        join test_text on test_text.file_id = f.id
-        left join test_edges on test_edges.file_id = f.id
-        left join (
-          select file_id, group_concat(qualified_name) as symbols
-          from symbols
-          where kind in ('function', 'method', 'class')
-          group by file_id
-        ) test_symbols on test_symbols.file_id = f.id
-        where f.role = 'test'
-        order by f.path
-        `
-    )
-    .all(candidateFilter.params) as TestFileRow[];
+  const candidatePaths = queryCandidateTestPaths(db, options);
+  const rows = queryTestRowsByPaths(db, candidatePaths);
 
   if (rows.length > 0) {
     return { rows, pruned: true };
@@ -273,10 +244,11 @@ function queryTestRowsByPaths(db: Database.Database, paths: string[]): TestFileR
     .prepare(
       `
         with test_text as (
-          select file_id, group_concat(text, char(10)) as text
-          from chunks
-          where file_id in (select id from files where role = 'test' and path in (${pathList}))
-          group by file_id
+          select c.file_id, group_concat(c.text, char(10)) as text
+          from chunks c
+          join files f on f.id = c.file_id
+          where f.role = 'test' and f.path in (${pathList})
+          group by c.file_id
         ),
         test_edges as (
           select
@@ -284,7 +256,9 @@ function queryTestRowsByPaths(db: Database.Database, paths: string[]): TestFileR
             group_concat(distinct case when e.kind = 'symbol_imports_module' then e.target_name end) as imported_modules,
             group_concat(distinct case when e.kind = 'symbol_calls_name' then e.target_name end) as called_names
           from symbols s
+          join test_text on test_text.file_id = s.file_id
           join edges e on e.source_symbol_id = s.id
+          where s.file_id in (select file_id from test_text)
           group by s.file_id
         )
         select f.path, test_text.text, test_edges.imported_modules, test_edges.called_names
@@ -296,6 +270,7 @@ function queryTestRowsByPaths(db: Database.Database, paths: string[]): TestFileR
           select file_id, group_concat(qualified_name) as symbols
           from symbols
           where kind in ('function', 'method', 'class')
+            and file_id in (select file_id from test_text)
           group by file_id
         ) test_symbols on test_symbols.file_id = f.id
         where f.role = 'test' and f.path in (${pathList})
@@ -310,9 +285,11 @@ function queryAllTestRows(db: Database.Database): TestFileRow[] {
     .prepare(
       `
         with test_text as (
-          select file_id, group_concat(text, char(10)) as text
-          from chunks
-          group by file_id
+          select c.file_id, group_concat(c.text, char(10)) as text
+          from chunks c
+          join files f on f.id = c.file_id
+          where f.role = 'test'
+          group by c.file_id
         ),
         test_edges as (
           select
@@ -320,7 +297,9 @@ function queryAllTestRows(db: Database.Database): TestFileRow[] {
             group_concat(distinct case when e.kind = 'symbol_imports_module' then e.target_name end) as imported_modules,
             group_concat(distinct case when e.kind = 'symbol_calls_name' then e.target_name end) as called_names
           from symbols s
+          join test_text on test_text.file_id = s.file_id
           join edges e on e.source_symbol_id = s.id
+          where s.file_id in (select file_id from test_text)
           group by s.file_id
         )
         select f.path, test_text.text, test_edges.imported_modules, test_edges.called_names
@@ -332,6 +311,7 @@ function queryAllTestRows(db: Database.Database): TestFileRow[] {
           select file_id, group_concat(qualified_name) as symbols
           from symbols
           where kind in ('function', 'method', 'class')
+            and file_id in (select file_id from test_text)
           group by file_id
         ) test_symbols on test_symbols.file_id = f.id
         where f.role = 'test'
@@ -341,35 +321,39 @@ function queryAllTestRows(db: Database.Database): TestFileRow[] {
     .all() as TestFileRow[];
 }
 
-function testCandidateSqlFilter(options: RelatedTestsOptions): { sql: string; params: Record<string, unknown> } {
+function testCandidateSqlQuery(options: RelatedTestsOptions): { sql: string; params: Record<string, unknown> } {
   const normalizedSource = normalizeSourceFile(options.sourceFile);
   const sourceStem = fileStem(normalizedSource);
   const sourceModules = moduleNamesForSource(normalizedSource);
   const sourceTokens = candidateSourcePathTokens(normalizedSource);
   const symbolLeaf = options.symbol ? normalize(options.symbol.includes(".") ? options.symbol.slice(options.symbol.lastIndexOf(".") + 1) : options.symbol) : "";
   const pathTokensToMatch = uniqueValues([sourceStem, ...sourceTokens].filter((term) => term.length >= 3));
-  const clauses: string[] = [];
+  const branches: string[] = [];
   const params: Record<string, unknown> = {};
 
   for (const [index, token] of pathTokensToMatch.entries()) {
     const key = `candidatePath${index}`;
     params[key] = `%${token}%`;
-    clauses.push(`lower(path) like @${key}`);
+    branches.push(`
+      select id as file_id
+      from files
+      where role = 'test'
+        and lower(path) like @${key}
+    `);
   }
 
   for (const [index, sourceModule] of sourceModules.entries()) {
     const key = `candidateImport${index}`;
     params[key] = sourceModule;
-    clauses.push(
-      `exists (
-        select 1
-        from symbols candidate_s
-        join edges candidate_e on candidate_e.source_symbol_id = candidate_s.id
-        where candidate_s.file_id = files.id
-          and candidate_e.kind = 'symbol_imports_module'
-          and replace(lower(candidate_e.target_name), '.', '') like '%' || @${key} || '%'
-      )`
-    );
+    branches.push(`
+      select distinct candidate_s.file_id
+      from symbols candidate_s
+      join files candidate_f on candidate_f.id = candidate_s.file_id
+      join edges candidate_e on candidate_e.source_symbol_id = candidate_s.id
+      where candidate_f.role = 'test'
+        and candidate_e.kind = 'symbol_imports_module'
+        and replace(lower(candidate_e.target_name), '.', '') like '%' || @${key} || '%'
+    `);
   }
 
   const candidateTerms = taskTermCandidateTokens(options.terms ?? []);
@@ -377,35 +361,52 @@ function testCandidateSqlFilter(options: RelatedTestsOptions): { sql: string; pa
     candidateTerms.forEach((term, index) => {
       params[`candidateTerm${index}`] = `%${term}%`;
     });
-    clauses.push(
-      `(${candidateTerms
-        .map(
-          (_, index) => `exists (
-        select 1
-        from chunks candidate_c
-        where candidate_c.file_id = files.id
-          and lower(candidate_c.text) like @candidateTerm${index}
-      )`
-        )
-        .join(" and ")})`
-    );
+    branches.push(`
+      select file_id
+      from (
+        ${candidateTerms
+          .map(
+            (_, index) => `
+            select candidate_c.file_id
+                 , ${index} as term_index
+            from chunks candidate_c
+            join files candidate_f on candidate_f.id = candidate_c.file_id
+            where candidate_f.role = 'test'
+              and lower(candidate_c.text) like @candidateTerm${index}
+          `
+          )
+          .join("\nunion\n")}
+      )
+      group by file_id
+      having count(distinct term_index) = ${candidateTerms.length}
+    `);
   }
 
   if (symbolLeaf) {
     params.candidateCall = symbolLeaf;
-    clauses.push(
-      `exists (
-        select 1
-        from symbols candidate_s
-        join edges candidate_e on candidate_e.source_symbol_id = candidate_s.id
-        where candidate_s.file_id = files.id
-          and candidate_e.kind = 'symbol_calls_name'
-          and lower(candidate_e.target_name) = @candidateCall
-      )`
-    );
+    branches.push(`
+      select distinct candidate_s.file_id
+      from symbols candidate_s
+      join files candidate_f on candidate_f.id = candidate_s.file_id
+      join edges candidate_e on candidate_e.source_symbol_id = candidate_s.id
+      where candidate_f.role = 'test'
+        and candidate_e.kind = 'symbol_calls_name'
+        and lower(candidate_e.target_name) = @candidateCall
+    `);
   }
 
-  return clauses.length === 0 ? { sql: "", params } : { sql: `and (${clauses.join(" or ")})`, params };
+  if (branches.length === 0) {
+    return {
+      sql: `
+        select id as file_id
+        from files
+        where role = 'test'
+      `,
+      params
+    };
+  }
+
+  return { sql: branches.join("\nunion\n"), params };
 }
 
 function scoreTestFile(

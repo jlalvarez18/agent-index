@@ -320,6 +320,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--max-agent-token-increase-percent <percent>", "allowed percentage increase in average agent-index context tokens", "0")
     .option("--max-agent-latency-increase-ms <ms>", "allowed absolute increase in average agent-index latency")
     .option("--max-agent-latency-increase-percent <percent>", "allowed percentage increase in average agent-index latency")
+    .option("--require-agent-dominance", "fail unless current agent-index results beat rg and optimized rg on completion, wins, and context tokens")
     .option("--json", "write full comparison result as JSON")
     .action(
       async (
@@ -330,6 +331,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           maxAgentTokenIncreasePercent: string;
           maxAgentLatencyIncreaseMs?: string;
           maxAgentLatencyIncreasePercent?: string;
+          requireAgentDominance?: boolean;
           json?: boolean;
         }
       ) => {
@@ -346,7 +348,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           maxAgentLatencyIncreasePercent:
             options.maxAgentLatencyIncreasePercent === undefined
               ? undefined
-              : parseNonNegativeNumber(options.maxAgentLatencyIncreasePercent, "--max-agent-latency-increase-percent")
+              : parseNonNegativeNumber(options.maxAgentLatencyIncreasePercent, "--max-agent-latency-increase-percent"),
+          requireAgentDominance: Boolean(options.requireAgentDominance)
         });
         io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationArtifactComparison(result));
         if (!result.passed) {

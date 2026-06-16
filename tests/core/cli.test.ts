@@ -420,6 +420,19 @@ describe("runCli", () => {
       "Navigation artifact comparison failed with 1 regression(s)."
     );
     expect(output.at(-1)).toContain("agentIndexCompletionRate dropped");
+
+    await writeFile(
+      path.join(baseline, "summary.json"),
+      JSON.stringify({ ...summary, agentIndexWinsVsOptimizedRg: 0, agentIndexAvgContextTokens: 300, rgOptimizedAvgContextTokens: 200 })
+    );
+    await writeFile(
+      path.join(current, "summary.json"),
+      JSON.stringify({ ...summary, agentIndexWinsVsOptimizedRg: 0, agentIndexAvgContextTokens: 300, rgOptimizedAvgContextTokens: 200 })
+    );
+    await expect(runCli(["nav-compare", baseline, current, "--require-agent-dominance"], { write: (line) => output.push(line) })).rejects.toThrow(
+      "Navigation artifact comparison failed"
+    );
+    expect(output.at(-1)).toContain("dominance.agentIndexWinsVsOptimizedRg");
   });
 
   test("supports related test discovery from a source file and symbol", async () => {

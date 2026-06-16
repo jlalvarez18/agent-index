@@ -193,4 +193,36 @@ describe("compareNavigationArtifacts", () => {
       ]
     });
   });
+
+  test("optionally requires current artifacts to dominate rg baselines", async () => {
+    const weakBaseline = await writeSummary(
+      suiteResult({
+        agentIndexCompletionRate: 0.5,
+        agentIndexWinsVsOptimizedRg: 0,
+        agentIndexAvgContextTokens: 500,
+        rgOptimizedAvgContextTokens: 250
+      })
+    );
+    const current = await writeSummary(
+      suiteResult({
+        agentIndexCompletionRate: 0.5,
+        rgOptimizedCompletionRate: 1,
+        agentIndexWinsVsOptimizedRg: 0,
+        agentIndexAvgContextTokens: 500,
+        rgOptimizedAvgContextTokens: 250
+      })
+    );
+
+    await expect(compareNavigationArtifacts(weakBaseline, current)).resolves.toMatchObject({
+      passed: true
+    });
+    await expect(compareNavigationArtifacts(weakBaseline, current, { requireAgentDominance: true })).resolves.toMatchObject({
+      passed: false,
+      regressions: expect.arrayContaining([
+        expect.objectContaining({ metric: "dominance.agentIndexCompletionRate" }),
+        expect.objectContaining({ metric: "dominance.agentIndexWinsVsOptimizedRg" }),
+        expect.objectContaining({ metric: "dominance.agentIndexAvgContextTokens" })
+      ])
+    });
+  });
 });

@@ -7,6 +7,7 @@ export interface NavigationArtifactCompareOptions {
   maxAgentTokenIncreasePercent?: number;
   maxAgentLatencyIncreaseMs?: number;
   maxAgentLatencyIncreasePercent?: number;
+  requireAgentDominance?: boolean;
 }
 
 export interface NavigationArtifactRegression {
@@ -82,6 +83,9 @@ function findNavigationRegressions(
     options,
     "agentIndexAvgFirstUsefulLatencyMs"
   );
+  if (options.requireAgentDominance) {
+    compareAgentDominance(regressions, current);
+  }
   compareRepoResults(regressions, baseline.repoResults, current.repoResults, options);
   return regressions;
 }
@@ -145,6 +149,86 @@ function compareRepoResults(
       options,
       `repo.${baselineRepo.name}.agentIndexAvgFirstUsefulLatencyMs`
     );
+    if (options.requireAgentDominance) {
+      compareAgentDominance(regressions, currentRepo.result, `repo.${baselineRepo.name}.`);
+    }
+  }
+}
+
+function compareAgentDominance(
+  regressions: NavigationArtifactRegression[],
+  current: NavigationSuiteResult | NavigationSuiteRepoResult["result"],
+  prefix = ""
+): void {
+  compareAtLeast(
+    regressions,
+    `${prefix}dominance.agentIndexCompletionRate`,
+    current.rgCompletionRate,
+    current.agentIndexCompletionRate,
+    "broad rg completion"
+  );
+  compareAtLeast(
+    regressions,
+    `${prefix}dominance.agentIndexCompletionRate`,
+    current.rgOptimizedCompletionRate,
+    current.agentIndexCompletionRate,
+    "optimized rg completion"
+  );
+  compareAtLeast(regressions, `${prefix}dominance.agentIndexWins`, current.cases, current.agentIndexWins, "case count");
+  compareAtLeast(
+    regressions,
+    `${prefix}dominance.agentIndexWinsVsOptimizedRg`,
+    current.cases,
+    current.agentIndexWinsVsOptimizedRg,
+    "case count"
+  );
+  compareLessThan(
+    regressions,
+    `${prefix}dominance.agentIndexAvgContextTokens`,
+    current.rgAvgContextTokens,
+    current.agentIndexAvgContextTokens,
+    "broad rg average context tokens"
+  );
+  compareLessThan(
+    regressions,
+    `${prefix}dominance.agentIndexAvgContextTokens`,
+    current.rgOptimizedAvgContextTokens,
+    current.agentIndexAvgContextTokens,
+    "optimized rg average context tokens"
+  );
+}
+
+function compareAtLeast(
+  regressions: NavigationArtifactRegression[],
+  metric: string,
+  baseline: number,
+  current: number,
+  baselineLabel: string
+): void {
+  if (current < baseline) {
+    regressions.push({
+      metric,
+      baseline,
+      current,
+      message: `${metric} is ${current}, below ${baselineLabel} ${baseline}`
+    });
+  }
+}
+
+function compareLessThan(
+  regressions: NavigationArtifactRegression[],
+  metric: string,
+  baseline: number,
+  current: number,
+  baselineLabel: string
+): void {
+  if (current >= baseline) {
+    regressions.push({
+      metric,
+      baseline,
+      current,
+      message: `${metric} is ${current}, not below ${baselineLabel} ${baseline}`
+    });
   }
 }
 

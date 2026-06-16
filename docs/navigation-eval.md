@@ -61,10 +61,11 @@ Compare two saved suite runs with `nav-compare`:
 ```bash
 npm run agent-index -- nav-compare /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
   --max-agent-token-increase-percent 5 \
-  --max-agent-latency-increase-percent 25
+  --max-agent-latency-increase-percent 25 \
+  --require-agent-dominance
 ```
 
-The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Token budgets guard both total agent-index context and context to first useful hit. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment. Those latency budgets guard both total agent-index latency and time to first useful hit.
+The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Token budgets guard both total agent-index context and context to first useful hit. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment. Those latency budgets guard both total agent-index latency and time to first useful hit. Add `--require-agent-dominance` for the release/CI gate that proves the current artifact still beats broad and optimized `rg` on completion, case wins, and average context-token payload.
 
 Relative `evalPath`, `target`, and `indexPath` values resolve relative to the manifest file.
 

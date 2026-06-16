@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { findFileClusters } from "../../src/core/file-clusters.js";
+import { fileClusterSqlForTesting, findFileClusters } from "../../src/core/file-clusters.js";
 import { indexTarget } from "../../src/core/indexer.js";
 
 async function fixtureProject() {
@@ -115,6 +115,20 @@ describe("findFileClusters", () => {
     );
 
     expect(result.clusters.map((cluster) => cluster.file)).toEqual(["pkg/algorithms/tests/test_cuts.py"]);
+  });
+
+  test("uses a path-first query plan for hard file-path filters", () => {
+    const queryPlan = fileClusterSqlForTesting({
+      terms: ["cursor", "row count", "preserve", "memoize", "closed", "execution option"],
+      symbolKinds: ["method", "function"],
+      roles: ["source"],
+      pathHints: ["lib/sqlalchemy/engine"],
+      pathMode: "filter"
+    });
+
+    expect(queryPlan.kind).toBe("path-filter");
+    expect(queryPlan.sql).not.toContain("chunk_fts match");
+    expect(queryPlan.sql).toContain("idx_files_role_path");
   });
 
   test("prefers files with broader task-term coverage over repeated partial noise", async () => {
@@ -233,5 +247,39 @@ def build_manual_next_request(request):
     );
 
     expect(result.clusters[0].symbols.map((symbol) => symbol.name)).toContain("RadiusNeighbors._merge_vectors");
+  });
+
+  test("keeps late task-relevant symbols ahead of earlier generic symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-symbol-relevance-"));
+    await mkdir(path.join(root, "pkg", "engine"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "engine", "default.py"),
+      `${Array.from({ length: 16 }, (_, index) => `class Generic${index}:\n    def option_${index}(self):\n        return "cursor option"\n`).join("\n")}
+
+class DefaultExecutionContext:
+    def _has_rowcount(self):
+        return self.cursor.rowcount
+
+    def _setup_result_proxy(self):
+        preserve_rowcount = self.execution_options.get("preserve_rowcount")
+        return preserve_rowcount
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["cursor", "row count", "preserve", "execution option"],
+        symbolKinds: ["method", "function"],
+        roles: ["source"],
+        pathHints: ["pkg/engine"],
+        pathMode: "filter"
+      },
+      { target: root, limit: 1 }
+    );
+
+    expect(result.clusters[0].symbols.map((symbol) => symbol.name)).toEqual(
+      expect.arrayContaining(["DefaultExecutionContext._has_rowcount", "DefaultExecutionContext._setup_result_proxy"])
+    );
   });
 });

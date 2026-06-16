@@ -32,7 +32,14 @@ interface MutableCluster {
   contextChars: number;
   evidence?: string;
   symbols: FileClusterMatch["symbols"];
+  symbolScores: Map<string, number>;
   why: Set<string>;
+}
+
+interface FileClusterSqlPlan {
+  kind: "fts" | "path-filter";
+  sql: string;
+  params: Record<string, unknown>;
 }
 
 export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOptions): FileClusterResult {
@@ -51,10 +58,56 @@ export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOpt
 
   const db = new Database(dbPath, { readonly: true });
   try {
+    const plan = fileClusterSqlPlan(agentQuery, match);
+    const rows = db.prepare(plan.sql).all(plan.params) as ClusterRow[];
+
+    return {
+      query: queryText,
+      clusters: clusterRows(rows, agentQuery).slice(0, options.limit ?? 8)
+    };
+  } finally {
+    db.close();
+  }
+}
+
+export function fileClusterSqlForTesting(agentQuery: AgentQuery): FileClusterSqlPlan {
+  return fileClusterSqlPlan(agentQuery, ftsMatchQuery(agentQuery.terms.join(" ")) ?? "");
+}
+
+function fileClusterSqlPlan(agentQuery: AgentQuery, match: string): FileClusterSqlPlan {
+  if (usesHardPathFilter(agentQuery)) {
     const filter = clusterSqlFilter(agentQuery);
-    const rows = db
-      .prepare(
-        `
+    const termFilter = pathFilteredTermFilter(agentQuery);
+    return {
+      kind: "path-filter",
+      sql: `
+        select
+          c.text as chunk_text,
+          s.qualified_name as symbol_name,
+          s.kind as kind,
+          s.start_line as start_line,
+          s.end_line as end_line,
+          f.path as file_path,
+          f.role as file_role,
+          f.language as language,
+          0 as rank
+        from files f indexed by idx_files_role_path
+        join chunks c on c.file_id = f.id
+        join symbols s on s.id = c.symbol_id
+        where 1 = 1
+          ${filter.sql}
+          ${termFilter.sql}
+        order by f.path, s.start_line
+        limit 1000
+        `,
+      params: { ...filter.params, ...termFilter.params }
+    };
+  }
+
+  const filter = clusterSqlFilter(agentQuery);
+  return {
+    kind: "fts",
+    sql: `
         select
           c.text as chunk_text,
           s.qualified_name as symbol_name,
@@ -73,17 +126,9 @@ export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOpt
           ${filter.sql}
         order by rank
         limit 250
-        `
-      )
-      .all({ match, ...filter.params }) as ClusterRow[];
-
-    return {
-      query: queryText,
-      clusters: clusterRows(rows, agentQuery).slice(0, options.limit ?? 8)
-    };
-  } finally {
-    db.close();
-  }
+        `,
+    params: { match, ...filter.params }
+  };
 }
 
 function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMatch[] {
@@ -98,7 +143,8 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       matchedTerms: new Set<string>(),
       contextChars: 0,
       evidence: undefined,
-      symbols: [],
+      symbols: [] as FileClusterMatch["symbols"],
+      symbolScores: new Map(),
       why: new Set<string>()
     };
     const rowScore = scoreRow(row, agentQuery);
@@ -117,6 +163,13 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
         lines: [row.start_line, row.end_line]
       });
     }
+    cluster.symbolScores.set(
+      row.symbol_name,
+      Math.max(
+        cluster.symbolScores.get(row.symbol_name) ?? 0,
+        rowScore + symbolNameTermBoost(row.symbol_name, agentQuery) + rowMatchedTerms(row, agentQuery).length * 12
+      )
+    );
     reasonsForRow(row, agentQuery).forEach((reason) => cluster.why.add(reason));
     clusters.set(row.file_path, cluster);
   }
@@ -140,12 +193,25 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
         matchedChunks: cluster.matchedChunks,
         contextChars: cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0),
         contextTokens: approximateTokens(cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0)),
-        symbols: cluster.symbols.slice(0, 12),
+        symbols: rankedClusterSymbols(cluster, agentQuery).slice(0, 12),
         why: [...cluster.why],
         evidence: cluster.evidence
       };
     })
     .sort((a, b) => b.score - a.score || b.matchedChunks - a.matchedChunks || a.file.localeCompare(b.file));
+}
+
+function rankedClusterSymbols(cluster: MutableCluster, agentQuery: AgentQuery): FileClusterMatch["symbols"] {
+  if (!usesHardPathFilter(agentQuery)) {
+    return cluster.symbols;
+  }
+
+  return [...cluster.symbols].sort(
+    (a, b) =>
+      (cluster.symbolScores.get(b.name) ?? 0) - (cluster.symbolScores.get(a.name) ?? 0) ||
+      a.lines[0] - b.lines[0] ||
+      a.name.localeCompare(b.name)
+  );
 }
 
 function scoreRow(row: ClusterRow, agentQuery: AgentQuery): number {
@@ -162,6 +228,15 @@ function scoreRow(row: ClusterRow, agentQuery: AgentQuery): number {
     if (normalizedFile.includes(normalize(hint))) score += 10;
   }
   return score;
+}
+
+function symbolNameTermBoost(symbolName: string, agentQuery: AgentQuery): number {
+  const normalizedSymbol = normalize(symbolName);
+  const compactSymbol = normalizedSymbol.replace(/\s+/g, "");
+  return normalizedQueryTerms(agentQuery).reduce((score, term) => {
+    const compactTerm = term.replace(/\s+/g, "");
+    return normalizedSymbol.includes(term) || compactSymbol.includes(compactTerm) ? score + 20 : score;
+  }, 0);
 }
 
 function reasonsForRow(row: ClusterRow, agentQuery: AgentQuery): string[] {
@@ -258,6 +333,26 @@ function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record
   }
 
   return { sql: clauses.length > 0 ? clauses.join("\n          ") : "", params };
+}
+
+function usesHardPathFilter(agentQuery: AgentQuery): boolean {
+  return agentQuery.pathMode === "filter" && Boolean(agentQuery.pathHints && agentQuery.pathHints.length > 0);
+}
+
+function pathFilteredTermFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {
+  const terms = normalizedQueryTerms(agentQuery);
+  if (terms.length === 0) {
+    return { sql: "", params: {} };
+  }
+
+  const params = Object.fromEntries(terms.map((term, index) => [`pathFilteredTerm${index}`, `%${term}%`]));
+  const clauses = terms.map(
+    (_, index) => `lower(c.text || ' ' || s.qualified_name || ' ' || f.path) like @pathFilteredTerm${index}`
+  );
+  return {
+    sql: `and (${clauses.join(" or ")})`,
+    params
+  };
 }
 
 function ftsMatchQuery(question: string): string | undefined {

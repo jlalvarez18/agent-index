@@ -13,7 +13,7 @@
           "pathHints": ["lib/sqlalchemy/engine"],
           "pathMode": "filter"
         },
-        "limit": 6,
+        "limit": 4,
         "testLimit": 2,
         "testFanoutLimit": 1
       }

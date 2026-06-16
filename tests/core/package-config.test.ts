@@ -30,6 +30,17 @@ describe("package configuration", () => {
     expect(chmodScript).toContain("0o755");
   });
 
+  test("declares repeatable navigation suite and dominance guard scripts", async () => {
+    const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+
+    expect(packageJson.scripts["nav:suite"]).toBe(
+      "node dist/cli.js nav-suite benchmarks/navigation/suite.json --repos"
+    );
+    expect(packageJson.scripts["nav:compare"]).toBe(
+      "node dist/cli.js nav-compare --require-agent-dominance"
+    );
+  });
+
   test("published CLI bin matches the TypeScript build output path", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
     const tsconfig = JSON.parse(await readFile("tsconfig.json", "utf8"));

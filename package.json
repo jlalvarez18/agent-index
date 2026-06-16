@@ -22,7 +22,9 @@
     "build": "tsc -p tsconfig.json",
     "postbuild": "node scripts/make-cli-executable.mjs",
     "test": "vitest run",
-    "agent-index": "tsx src/cli.ts"
+    "agent-index": "tsx src/cli.ts",
+    "nav:suite": "node dist/cli.js nav-suite benchmarks/navigation/suite.json --repos",
+    "nav:compare": "node dist/cli.js nav-compare --require-agent-dominance"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",

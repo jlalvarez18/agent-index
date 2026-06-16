@@ -294,23 +294,21 @@ New navigation fixtures should use `agentIndexSteps` to model realistic workflow
 To run several real repos as one benchmark suite, use a manifest:
 
 ```bash
-npm run agent-index -- nav-suite ./benchmarks/navigation/suite.json \
+npm run nav:suite -- \
   --repo-root /path/to/local/repos \
   --index-root /tmp/agent-index-nav-suite \
   --artifacts-dir /tmp/agent-index-nav-artifacts \
-  --repos \
   --reindex
 ```
 
 To fail CI when a new run regresses completion, wins, or context-token budget, compare artifact summaries:
 
 ```bash
-npm run agent-index -- nav-compare /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
+npm run nav:compare -- /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
   --max-agent-token-increase-percent 5 \
-  --require-agent-dominance
 ```
 
-`--require-agent-dominance` additionally fails when the current artifact no longer beats broad and optimized `rg` on task completion, case wins, and average context-token payload.
+`nav:compare` always includes `--require-agent-dominance`, which fails when the current artifact no longer beats broad and optimized `rg` on task completion, case wins, and average context-token payload.
 
 When the agent needs a low-token map before choosing a symbol, use file clusters:
 

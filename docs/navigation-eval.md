@@ -44,11 +44,10 @@ Use `nav-suite` to run multiple repository fixtures and get weighted aggregate m
 Then run:
 
 ```bash
-npm run agent-index -- nav-suite ./benchmarks/navigation/suite.json \
+npm run nav:suite -- \
   --repo-root /path/to/local/repos \
   --index-root /tmp/agent-index-nav-suite \
   --artifacts-dir /tmp/agent-index-nav-artifacts \
-  --repos \
   --reindex
 ```
 
@@ -59,13 +58,12 @@ Use `--artifacts-dir` to persist `summary.json` and one JSON file per repository
 Compare two saved suite runs with `nav-compare`:
 
 ```bash
-npm run agent-index -- nav-compare /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
+npm run nav:compare -- /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
   --max-agent-token-increase-percent 5 \
-  --max-agent-latency-increase-percent 25 \
-  --require-agent-dominance
+  --max-agent-latency-increase-percent 25
 ```
 
-The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Token budgets guard both total agent-index context and context to first useful hit. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment. Those latency budgets guard both total agent-index latency and time to first useful hit. Add `--require-agent-dominance` for the release/CI gate that proves the current artifact still beats broad and optimized `rg` on completion, case wins, and average context-token payload.
+The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Token budgets guard both total agent-index context and context to first useful hit. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment. Those latency budgets guard both total agent-index latency and time to first useful hit. `nav:compare` includes `--require-agent-dominance`, the release/CI gate that proves the current artifact still beats broad and optimized `rg` on completion, case wins, and average context-token payload.
 
 Relative `evalPath`, `target`, and `indexPath` values resolve relative to the manifest file.
 

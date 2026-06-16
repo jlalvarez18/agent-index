@@ -11,13 +11,13 @@
           "symbolKinds": ["method", "function"],
           "roles": ["source"]
         },
-        "limit": 8
+        "limit": 1
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
         "terms": ["streaming", "async", "cleanup", "iterator", "resources"],
-        "limit": 8
+        "limit": 5
       }
     ],
     "rgQueries": [

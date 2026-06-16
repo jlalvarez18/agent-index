@@ -38,7 +38,7 @@ node dist/cli.js nav-eval benchmarks/navigation/pytest-behavior-navigation.json 
 node dist/cli.js nav-suite benchmarks/navigation/suite.json \
   --repo-root /Users/juan/Repos \
   --index-root /tmp/agent-index-nav-suite-set-candidates-local-v1 \
-  --artifacts-dir /tmp/agent-index-nav-artifacts-scikit-limits-local-v1 \
+  --artifacts-dir /tmp/agent-index-nav-artifacts-pytest-django-limits-local-v1 \
   --repos
 ```
 
@@ -48,7 +48,7 @@ Multi-repo `nav-suite` result:
 
 | Repos | Cases | agent-index useful | rg broad useful | rg optimized useful | agent-index complete | rg broad complete | rg optimized complete | agent-index avg tokens | rg broad avg tokens | rg optimized avg tokens | agent-index completion tokens | rg broad completion tokens | rg optimized completion tokens | agent wins vs broad | agent wins vs optimized |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 11 | 25 | 1.00 | 1.00 | 0.92 | 1.00 | 0.56 | 0.20 | 239 | 545,345 | 968 | 233 | 96,444 | 88 | 25 | 25 |
+| 11 | 25 | 1.00 | 1.00 | 1.00 | 1.00 | 0.56 | 0.20 | 195 | 545,345 | 963 | 189 | 96,444 | 88 | 25 | 25 |
 
 Completion-token averages include only workflows that completed the task. They should be read together with completion rate; for example, optimized `rg` has a low completion-token average because it completed only 20% of cases.
 
@@ -78,8 +78,8 @@ Per-repo results:
 | SQLAlchemy | 1 | 1.00 | 0.00 | 0.00 | 122 | 122 | 768,269 | 1,379 | 1 |
 | Scikit-learn | 1 | 1.00 | 0.00 | 0.00 | 328 | 328 | 914,106 | 2,031 | 1 |
 | Rich | 3 | 1.00 | 1.00 | 0.67 | 160 | 160 | 536,114 | 705 | 3 |
-| Pytest | 4 | 1.00 | 0.75 | 0.00 | 411 | 411 | 1,231,363 | 732 | 4 |
-| Django | 1 | 1.00 | 0.00 | 0.00 | 407 | 407 | 1,267,256 | 1,800 | 1 |
+| Pytest | 4 | 1.00 | 0.75 | 0.00 | 216 | 216 | 1,231,363 | 731 | 4 |
+| Django | 1 | 1.00 | 0.00 | 0.00 | 86 | 86 | 1,267,256 | 1,682 | 1 |
 | Poetry | 1 | 1.00 | 0.00 | 0.00 | 189 | 189 | 460,742 | 1,648 | 1 |
 
 ## Per-Case Notes
@@ -103,11 +103,11 @@ Per-repo results:
 - `rich-print-json-file-stream`: 269 agent-index tokens vs 422,698 broad rg tokens and 714 optimized rg tokens, using `file-clusters` then `related-tests`.
 - `rich-print-json-file-blind`: 71 agent-index tokens vs 422,698 broad rg tokens and 714 optimized rg tokens, without agent path hints.
 - `rich-json-stream-output-behavior-only`: 166 agent-index tokens vs 762,947 broad rg tokens and 691 optimized rg tokens, without the target function name. The optimized rg baseline now uses a v2 snippet-derived test search for this case.
-- `pytest-capture-suspend-resume-behavior-only`: 458 agent-index tokens vs 1,208,697 broad rg tokens and 953 optimized rg tokens, without naming `CaptureManager.item_capture`.
-- `pytest-marker-keyword-deselect-behavior-only`: 498 agent-index tokens vs 1,147,759 broad rg tokens and 508 optimized rg tokens, without naming the deselection functions.
-- `pytest-k-marker-keyword-selection-symptom`: 491 agent-index tokens vs 1,156,973 broad rg tokens and 944 optimized rg tokens, framed as surprising `-k` selection behavior rather than a direct implementation lookup.
-- `pytest-captured-output-report-sections-symptom`: 483 agent-index tokens vs 1,412,023 broad rg tokens and 434 optimized rg tokens, framed as captured setup/call/teardown output landing under the wrong report section without naming capture manager or report-section APIs. Optimized rg used fewer tokens on this case but missed required source/test completion.
-- `django-streaming-response-close-behavior-only`: 407 agent-index tokens vs 1,267,256 broad rg tokens and 1,800 optimized rg tokens, framed around streaming response cleanup without naming the private closer list or passing the `close` method name as a query term.
+- `pytest-capture-suspend-resume-behavior-only`: 118 agent-index tokens vs 1,208,697 broad rg tokens and 976 optimized rg tokens, without naming `CaptureManager.item_capture`.
+- `pytest-marker-keyword-deselect-behavior-only`: 155 agent-index tokens vs 1,147,759 broad rg tokens and 507 optimized rg tokens, without naming the deselection functions.
+- `pytest-k-marker-keyword-selection-symptom`: 298 agent-index tokens vs 1,156,973 broad rg tokens and 934 optimized rg tokens, framed as surprising `-k` selection behavior rather than a direct implementation lookup.
+- `pytest-captured-output-report-sections-symptom`: 291 agent-index tokens vs 1,412,023 broad rg tokens and 434 optimized rg tokens, framed as captured setup/call/teardown output landing under the wrong report section without naming capture manager or report-section APIs.
+- `django-streaming-response-close-behavior-only`: 86 agent-index tokens vs 1,267,256 broad rg tokens and 1,682 optimized rg tokens, framed around streaming response cleanup without naming the private closer list or passing the `close` method name as a query term.
 - `poetry-lockfile-source-marker-install-operations`: 189 agent-index tokens vs 460,742 broad rg tokens and 1,643 optimized rg tokens, now using one fanout-capped `source-tests` command for lock entries that share name/version but differ by source repository and environment marker without naming the internal lock-entry or transaction methods.
 
 ## Lessons
@@ -117,9 +117,9 @@ Per-repo results:
 - `nav-eval` now reports required task completion in addition to first useful hit: each workflow includes found/missing required files and symbols, plus `taskComplete` and suite-level completion rates. Fixtures still keep broader `expected` files/symbols for useful-hit credit.
 - The NetworkX multi-step workflow now has `agent-index completion rate: 1.00` and `rg completion rate: 1.00`, so the token win is no longer just first-hit evidence; both workflows found the required source/test locations and symbols.
 - Click completion is 1.00 for agent-index and broad rg, but agent-index uses 224 average tokens vs 30,065 broad rg tokens and 449 optimized rg tokens. Pydantic exposes a mixed-language advantage: agent-index completion is 1.00 while broad rg completion is 0.25 and optimized rg completion is 0.00 because the Rust core symbol is surfaced structurally by the index.
-- `nav-suite` now runs eleven real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.56 and optimized rg 0.20. Agent-index averages 239 context tokens vs 545,345 broad rg tokens and 968 optimized rg tokens, with 25 wins vs broad rg and 25 wins vs optimized rg.
-- `nav-eval` and `nav-suite` now report average first-useful latency/context and average completion latency/context separately from total workflow latency/context. In the current suite, agent-index finds the first useful code in 117ms and 181 tokens on average, then completes tasks in 233 tokens on average. Broad rg emits 147,548 tokens by first useful output and 96,444 tokens on completed tasks; optimized rg reaches first useful output in 9ms and 89 tokens on useful cases, but completes only 20% of tasks.
-- Compact `query` and `file-clusters` output now includes one capped evidence line per result. This gives agents a tiny confirmation label without opening files and still remains far below the current optimized rg average: 239 agent-index tokens vs 968 optimized rg tokens.
+- `nav-suite` now runs eleven real repos from the checked-in `benchmarks/navigation/suite.json` manifest and can rebuild every index with `--reindex`. Current aggregate: agent-index completion 1.00 vs broad rg 0.56 and optimized rg 0.20. Agent-index averages 195 context tokens vs 545,345 broad rg tokens and 963 optimized rg tokens, with 25 wins vs broad rg and 25 wins vs optimized rg.
+- `nav-eval` and `nav-suite` now report average first-useful latency/context and average completion latency/context separately from total workflow latency/context. In the current suite, agent-index finds the first useful code in 114ms and 151 tokens on average, then completes tasks in 189 tokens on average. Broad rg emits 147,548 tokens by first useful output and 96,444 tokens on completed tasks; optimized rg reaches first useful output in 11ms and 126 tokens on useful cases, but completes only 20% of tasks.
+- Compact `query` and `file-clusters` output now includes one capped evidence line per result. This gives agents a tiny confirmation label without opening files and still remains far below the current optimized rg average: 195 agent-index tokens vs 963 optimized rg tokens.
 - Public CLI text output now follows the same compact default: `file-clusters` omits score/token/reason fields and caps listed symbols, while `related-tests` omits verbose reason prose. `--json` still preserves full scores, reasons, and context-token estimates for audits.
 - Hard path filters now accept tokenized path hints for `query` and `file-clusters`, so an agent can carry loose path memory such as `algorithms cuts` or `auth sessions` into a strict filter without needing the exact slash-delimited filename. This does not change the current suite aggregates because the checked-in fixtures do not yet use loose hard filters, but it closes a real follow-up-navigation failure mode.
 - The optimized rg baseline now has a versioned plan format that can run `search-files`, `read-snippets`, and `search-files-from-snippets` steps. The checked-in v2 fixtures now cover Click's behavior-only color-environment case, HTTPX's behavior-only redirect-history source-to-test case, Rich's JSON stream-output behavior case, Django's streaming-response cleanup case, Pytest's marker/keyword deselection/report-section cases, and NetworkX's path-cost default behavior case; all use task-language terms and validate without reading expected files or symbols.
@@ -142,6 +142,7 @@ Per-repo results:
 - `source-tests` now exposes `--test-fanout-limit` and nav-eval fixtures can set `testFanoutLimit`, letting agents and benchmarks deliberately trade source/test breadth for smaller answers when a top source bundle is already strong. The SQLAlchemy rowcount fixture now uses fanout 1, reducing that case from 156 to 122 agent-index tokens while preserving required source/test completion.
 - Compact `file-clusters` output now prints only the top symbol per file cluster, leaving full symbol lists in JSON. This cuts average agent context from 270 to 246 tokens and the mixed scikit-learn Python/Cython case from 596 to 526 tokens while preserving 1.00 completion and 25/25 wins.
 - The mixed scikit-learn workflow now requests only the six source clusters needed to retain the dispatcher/backend file and only the top two related tests. This trims that case from 526 to 328 tokens and lowers average suite context from 246 to 239 tokens while preserving required source/backend/test completion.
+- Pytest and Django behavior workflows now use per-case source/test limits based on the required file ranks observed in saved artifacts. This cuts pytest average context from 411 to 216 tokens and Django from 407 to 86 tokens, lowering suite average context from 239 to 195 tokens without reducing completion.
 - Multi-step fixtures now use `sourceFromStep` where possible, so `related-tests` derives its source from the prior `file-clusters` or `query` output instead of being handed the exact source file by the fixture.
 - `sourceFromStep` is now multi-source-aware in `nav-eval`: related-test discovery follows the top prior output files, merges the best test candidates, and keeps the same compact output limit. This fixes symptom-shaped tasks where the first file-cluster hit is adjacent to the right implementation but the related tests are anchored on a second or third source file.
 - The public `related-tests` CLI now accepts repeated or comma-separated `--source` values, exposing the same multi-source merge to agents outside benchmark fixtures. On the pytest captured-output task, `related-tests --source src/_pytest/nodes.py --source src/_pytest/capture.py ...` ranks `testing/test_capture.py` first in a five-line compact result.
@@ -156,7 +157,7 @@ Per-repo results:
 - `file-clusters` now also uses file-basename task-term evidence as a small path-aware tie-breaker. This moved Django `django/http/response.py` above an adapter handler for the streaming response cleanup case without hard-coding Django paths.
 - `related-tests` now extracts Rust `use crate::...` style imports and call names from test text, giving mixed-language workflows a source-to-test link even before Rust edge extraction grows parity with Python.
 - The optimized rg baseline changed the best agent workflow for exact API-name tasks: NetworkX now uses direct `query` followed by `related-tests`, cutting agent context from 360 average tokens to 96.
-- Seventeen blind, behavior-only, symptom-shaped, mixed-language, or package-management cases now exercise real agent navigation pressure: Click color environment defaults, HTTPX redirect history, FastAPI response serialization, SQLAlchemy rowcount preservation, scikit-learn radius-neighbor result ordering, Poetry lockfile source/marker selection, Rich JSON stream output, Pydantic computed-field serialization, Pytest capture/marker/report behavior, and Django streaming response cleanup. Agent-index completed these cases in 122-411 tokens.
+- Seventeen blind, behavior-only, symptom-shaped, mixed-language, or package-management cases now exercise real agent navigation pressure: Click color environment defaults, HTTPX redirect history, FastAPI response serialization, SQLAlchemy rowcount preservation, scikit-learn radius-neighbor result ordering, Poetry lockfile source/marker selection, Rich JSON stream output, Pydantic computed-field serialization, Pytest capture/marker/report behavior, and Django streaming response cleanup. Agent-index completed these cases in 86-328 tokens.
 - The Click behavior-only miss showed a useful workflow lesson: broad behavior wording should use `file-clusters` as a map layer. A direct `query` found useful color helpers but did not complete the task; switching to file clusters surfaced `src/click/globals.py` and `resolve_color_default` without adding a ranking special case.
 - Pytest is a good stress case for token efficiency: broad `rg` finds useful lines but emits more than a million estimated tokens per behavior-only task, while optimized `rg` keeps snippets smaller but misses required source/test completion. The index behaves more like a table of contents plus cross-reference map: it first narrows to the right source cluster, then jumps to tests through `related-tests`. The captured-output report-section case exposed the need to ask related-test discovery about the top few source candidates, not only the first file-cluster hit.
 - A fairness audit caught that some behavior-only drafts passed exact symbols into the second `related-tests` step. The HTTPX, Rich, and Pytest behavior-only cases now omit those symbols and rely on the previous map/query step to infer them. `nav-eval` also rejects behavior-only fixtures that pass explicit related-test symbols or exact target symbol names as agent-index query terms.

@@ -11,13 +11,13 @@
           "symbolKinds": ["method", "function"],
           "roles": ["source"]
         },
-        "limit": 8
+        "limit": 3
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
         "terms": ["stdout", "stderr", "capture"],
-        "limit": 8
+        "limit": 1
       }
     ],
     "rgQueries": [
@@ -71,13 +71,13 @@
           "symbolKinds": ["method", "function"],
           "roles": ["source"]
         },
-        "limit": 8
+        "limit": 3
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
         "terms": ["keyword", "marker", "deselect"],
-        "limit": 8
+        "limit": 3
       }
     ],
     "rgQueries": [
@@ -140,13 +140,13 @@
           "symbolKinds": ["method", "function"],
           "roles": ["source"]
         },
-        "limit": 8
+        "limit": 7
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
         "terms": ["keyword", "marker", "selected"],
-        "limit": 8
+        "limit": 3
       }
     ],
     "rgQueries": [
@@ -200,13 +200,13 @@
           "symbolKinds": ["function", "method"],
           "roles": ["source"]
         },
-        "limit": 8
+        "limit": 7
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
         "terms": ["capture", "captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
-        "limit": 8
+        "limit": 1
       }
     ],
     "rgQueries": [

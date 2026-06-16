@@ -63,4 +63,40 @@ def test_same_version_entries_use_source_and_marker_for_install():
       file: "tests/test_install_selection.py"
     });
   });
+
+  test("limits related-test fanout while keeping lower-ranked source candidates", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-fanout-limit-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    for (const name of ["alpha", "bravo", "charlie", "delta"]) {
+      await writeFile(
+        path.join(root, "pkg", `${name}.py`),
+        `def ${name}_workflow():
+    shared_navigation_topic = "${name}"
+    return shared_navigation_topic
+`
+      );
+      await writeFile(
+        path.join(root, "tests", `test_${name}.py`),
+        `from pkg.${name} import ${name}_workflow
+
+def test_${name}_workflow():
+    assert ${name}_workflow() == "${name}"
+`
+      );
+    }
+    await indexTarget(root);
+
+    const result = findSourceTests(
+      {
+        terms: ["shared", "navigation", "topic"],
+        roles: ["source"]
+      },
+      { target: root, limit: 4, testLimit: 1 }
+    );
+
+    expect(result.bundles).toHaveLength(4);
+    expect(result.bundles.slice(0, 3).every((bundle) => bundle.tests.length === 1)).toBe(true);
+    expect(result.bundles[3].tests).toEqual([]);
+  });
 });

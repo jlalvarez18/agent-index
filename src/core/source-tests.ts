@@ -7,6 +7,7 @@ export interface SourceTestsOptions {
   indexPath?: string;
   limit?: number;
   testLimit?: number;
+  testFanoutLimit?: number;
 }
 
 export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOptions): SourceTestsResult {
@@ -18,20 +19,24 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
     limit: sourceLimit
   });
 
-  const bundles: SourceTestBundle[] = sourceResult.clusters.map((source) => {
-    const related = findRelatedTests({
-      target: options.target,
-      indexPath: options.indexPath,
-      sourceFile: source.file,
-      symbol: source.symbols[0]?.name,
-      terms: agentQuery.terms,
-      limit: testLimit
-    });
-    const contextChars = formatBundleContextChars(source, related.matches);
-    const topTest = related.matches[0];
+  const testFanoutLimit = Math.min(sourceResult.clusters.length, options.testFanoutLimit ?? 3);
+  const bundles: SourceTestBundle[] = sourceResult.clusters.map((source, index) => {
+    const tests =
+      index < testFanoutLimit
+        ? findRelatedTests({
+            target: options.target,
+            indexPath: options.indexPath,
+            sourceFile: source.file,
+            symbol: source.symbols[0]?.name,
+            terms: agentQuery.terms,
+            limit: testLimit
+          }).matches
+        : [];
+    const contextChars = formatBundleContextChars(source, tests);
+    const topTest = tests[0];
     return {
       source,
-      tests: related.matches,
+      tests,
       score: source.score + (topTest?.score ?? 0) / 10 + sourceTestPairScore(topTest),
       contextChars,
       contextTokens: approximateTokens(contextChars)

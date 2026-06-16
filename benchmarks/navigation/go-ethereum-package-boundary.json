@@ -1,0 +1,35 @@
+[
+  {
+    "id": "go-ethereum-package-boundary",
+    "task": "Navigate package boundaries for Ethereum transaction pool validation from public APIs into internal validation and tests.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["txpool", "validate", "transaction", "nonce", "account", "pool"],
+          "symbolKinds": ["function", "method", "class"],
+          "roles": ["source", "test"],
+          "pathHints": ["core/txpool", "core/types"]
+        },
+        "limit": 8
+      },
+      { "type": "related-tests", "sourceFromStep": 1, "sourceLimit": 3, "terms": ["transaction", "nonce", "validate"], "limit": 5 }
+    ],
+    "rgQueries": [["txpool", "validate", "transaction", "nonce", "account"], ["txpool", "validate", "transaction", "test"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["validate", "transaction", "nonce"], "paths": ["core/txpool", "core/types"], "globs": ["*.go"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["validate", "transaction", "nonce"], "fromStep": 1, "before": 8, "after": 10, "limit": 10 },
+        { "type": "search-files", "terms": ["validate", "transaction", "nonce"], "scope": "test", "paths": ["core/txpool", "core/types"], "globs": ["*_test.go"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["validate", "transaction"], "fromStep": 3, "before": 8, "after": 10, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["core/txpool/validation.go", "core/txpool/validation_test.go"],
+      "symbols": ["ValidationOptions", "ValidateTransaction"],
+      "requiredFiles": ["core/txpool/validation.go"]
+    }
+  }
+]

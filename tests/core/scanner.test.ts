@@ -47,6 +47,7 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("specs/browser/http.spec.ts")).toBe("test");
     expect(classifyFileRole("src/client/api.test.ts")).toBe("test");
     expect(classifyFileRole("src/client/checkout.spec.tsx")).toBe("test");
+    expect(classifyFileRole("pkg/server/handler_test.go")).toBe("test");
     expect(classifyFileRole("_tests/test_service.py")).toBe("test");
     expect(classifyFileRole("pkg/type_tests/cases.py")).toBe("test");
     expect(classifyFileRole("testing/test_service.py")).toBe("test");
@@ -64,15 +65,19 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
   });
 
-  test("can scan mixed Python, Rust, Cython template, TypeScript, and JSON source files for indexing", async () => {
+  test("can scan mixed Python, Go, Rust, Cython template, TypeScript, and JSON source files for indexing", async () => {
     const root = await fixtureDir();
     await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "cmd", "server"), { recursive: true });
+    await mkdir(path.join(root, "internal", "config"), { recursive: true });
     await mkdir(path.join(root, "core", "src"), { recursive: true });
     await mkdir(path.join(root, "sklearn", "metrics"), { recursive: true });
     await mkdir(path.join(root, "src", "views"), { recursive: true });
     await mkdir(path.join(root, "src", "compiler"), { recursive: true });
     await mkdir(path.join(root, "src", "client"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
+    await writeFile(path.join(root, "cmd", "server", "main.go"), "package main\nfunc main() {}\n");
+    await writeFile(path.join(root, "internal", "config", "loader_test.go"), "package config\nfunc TestLoad(t *testing.T) {}\n");
     await writeFile(path.join(root, "core", "src", "serializer.rs"), "pub struct ComputedFields {}\n");
     await writeFile(path.join(root, "sklearn", "metrics", "_radius_neighbors.pyx.tp"), "cdef class RadiusNeighbors{{name_suffix}}:\n    pass\n");
     await writeFile(path.join(root, "src", "compiler", "diagnosticMessages.json"), "{\"key\":\"TS2304\"}\n");
@@ -86,7 +91,9 @@ describe("scanPythonFiles", () => {
     const files = await scanCodeFiles(root);
 
     expect(files.map((file) => ({ relativePath: file.relativePath, language: file.language }))).toEqual([
+      { relativePath: "cmd/server/main.go", language: "go" },
       { relativePath: "core/src/serializer.rs", language: "rust" },
+      { relativePath: "internal/config/loader_test.go", language: "go" },
       { relativePath: "pkg/service.py", language: "python" },
       { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" },
       { relativePath: "src/client/api.mts", language: "typescript" },
@@ -95,6 +102,7 @@ describe("scanPythonFiles", () => {
       { relativePath: "src/views/DashboardScreen.tsx", language: "typescript" }
     ]);
     expect(files.find((file) => file.relativePath === "src/client/api.test.ts")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "internal/config/loader_test.go")?.role).toBe("test");
   });
 
   test("can skip tests and tools for source-only benchmark indexing", async () => {

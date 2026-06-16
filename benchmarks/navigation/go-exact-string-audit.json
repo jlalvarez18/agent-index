@@ -1,0 +1,32 @@
+[
+  {
+    "id": "go-exact-string-audit",
+    "task": "Audit exact-string occurrences of GOEXPERIMENT handling across the Go toolchain source and tests.",
+    "kind": "exact-string-audit",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["GOEXPERIMENT", "experiment", "buildcfg", "toolchain"],
+          "roles": ["source", "test"],
+          "pathHints": ["src/internal/buildcfg", "src/cmd/go"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["GOEXPERIMENT"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["GOEXPERIMENT"], "paths": ["src"], "globs": ["*.go"], "limit": 50 },
+        { "type": "read-snippets", "terms": ["GOEXPERIMENT"], "fromStep": 1, "before": 6, "after": 8, "limit": 12 }
+      ]
+    },
+    "expected": {
+      "files": ["src/internal/buildcfg/exp.go"],
+      "symbols": ["ExperimentFlags", "ParseGOEXPERIMENT"],
+      "requiredFiles": ["src/internal/buildcfg/exp.go"],
+      "requiredSymbols": []
+    }
+  }
+]

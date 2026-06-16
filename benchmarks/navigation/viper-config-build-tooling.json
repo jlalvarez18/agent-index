@@ -1,0 +1,37 @@
+[
+  {
+    "id": "viper-config-build-tooling",
+    "task": "Find how Viper discovers, reads, and merges config files, including tests for config name/type/path behavior.",
+    "kind": "config-build",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["ReadInConfig", "SetConfigName", "AddConfigPath", "merge", "config"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source", "test"],
+          "pathHints": ["viper.go", "viper_test.go"]
+        },
+        "limit": 5,
+        "testLimit": 3,
+        "testFanoutLimit": 2
+      }
+    ],
+    "rgQueries": [["ReadInConfig", "SetConfigName", "AddConfigPath", "merge", "config"], ["ReadInConfig", "test", "config"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["ReadInConfig", "SetConfigName", "AddConfigPath"], "paths": ["."], "globs": ["*.go"], "limit": 30 },
+        { "type": "read-snippets", "terms": ["ReadInConfig", "config"], "fromStep": 1, "before": 8, "after": 10, "limit": 8 },
+        { "type": "search-files", "terms": ["ReadInConfig", "SetConfigName", "config"], "scope": "test", "paths": ["."], "globs": ["*_test.go"], "limit": 30 },
+        { "type": "read-snippets", "terms": ["ReadInConfig", "config"], "fromStep": 3, "before": 8, "after": 10, "limit": 8 }
+      ]
+    },
+    "expected": {
+      "files": ["viper.go", "viper_test.go"],
+      "symbols": ["Viper.ReadInConfig", "Viper.SetConfigName", "Viper.AddConfigPath"],
+      "requiredFiles": ["viper.go", "viper_test.go"],
+      "requiredSymbols": ["Viper.ReadInConfig"]
+    }
+  }
+]

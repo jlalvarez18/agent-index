@@ -1,0 +1,36 @@
+[
+  {
+    "id": "kubernetes-interface-implementation",
+    "task": "Trace the Kubernetes admission plugin interface implementation path from registration to Admit/Validate interfaces and their tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["admission", "interfaces", "Interface", "Admit", "Validate", "Register", "plugin"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["staging/src/k8s.io/apiserver/pkg/admission"]
+        },
+        "limit": 8
+      },
+      { "type": "related-tests", "sourceFromStep": 1, "sourceLimit": 3, "terms": ["admission", "Admit", "Validate", "interfaces"], "limit": 5 }
+    ],
+    "rgQueries": [["admission", "Admit", "Validate", "Register", "plugin"], ["admission", "Admit", "Validate", "test"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Admit", "Validate", "Interface"], "paths": ["staging/src/k8s.io/apiserver/pkg/admission"], "globs": ["*.go"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["Admit", "Validate", "Register"], "fromStep": 1, "before": 8, "after": 10, "limit": 10 },
+        { "type": "search-files", "terms": ["Admit", "Validate", "Interface"], "scope": "test", "paths": ["staging/src/k8s.io/apiserver/pkg/admission"], "globs": ["*_test.go"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["Admit", "Validate"], "fromStep": 3, "before": 8, "after": 10, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["staging/src/k8s.io/apiserver/pkg/admission/interfaces.go"],
+      "symbols": ["Interface", "ValidationInterface", "MutationInterface"],
+      "requiredFiles": ["staging/src/k8s.io/apiserver/pkg/admission/interfaces.go"],
+      "requiredSymbols": ["Interface"]
+    }
+  }
+]

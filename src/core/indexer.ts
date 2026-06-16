@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { stat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { extractCython } from "./extractors/cython.js";
+import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRust } from "./extractors/rust.js";
@@ -29,6 +30,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
     const extractions = files.map((file) => {
       if (file.language === "rust") {
         return extractRust(file);
+      }
+      if (file.language === "go") {
+        return extractGo(file);
       }
       if (file.language === "cython") {
         return extractCython(file);

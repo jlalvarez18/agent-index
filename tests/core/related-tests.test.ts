@@ -79,6 +79,80 @@ def test_client_factory():
     expect(result.matches[0].why).toContain("test imports source module");
   });
 
+  test("links Go source files to table-driven subtests through imports, calls, and source stems", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-go-"));
+    await mkdir(path.join(root, "internal", "server"), { recursive: true });
+    await mkdir(path.join(root, "test", "integration"), { recursive: true });
+    await writeFile(
+      path.join(root, "internal", "server", "handler.go"),
+      `package server
+
+type Handler struct{}
+
+func (h *Handler) Serve(key string) error {
+    return nil
+}
+`
+    );
+    await writeFile(
+      path.join(root, "test", "integration", "handler_behavior_test.go"),
+      `package integration
+
+import (
+    "testing"
+
+    "github.com/acme/project/internal/server"
+)
+
+func TestHandlerServe(t *testing.T) {
+    tests := []struct {
+        name string
+        key string
+    }{
+        {name: "missing record", key: "missing"},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            handler := &server.Handler{}
+            if err := handler.Serve(tt.key); err != nil {
+                t.Fatal(err)
+            }
+        })
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "test", "integration", "unrelated_test.go"),
+      `package integration
+
+import "testing"
+
+func TestUnrelated(t *testing.T) {
+    t.Fatal("unrelated")
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "internal/server/handler.go",
+      symbol: "Handler.Serve",
+      terms: ["missing", "record"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "test/integration/handler_behavior_test.go"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol", "test path includes source stem", "test body matches task terms"])
+    );
+    expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["TestHandlerServe", "TestHandlerServe.subtest_missing_record"]));
+  });
+
   test("can batch related-test discovery for multiple source symbols", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-batch-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

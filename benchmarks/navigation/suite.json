@@ -118,5 +118,47 @@
     "evalPath": "celery-canvas-chain-group.json",
     "target": "celery",
     "mode": "hybrid"
+  },
+  {
+    "name": "cobra",
+    "evalPath": "cobra-cli-command-tracing.json",
+    "target": "cobra",
+    "mode": "hybrid"
+  },
+  {
+    "name": "viper",
+    "evalPath": "viper-config-build-tooling.json",
+    "target": "viper",
+    "mode": "hybrid"
+  },
+  {
+    "name": "prometheus",
+    "evalPath": "prometheus-error-flow.json",
+    "target": "prometheus",
+    "mode": "hybrid"
+  },
+  {
+    "name": "kubernetes",
+    "evalPath": "kubernetes-interface-implementation.json",
+    "target": "kubernetes",
+    "mode": "hybrid"
+  },
+  {
+    "name": "go-ethereum",
+    "evalPath": "go-ethereum-package-boundary.json",
+    "target": "go-ethereum",
+    "mode": "hybrid"
+  },
+  {
+    "name": "testify",
+    "evalPath": "testify-table-subtest-navigation.json",
+    "target": "testify",
+    "mode": "hybrid"
+  },
+  {
+    "name": "go",
+    "evalPath": "go-exact-string-audit.json",
+    "target": "go",
+    "mode": "hybrid"
   }
 ]

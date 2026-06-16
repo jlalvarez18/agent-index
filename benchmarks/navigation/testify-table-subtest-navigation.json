@@ -1,0 +1,37 @@
+[
+  {
+    "id": "testify-table-subtest-navigation",
+    "task": "Find table-driven and subtest coverage for testify assert/require equality behavior.",
+    "kind": "test-discovery",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["Equal", "assert", "require", "expected", "actual", "t.Run"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source", "test"],
+          "pathHints": ["assert", "require"]
+        },
+        "limit": 5,
+        "testLimit": 4,
+        "testFanoutLimit": 3
+      }
+    ],
+    "rgQueries": [["Equal", "assert", "require", "expected", "actual"], ["t.Run", "Equal", "assert"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Equal", "expected", "actual"], "paths": ["assert", "require"], "globs": ["*.go"], "limit": 30 },
+        { "type": "read-snippets", "terms": ["Equal", "expected", "actual"], "fromStep": 1, "before": 8, "after": 10, "limit": 8 },
+        { "type": "search-files", "terms": ["t.Run", "Equal", "expected"], "scope": "test", "paths": ["assert", "require"], "globs": ["*_test.go"], "limit": 30 },
+        { "type": "read-snippets", "terms": ["t.Run", "Equal"], "fromStep": 3, "before": 8, "after": 10, "limit": 8 }
+      ]
+    },
+    "expected": {
+      "files": ["assert/assertions.go", "assert/assertions_test.go", "require/require.go"],
+      "symbols": ["Equal", "TestEqual"],
+      "requiredFiles": ["assert/assertions.go", "assert/assertions_test.go"],
+      "requiredSymbols": ["Equal"]
+    }
+  }
+]

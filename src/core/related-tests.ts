@@ -980,6 +980,9 @@ function moduleNamesForSource(file: string): string[] {
   const withoutExtension = file.replace(/\.[^.]+$/u, "");
   const withoutInit = withoutExtension.endsWith("/__init__") ? withoutExtension.slice(0, -"/__init__".length) : withoutExtension;
   const pathVariants = [withoutInit];
+  if (file.endsWith(".go") && withoutInit.includes("/")) {
+    pathVariants.push(withoutInit.slice(0, withoutInit.lastIndexOf("/")));
+  }
   if (withoutInit.endsWith("/index")) {
     pathVariants.push(withoutInit.slice(0, -"/index".length));
   }
@@ -1035,7 +1038,14 @@ function importsSourceModule(
   normalizedText: string
 ): boolean {
   return sourceModules.some((sourceModule) => {
-    if (importedModules.some((importedModule) => importedModule === sourceModule || importedModule.startsWith(`${sourceModule}.`))) {
+    if (
+      importedModules.some(
+        (importedModule) =>
+          importedModule === sourceModule ||
+          importedModule.startsWith(`${sourceModule}.`) ||
+          importedModule.endsWith(`.${sourceModule}`)
+      )
+    ) {
       return true;
     }
 

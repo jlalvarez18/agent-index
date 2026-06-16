@@ -47,6 +47,7 @@ const TOP_LEVEL_SUPPORT_CODE_DIRS = new Set(["t"]);
 
 const TEST_DIRS = new Set(["tests", "test", "__tests__", "spec", "specs", "_tests", "type_tests", "testing"]);
 const TEST_FILE_NAME_PATTERN = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
+const GO_TEST_FILE_NAME_PATTERN = /_test\.go$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
@@ -65,6 +66,7 @@ export async function scanPythonFiles(target: string, options: ScanOptions = {})
 export async function scanCodeFiles(target: string, options: ScanOptions = {}): Promise<SourceFile[]> {
   return scanFiles(target, options, [
     ".py",
+    ".go",
     ".rs",
     ".ts",
     ".tsx",
@@ -143,6 +145,9 @@ function codeSuffix(fileName: string, suffixes: Set<string>): string | undefined
 }
 
 function languageForSuffix(suffix: string): Language {
+  if (suffix === ".go") {
+    return "go";
+  }
   if (suffix === ".rs") {
     return "rust";
   }
@@ -163,7 +168,11 @@ function languageForSuffix(suffix: string): Language {
 
 export function classifyFileRole(relativePath: string): FileRole {
   const segments = relativePath.split("/").filter(Boolean);
-  if (segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t")) || isJavaScriptTestFile(relativePath)) {
+  if (
+    segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t")) ||
+    isJavaScriptTestFile(relativePath) ||
+    isGoTestFile(relativePath)
+  ) {
     return "test";
   }
   if (segments.some((segment) => DOCS_DIRS.has(segment))) {
@@ -191,4 +200,8 @@ function isSupportArtifactFile(relativePath: string): boolean {
 
 function isJavaScriptTestFile(relativePath: string): boolean {
   return TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
+}
+
+function isGoTestFile(relativePath: string): boolean {
+  return GO_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
 }

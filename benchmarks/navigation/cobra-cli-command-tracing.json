@@ -1,0 +1,37 @@
+[
+  {
+    "id": "cobra-cli-command-tracing",
+    "task": "Trace Cobra command execution from Execute through command lookup, flag handling, and the command tests that validate execution behavior.",
+    "kind": "sdk-tracing",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["Execute", "execute", "command", "flags", "args", "RunE"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source", "test"],
+          "pathHints": ["command.go", "command_test.go"]
+        },
+        "limit": 5,
+        "testLimit": 3,
+        "testFanoutLimit": 2
+      }
+    ],
+    "rgQueries": [["Execute", "command", "RunE", "flags", "args"], ["execute", "command", "test"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Execute", "execute", "RunE"], "paths": ["."], "globs": ["*.go"], "limit": 30 },
+        { "type": "read-snippets", "terms": ["Execute", "RunE", "flags"], "fromStep": 1, "before": 8, "after": 10, "limit": 8 },
+        { "type": "search-files", "terms": ["Execute", "command", "RunE"], "scope": "test", "paths": ["."], "globs": ["*_test.go"], "limit": 30 },
+        { "type": "read-snippets", "terms": ["Execute", "command"], "fromStep": 3, "before": 8, "after": 10, "limit": 8 }
+      ]
+    },
+    "expected": {
+      "files": ["command.go", "command_test.go"],
+      "symbols": ["Command.Execute", "Command.execute"],
+      "requiredFiles": ["command.go", "command_test.go"],
+      "requiredSymbols": ["Command.Execute", "Command.execute"]
+    }
+  }
+]

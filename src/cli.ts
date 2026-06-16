@@ -342,6 +342,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--repo-root <path>", "resolve relative suite targets under this local repository root")
     .option("--index-root <path>", "write default suite index files under this directory")
     .option("--artifacts-dir <path>", "write navigation suite summary and per-repository JSON artifacts")
+    .option("--runs <runs>", "repeat each repository eval and use the median agent-index latency run", "1")
     .option("--json", "write full navigation suite result as JSON")
     .option("--repos", "append per-repository results to text output")
     .action(
@@ -353,6 +354,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           repoRoot?: string;
           indexRoot?: string;
           artifactsDir?: string;
+          runs?: string;
           json?: boolean;
           repos?: boolean;
         }
@@ -362,7 +364,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           reindex: Boolean(options.reindex),
           repoRoot: options.repoRoot,
           indexRoot: options.indexRoot,
-          artifactsDir: options.artifactsDir
+          artifactsDir: options.artifactsDir,
+          runs: Number.parseInt(options.runs ?? "1", 10)
         });
         io.write(options.json ? JSON.stringify(result, null, 2) : formatNavigationSuite(result, Boolean(options.repos)));
       }
@@ -740,6 +743,7 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
   const lines = [
     `Repos: ${result.repos}`,
     `Cases: ${result.cases}`,
+    ...(result.runs && result.runs > 1 ? [`Runs: ${result.runs} (median agent-index latency)`] : []),
     `agent-index useful rate: ${result.agentIndexUsefulRate.toFixed(2)}`,
     `rg broad useful rate: ${result.rgUsefulRate.toFixed(2)}`,
     `rg optimized useful rate: ${result.rgOptimizedUsefulRate.toFixed(2)}`,

@@ -207,4 +207,17 @@ describe("runNavigationSuite", () => {
       }
     });
   });
+
+  test("can repeat repository evaluations and keep the median latency result", async () => {
+    const manifestPath = await fixtureSuite();
+
+    const result = await runNavigationSuite(manifestPath, { runs: 3 });
+    const repo = result.repoResults[0];
+    const sortedRuns = [...(repo.runResults ?? [])].sort((a, b) => a.agentIndexAvgLatencyMs - b.agentIndexAvgLatencyMs);
+
+    expect(result.runs).toBe(3);
+    expect(repo.runs).toBe(3);
+    expect(repo.runResults).toHaveLength(3);
+    expect(repo.result).toEqual(sortedRuns[1]);
+  });
 });

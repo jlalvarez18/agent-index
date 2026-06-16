@@ -10,6 +10,7 @@ export interface NavigationSuiteOptions {
   repoRoot?: string;
   indexRoot?: string;
   artifactsDir?: string;
+  runs?: number;
 }
 
 export async function runNavigationSuite(
@@ -19,21 +20,34 @@ export async function runNavigationSuite(
   const manifestRoot = path.dirname(path.resolve(manifestPath));
   const entries = JSON.parse(await readFile(manifestPath, "utf8")) as NavigationSuiteEntry[];
   const repoResults: NavigationSuiteRepoResult[] = [];
+  const runs = normalizeRuns(options.runs);
 
   for (const entry of entries) {
     const resolvedEntry = resolveSuiteEntry(entry, manifestRoot, options);
     const indexStats = options.reindex
       ? await indexTarget(resolvedEntry.target, { indexPath: resolvedEntry.indexPath })
       : undefined;
-    const result = await runNavigationEval(resolvedEntry.evalPath, {
-      target: resolvedEntry.target,
+    const runResults: NavigationSuiteRepoResult["runResults"] = [];
+    for (let runIndex = 0; runIndex < runs; runIndex += 1) {
+      runResults.push(
+        await runNavigationEval(resolvedEntry.evalPath, {
+          target: resolvedEntry.target,
+          indexPath: indexStats?.indexPath ?? resolvedEntry.indexPath,
+          mode: options.mode ?? resolvedEntry.mode
+        })
+      );
+    }
+    const result = medianLatencyResult(runResults);
+    repoResults.push({
+      ...resolvedEntry,
       indexPath: indexStats?.indexPath ?? resolvedEntry.indexPath,
-      mode: options.mode ?? resolvedEntry.mode
+      indexStats,
+      ...(runs > 1 ? { runs, runResults } : {}),
+      result
     });
-    repoResults.push({ ...resolvedEntry, indexPath: indexStats?.indexPath ?? resolvedEntry.indexPath, indexStats, result });
   }
 
-  const suiteResult = summarizeSuite(repoResults);
+  const suiteResult = summarizeSuite(repoResults, runs);
   if (options.artifactsDir) {
     await writeNavigationSuiteArtifacts(suiteResult, options.artifactsDir);
   }
@@ -68,9 +82,23 @@ function resolveSuiteEntry(
   };
 }
 
-function summarizeSuite(repoResults: NavigationSuiteRepoResult[]): NavigationSuiteResult {
+function medianLatencyResult(results: NavigationSuiteRepoResult["runResults"]): NavigationSuiteRepoResult["result"] {
+  const sorted = [...(results ?? [])].sort((a, b) => a.agentIndexAvgLatencyMs - b.agentIndexAvgLatencyMs);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function normalizeRuns(value: number | undefined): number {
+  const runs = Math.floor(value ?? 1);
+  if (!Number.isFinite(runs) || runs < 1) {
+    throw new Error("--runs must be a positive integer");
+  }
+  return runs;
+}
+
+function summarizeSuite(repoResults: NavigationSuiteRepoResult[], runs = 1): NavigationSuiteResult {
   const cases = repoResults.reduce((sum, repo) => sum + repo.result.cases, 0);
   return {
+    ...(runs > 1 ? { runs } : {}),
     repos: repoResults.length,
     cases,
     agentIndexUsefulRate: weightedRate(repoResults, (result) => result.agentIndexUsefulRate),

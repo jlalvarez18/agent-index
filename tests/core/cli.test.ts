@@ -376,7 +376,7 @@ def test_load_value():
     await runCli(["nav-suite", suitePath, "--repos", "--reindex", "--artifacts-dir", artifactsDir], {
       write: (line) => output.push(line)
     });
-    await runCli(["nav-suite", suitePath, "--json"], {
+    await runCli(["nav-suite", suitePath, "--json", "--runs", "3"], {
       write: (line) => output.push(line)
     });
 
@@ -387,8 +387,15 @@ def test_load_value():
     expect(output[1]).toContain("fixture");
     expect(output[1]).toContain("indexed=1files/");
     const json = JSON.parse(output[2]);
+    expect(json.runs).toBe(3);
     expect(json.repoResults[0]).toMatchObject({
       name: "fixture",
+      runs: 3,
+      runResults: expect.arrayContaining([
+        expect.objectContaining({
+          cases: 1
+        })
+      ]),
       result: {
         cases: 1,
         agentIndexCompletionRate: 1

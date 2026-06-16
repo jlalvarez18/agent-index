@@ -450,10 +450,13 @@ export interface NavigationSuiteEntry {
 
 export interface NavigationSuiteRepoResult extends NavigationSuiteEntry {
   indexStats?: IndexStats;
+  runs?: number;
+  runResults?: NavigationEvalResult[];
   result: NavigationEvalResult;
 }
 
 export interface NavigationSuiteResult {
+  runs?: number;
   repos: number;
   cases: number;
   agentIndexUsefulRate: number;

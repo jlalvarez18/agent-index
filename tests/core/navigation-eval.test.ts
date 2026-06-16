@@ -79,9 +79,15 @@ describe("runNavigationEval", () => {
       agentIndexAvgFirstUsefulLatencyMs: expect.any(Number),
       rgAvgFirstUsefulLatencyMs: expect.any(Number),
       rgOptimizedAvgFirstUsefulLatencyMs: expect.any(Number),
+      agentIndexAvgCompletionLatencyMs: expect.any(Number),
+      rgAvgCompletionLatencyMs: expect.any(Number),
+      rgOptimizedAvgCompletionLatencyMs: expect.any(Number),
       agentIndexAvgFirstUsefulContextTokens: expect.any(Number),
       rgAvgFirstUsefulContextTokens: expect.any(Number),
       rgOptimizedAvgFirstUsefulContextTokens: expect.any(Number),
+      agentIndexAvgCompletionContextTokens: expect.any(Number),
+      rgAvgCompletionContextTokens: expect.any(Number),
+      rgOptimizedAvgCompletionContextTokens: expect.any(Number),
       agentIndexWins: 1,
       rgWins: 0
     });
@@ -100,7 +106,10 @@ describe("runNavigationEval", () => {
         firstUsefulCommand: 1,
         firstUsefulRank: 1,
         firstUsefulLatencyMs: expect.any(Number),
-        firstUsefulContextTokens: expect.any(Number)
+        firstUsefulContextTokens: expect.any(Number),
+        completionCommand: 1,
+        completionLatencyMs: expect.any(Number),
+        completionContextTokens: expect.any(Number)
       },
       rg: {
         commands: 1,
@@ -108,11 +117,16 @@ describe("runNavigationEval", () => {
         taskComplete: true,
         firstUsefulCommand: 1,
         firstUsefulLatencyMs: expect.any(Number),
-        firstUsefulContextTokens: expect.any(Number)
+        firstUsefulContextTokens: expect.any(Number),
+        completionCommand: 1,
+        completionLatencyMs: expect.any(Number),
+        completionContextTokens: expect.any(Number)
       }
     });
     expect(result.caseResults[0].agentIndex.firstUsefulLatencyMs).toBeLessThanOrEqual(result.caseResults[0].agentIndex.latencyMs);
     expect(result.caseResults[0].agentIndex.firstUsefulContextTokens).toBeLessThanOrEqual(result.caseResults[0].agentIndex.contextTokens);
+    expect(result.caseResults[0].agentIndex.completionLatencyMs).toBeLessThanOrEqual(result.caseResults[0].agentIndex.latencyMs);
+    expect(result.caseResults[0].agentIndex.completionContextTokens).toBeLessThanOrEqual(result.caseResults[0].agentIndex.contextTokens);
     expect(result.caseResults[0].tokenSavings).toBeGreaterThan(0);
   });
 
@@ -201,9 +215,13 @@ describe("runNavigationEval", () => {
         firstUsefulCommand: 1,
         firstUsefulRank: 1,
         firstUsefulLatencyMs: expect.any(Number),
-        firstUsefulContextTokens: expect.any(Number)
+        firstUsefulContextTokens: expect.any(Number),
+        completionCommand: 2,
+        completionLatencyMs: expect.any(Number),
+        completionContextTokens: expect.any(Number)
       }
     });
+    expect(result.caseResults[0].agentIndex.completionContextTokens).toBe(result.caseResults[0].agentIndex.contextTokens);
     expect(result.caseResults[0].agentIndex.steps.map((step) => step.type)).toEqual(["file-clusters", "related-tests"]);
     expect(result.caseResults[0].agentIndex.steps[1]).toMatchObject({
       command: "agent-index related-tests --source step:1",

@@ -562,6 +562,9 @@ function summarizeNavigationCases(caseResults: NavigationEvalCaseResult[]): Navi
     agentIndexAvgFirstUsefulLatencyMs: averagePresent(caseResults.map((result) => result.agentIndex.firstUsefulLatencyMs)),
     rgAvgFirstUsefulLatencyMs: averagePresent(caseResults.map((result) => result.rg.firstUsefulLatencyMs)),
     rgOptimizedAvgFirstUsefulLatencyMs: averagePresent(caseResults.map((result) => result.rgOptimized.firstUsefulLatencyMs)),
+    agentIndexAvgCompletionLatencyMs: averagePresent(caseResults.map((result) => result.agentIndex.completionLatencyMs)),
+    rgAvgCompletionLatencyMs: averagePresent(caseResults.map((result) => result.rg.completionLatencyMs)),
+    rgOptimizedAvgCompletionLatencyMs: averagePresent(caseResults.map((result) => result.rgOptimized.completionLatencyMs)),
     agentIndexAvgContextTokens: ratio(
       caseResults.reduce((sum, result) => sum + result.agentIndex.contextTokens, 0),
       caseResults.length
@@ -574,6 +577,9 @@ function summarizeNavigationCases(caseResults: NavigationEvalCaseResult[]): Navi
     agentIndexAvgFirstUsefulContextTokens: averagePresent(caseResults.map((result) => result.agentIndex.firstUsefulContextTokens)),
     rgAvgFirstUsefulContextTokens: averagePresent(caseResults.map((result) => result.rg.firstUsefulContextTokens)),
     rgOptimizedAvgFirstUsefulContextTokens: averagePresent(caseResults.map((result) => result.rgOptimized.firstUsefulContextTokens)),
+    agentIndexAvgCompletionContextTokens: averagePresent(caseResults.map((result) => result.agentIndex.completionContextTokens)),
+    rgAvgCompletionContextTokens: averagePresent(caseResults.map((result) => result.rg.completionContextTokens)),
+    rgOptimizedAvgCompletionContextTokens: averagePresent(caseResults.map((result) => result.rgOptimized.completionContextTokens)),
     avgTokenSavings: ratio(caseResults.reduce((sum, result) => sum + result.tokenSavings, 0), caseResults.length),
     avgOptimizedRgTokenSavings: ratio(
       caseResults.reduce((sum, result) => sum + result.optimizedRgTokenSavings, 0),
@@ -604,6 +610,11 @@ function summarizeWorkflow(steps: NavigationEvalStepResult[], navigationCase?: N
   const firstUsefulLatencyMs = usefulIndex === -1 ? null : steps.slice(0, usefulIndex + 1).reduce((sum, step) => sum + step.latencyMs, 0);
   const firstUsefulContextTokens =
     usefulIndex === -1 ? null : steps.slice(0, usefulIndex + 1).reduce((sum, step) => sum + step.contextTokens, 0);
+  const completionIndex = firstCompletionIndex(steps, requiredFiles, requiredSymbols);
+  const completionLatencyMs =
+    completionIndex === -1 ? null : steps.slice(0, completionIndex + 1).reduce((sum, step) => sum + step.latencyMs, 0);
+  const completionContextTokens =
+    completionIndex === -1 ? null : steps.slice(0, completionIndex + 1).reduce((sum, step) => sum + step.contextTokens, 0);
   return {
     commands: steps.length,
     foundUseful: usefulIndex !== -1,
@@ -616,11 +627,30 @@ function summarizeWorkflow(steps: NavigationEvalStepResult[], navigationCase?: N
     missingSymbols,
     firstUsefulLatencyMs,
     firstUsefulContextTokens,
+    completionCommand: completionIndex === -1 ? null : completionIndex + 1,
+    completionLatencyMs,
+    completionContextTokens,
     latencyMs: steps.reduce((sum, step) => sum + step.latencyMs, 0),
     contextChars: steps.reduce((sum, step) => sum + step.contextChars, 0),
     contextTokens: steps.reduce((sum, step) => sum + step.contextTokens, 0),
     steps
   };
+}
+
+function firstCompletionIndex(steps: NavigationEvalStepResult[], requiredFiles: string[], requiredSymbols: string[]): number {
+  const foundFiles: string[] = [];
+  const foundSymbols: string[] = [];
+  for (const [index, step] of steps.entries()) {
+    foundFiles.push(...step.foundFiles);
+    foundSymbols.push(...step.foundSymbols);
+    if (
+      requiredFiles.every((file) => foundFiles.includes(file)) &&
+      requiredSymbols.every((symbol) => foundSymbols.includes(symbol))
+    ) {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function pickWinner(

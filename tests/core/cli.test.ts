@@ -209,6 +209,33 @@ describe("runCli", () => {
     });
   });
 
+  test("supports compact source and test bundles for one-step navigation", async () => {
+    const { root } = await fixtureProject();
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "tests", "test_cache.py"),
+      `from pkg.cache import load_value
+
+def test_load_value():
+    assert load_value("x") == "x"
+`
+    );
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["source-tests", "semantic cache", "--target", root, "--term", "load_value", "--role", "source"], {
+      write: (line) => output.push(line)
+    });
+    await runCli(["source-tests", "semantic cache", "--target", root, "--term", "load_value", "--role", "source", "--json"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("1 pkg/cache.py:1 load_value -> tests/test_cache.py");
+    const json = JSON.parse(output[2]);
+    expect(json.bundles[0].source.file).toBe("pkg/cache.py");
+    expect(json.bundles[0].tests[0].file).toBe("tests/test_cache.py");
+  });
+
   test("supports navigation workflow evaluation through the public command", async () => {
     const { root } = await fixtureProject();
     const navigationEvalPath = await writeNavigationEval(root);

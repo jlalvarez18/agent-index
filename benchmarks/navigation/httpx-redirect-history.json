@@ -132,19 +132,14 @@
     "kind": "bugfix",
     "agentIndexSteps": [
       {
-        "type": "file-clusters",
+        "type": "source-tests",
         "query": {
           "terms": ["manual", "redirect", "response", "history", "preserve"],
           "symbolKinds": ["method", "function"],
           "roles": ["source"]
         },
-        "limit": 6
-      },
-      {
-        "type": "related-tests",
-        "sourceFromStep": 1,
-        "terms": ["redirect", "history", "response"],
-        "limit": 6
+        "limit": 6,
+        "testLimit": 2
       }
     ],
     "rgQueries": [

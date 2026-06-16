@@ -12,6 +12,7 @@ import { runNavigationEval } from "./core/navigation-eval.js";
 import { runNavigationSuite } from "./core/navigation-suite.js";
 import { queryAgentIndex, queryIndex } from "./core/query.js";
 import { findRelatedTests } from "./core/related-tests.js";
+import { findSourceTests } from "./core/source-tests.js";
 import { appendLessonTrace, appendQueryTrace, buildTraceReport, formatTraceReport } from "./core/tracing.js";
 import type {
   AgentEvalResult,
@@ -25,6 +26,7 @@ import type {
   QueryExpansion,
   QueryMode,
   RgBaselineKind,
+  SourceTestsResult,
   SymbolKind
 } from "./core/schema.js";
 
@@ -183,6 +185,54 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           limit: Number.parseInt(options.limit, 10)
         });
         io.write(options.json ? JSON.stringify(result, null, 2) : formatFileClusters(result));
+      }
+    );
+
+  program
+    .command("source-tests")
+    .argument("[query]", "free-text query refined by shorthand flags")
+    .requiredOption("--target <target>", "target repository or directory")
+    .option("--agent-query <json>", "structured agent query JSON")
+    .option("--index-path <path>", "SQLite index path")
+    .option("--term <term>", "structured query term; repeat or comma-separate", collectOption, [])
+    .option("--kind <kind>", "symbol kind: function, method, class, or module; repeat or comma-separate", collectOption, [])
+    .option("--path <hint>", "path hint; repeat or comma-separate", collectOption, [])
+    .option("--path-filter", "treat --path values as hard file-path filters instead of ranking hints")
+    .option("--role <role>", "file role: source, test, docs, example, fixture, tool, or benchmark; repeat or comma-separate", collectOption, [])
+    .option("--exclude-support-code", "filter tests, docs, examples, fixtures, and tools from structured results")
+    .option("--limit <limit>", "maximum source file clusters to return", "5")
+    .option("--test-limit <limit>", "maximum related test files per source", "2")
+    .option("--json", "write full source-tests result as JSON")
+    .action(
+      (
+        query: string | undefined,
+        options: {
+          target: string;
+          agentQuery?: string;
+          indexPath?: string;
+          term?: string[];
+          kind?: string[];
+          path?: string[];
+          pathFilter?: boolean;
+          role?: string[];
+          excludeSupportCode?: boolean;
+          limit: string;
+          testLimit: string;
+          json?: boolean;
+        }
+      ) => {
+        const shorthandQuery = parseShorthandAgentQuery(query, { ...options, expand: [] });
+        const agentQuery = options.agentQuery ? parseAgentQueryWithoutShorthand(options.agentQuery, shorthandQuery) : shorthandQuery;
+        if (!agentQuery) {
+          throw new Error("Missing query. Provide a query, --agent-query JSON, or shorthand flags such as --term semantic --term cache.");
+        }
+        const result = findSourceTests(agentQuery, {
+          target: options.target,
+          indexPath: options.indexPath,
+          limit: Number.parseInt(options.limit, 10),
+          testLimit: Number.parseInt(options.testLimit, 10)
+        });
+        io.write(options.json ? JSON.stringify(result, null, 2) : formatSourceTests(result));
       }
     );
 
@@ -495,6 +545,24 @@ function formatFileClusters(result: FileClusterResult): string {
     .map((cluster, index) => {
       const symbols = cluster.symbols.map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
       return `${index + 1} ${cluster.file} role=${cluster.role} score=${cluster.score} chunks=${cluster.matchedChunks} tokens=${cluster.contextTokens} symbols=${symbols} why=${cluster.why.join(", ")}${formatEvidence(cluster.evidence)}`;
+    })
+    .join("\n");
+}
+
+function formatSourceTests(result: SourceTestsResult): string {
+  if (result.bundles.length === 0) {
+    return "No source/test bundles";
+  }
+
+  return result.bundles
+    .map((bundle, index) => {
+      const sourceSymbol = bundle.source.symbols[0];
+      const source = sourceSymbol ? `${bundle.source.file}:${sourceSymbol.lines[0]} ${sourceSymbol.name}` : bundle.source.file;
+      const tests = bundle.tests
+        .slice(0, 2)
+        .map((test) => `${test.file}${test.firstLine === null ? "" : `:${test.firstLine}`}`)
+        .join(", ");
+      return `${index + 1} ${source}${tests ? ` -> ${tests}` : ""}`;
     })
     .join("\n");
 }

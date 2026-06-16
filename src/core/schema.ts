@@ -253,6 +253,12 @@ export type NavigationAgentStep =
       limit?: number;
     }
   | {
+      type: "source-tests";
+      query: AgentQuery;
+      limit?: number;
+      testLimit?: number;
+    }
+  | {
       type: "related-tests";
       sourceFile?: string;
       sourceFromStep?: number;
@@ -336,7 +342,7 @@ export interface NavigationEvalCase {
 }
 
 export interface NavigationEvalStepResult {
-  type: "query" | "file-clusters" | "related-tests" | "rg" | "rg-optimized";
+  type: "query" | "file-clusters" | "source-tests" | "related-tests" | "rg" | "rg-optimized";
   command: string;
   latencyMs: number;
   contextChars: number;
@@ -503,6 +509,19 @@ export interface RelatedTestsResult {
   symbol?: string;
   candidateFilesScored: number;
   matches: RelatedTestMatch[];
+}
+
+export interface SourceTestBundle {
+  source: FileClusterMatch;
+  tests: RelatedTestMatch[];
+  score: number;
+  contextChars: number;
+  contextTokens: number;
+}
+
+export interface SourceTestsResult {
+  query: string;
+  bundles: SourceTestBundle[];
 }
 
 export interface FileClusterMatch {

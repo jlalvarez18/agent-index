@@ -14,11 +14,13 @@ import type {
   NavigationRgOptimizedStep,
   QueryMatch,
   QueryMode,
-  RelatedTestMatch
+  RelatedTestMatch,
+  SourceTestBundle
 } from "./schema.js";
 import { findFileClusters } from "./file-clusters.js";
 import { queryAgentIndex } from "./query.js";
 import { findRelatedTests } from "./related-tests.js";
+import { findSourceTests } from "./source-tests.js";
 
 export interface NavigationEvalOptions {
   target: string;
@@ -113,7 +115,7 @@ function isBehaviorOnlyCase(navigationCase: NavigationEvalCase): boolean {
 }
 
 function navigationStepTerms(step: NavigationAgentStep): string[] {
-  if (step.type === "query" || step.type === "file-clusters") {
+  if (step.type === "query" || step.type === "file-clusters" || step.type === "source-tests") {
     return step.query.terms;
   }
   return step.terms ?? [];
@@ -238,6 +240,36 @@ async function runAgentStep(
       foundSymbols: matchingClusterSymbols(result.clusters, navigationCase),
       outputFiles: uniqueValues(result.clusters.map((cluster) => cluster.file)),
       outputSymbols: compactOutputValues(result.clusters.flatMap((cluster) => cluster.symbols.map((symbol) => symbol.name)))
+    };
+  }
+
+  if (step.type === "source-tests") {
+    const result = findSourceTests(step.query, {
+      target: options.target,
+      indexPath: options.indexPath,
+      limit: step.limit ?? step.query.limit ?? 5,
+      testLimit: step.testLimit ?? 2
+    });
+    const context = formatCompactSourceTests(result.bundles);
+    const useful = usefulSourceTestBundle(result.bundles, navigationCase);
+    return {
+      type: "source-tests",
+      command: formatSourceTestsCommand(step.query),
+      latencyMs: performance.now() - started,
+      contextChars: context.length,
+      contextTokens: approximateTokens(context.length),
+      usefulRank: useful?.rank ?? null,
+      usefulFile: useful?.file ?? null,
+      usefulSymbol: useful?.symbol ?? null,
+      foundFiles: matchingSourceTestFiles(result.bundles, navigationCase),
+      foundSymbols: matchingSourceTestSymbols(result.bundles, navigationCase),
+      outputFiles: uniqueValues(result.bundles.flatMap((bundle) => [bundle.source.file, ...bundle.tests.map((test) => test.file)])),
+      outputSymbols: compactOutputValues(
+        result.bundles.flatMap((bundle) => [
+          ...bundle.source.symbols.map((symbol) => symbol.name),
+          ...bundle.tests.flatMap((test) => test.symbols)
+        ])
+      )
     };
   }
 
@@ -771,6 +803,42 @@ function matchingRelatedTestSymbols(matches: RelatedTestMatch[], navigationCase:
   return uniqueValues(matches.flatMap((match) => match.symbols).filter((symbol) => expectedSymbols.has(symbol)));
 }
 
+function usefulSourceTestBundle(
+  bundles: SourceTestBundle[],
+  navigationCase: NavigationEvalCase
+): { rank: number; file: string; symbol: string | null } | undefined {
+  const expectedFiles = new Set(navigationCase.expected.files);
+  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
+  const index = bundles.findIndex(
+    (bundle) =>
+      expectedFiles.has(bundle.source.file) ||
+      bundle.tests.some((test) => expectedFiles.has(test.file)) ||
+      bundle.source.symbols.some((symbol) => expectedSymbols.has(symbol.name)) ||
+      bundle.tests.some((test) => test.symbols.some((symbol) => expectedSymbols.has(symbol)))
+  );
+  if (index === -1) {
+    return undefined;
+  }
+  const symbol = bundles[index].source.symbols.find((sourceSymbol) => expectedSymbols.has(sourceSymbol.name));
+  return { rank: index + 1, file: bundles[index].source.file, symbol: symbol?.name ?? null };
+}
+
+function matchingSourceTestFiles(bundles: SourceTestBundle[], navigationCase: NavigationEvalCase): string[] {
+  const expectedFiles = new Set(navigationCase.expected.files);
+  return uniqueValues(
+    bundles.flatMap((bundle) => [bundle.source.file, ...bundle.tests.map((test) => test.file)]).filter((file) => expectedFiles.has(file))
+  );
+}
+
+function matchingSourceTestSymbols(bundles: SourceTestBundle[], navigationCase: NavigationEvalCase): string[] {
+  const expectedSymbols = new Set(navigationCase.expected.symbols ?? []);
+  return uniqueValues(
+    bundles
+      .flatMap((bundle) => [...bundle.source.symbols.map((symbol) => symbol.name), ...bundle.tests.flatMap((test) => test.symbols)])
+      .filter((symbol) => expectedSymbols.has(symbol))
+  );
+}
+
 function usefulRgMatch(matches: RgMatch[], navigationCase: NavigationEvalCase): { rank: number; file: string } | undefined {
   const expectedFiles = new Set(navigationCase.expected.files);
   const seenFiles: string[] = [];
@@ -843,6 +911,23 @@ function formatCompactRelatedTests(matches: RelatedTestMatch[]): string {
     .join("\n");
 }
 
+function formatCompactSourceTests(bundles: SourceTestBundle[]): string {
+  if (bundles.length === 0) {
+    return "No source/test bundles";
+  }
+  return bundles
+    .map((bundle, index) => {
+      const sourceSymbol = bundle.source.symbols[0];
+      const source = sourceSymbol ? `${bundle.source.file}:${sourceSymbol.lines[0]} ${sourceSymbol.name}` : bundle.source.file;
+      const tests = bundle.tests
+        .slice(0, 2)
+        .map((test) => `${test.file}${test.firstLine === null ? "" : `:${test.firstLine}`}`)
+        .join(", ");
+      return `${index + 1} ${source}${tests ? ` -> ${tests}` : ""}`;
+    })
+    .join("\n");
+}
+
 function formatEvidence(evidence: string | undefined): string {
   return evidence ? ` evidence=${JSON.stringify(evidence)}` : "";
 }
@@ -871,6 +956,10 @@ function formatAgentCommand(agentQuery: AgentQuery): string {
 
 function formatFileClustersCommand(agentQuery: AgentQuery): string {
   return `agent-index file-clusters ${agentQuery.terms.map(shellQuote).join(" ")}`;
+}
+
+function formatSourceTestsCommand(agentQuery: AgentQuery): string {
+  return `agent-index source-tests ${agentQuery.terms.map(shellQuote).join(" ")}`;
 }
 
 function formatRelatedTestsCommand(step: Extract<NavigationAgentStep, { type: "related-tests" }>): string {

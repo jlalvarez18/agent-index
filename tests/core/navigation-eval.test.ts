@@ -242,6 +242,66 @@ describe("runNavigationEval", () => {
     expect(result.caseResults[0].agentIndex.contextTokens).toBeLessThan(result.caseResults[0].rg.contextTokens);
   });
 
+  test("can evaluate a compact source and tests bundle as one agent command", async () => {
+    const { root } = await fixtureProject();
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-source-tests-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "semantic-cache-source-tests-bundle",
+            task: "Find the semantic cache implementation and related tests in one compact navigation bundle.",
+            kind: "bugfix",
+            agentIndexSteps: [
+              {
+                type: "source-tests",
+                query: {
+                  terms: ["load_value", "semantic", "cache"],
+                  roles: ["source"],
+                  pathHints: ["pkg/cache.py"]
+                },
+                limit: 3,
+                testLimit: 2
+              }
+            ],
+            rgQueries: [
+              ["load_value", "semantic", "cache"],
+              ["load_value", "test"]
+            ],
+            expected: {
+              files: ["pkg/cache.py", "tests/test_cache.py"],
+              symbols: ["load_value"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].agentIndex).toMatchObject({
+      commands: 1,
+      foundUseful: true,
+      taskComplete: true,
+      foundFiles: ["pkg/cache.py", "tests/test_cache.py"],
+      foundSymbols: ["load_value"],
+      firstUsefulCommand: 1,
+      completionCommand: 1
+    });
+    expect(result.caseResults[0].agentIndex.steps[0]).toMatchObject({
+      type: "source-tests",
+      command: "agent-index source-tests load_value semantic cache",
+      usefulFile: "pkg/cache.py"
+    });
+  });
+
   test("related-tests can follow multiple source candidates from a prior navigation step", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-multi-source-tests-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

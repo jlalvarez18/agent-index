@@ -275,7 +275,7 @@ async function runAgentStep(
   }
 
   const sourceFiles = resolveRelatedTestsSources(step, previousSteps);
-  const symbol = step.symbol ?? (sourceFiles.length === 1 ? resolveRelatedTestsSymbol(previousSteps) : undefined);
+  const symbol = step.symbol ?? resolveRelatedTestsSymbol(previousSteps);
   const result = findRelatedTests({
     target: options.target,
     indexPath: options.indexPath,

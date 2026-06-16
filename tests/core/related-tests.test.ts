@@ -152,6 +152,45 @@ def test_bravo_workflow():
     expect(result.matches.map((match) => match.file)).toEqual(["tests/test_alpha.py", "tests/test_bravo.py"]);
   });
 
+  test("keeps the discovered source symbol for the primary source in multi-source discovery", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-multi-source-symbol-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "routing.py"), "def serialize_response(value):\n    return value\n");
+    await writeFile(path.join(root, "pkg", "applications.py"), "def response_model_endpoint(value):\n    return value\n");
+    await writeFile(
+      path.join(root, "tests", "test_schema_ref.py"),
+      `from pkg import applications
+
+def test_endpoint_response_model_schema():
+    assert applications.response_model_endpoint("validate serialize endpoint return response model")
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_serialize_response_model.py"),
+      `def test_response_model_return_value_is_serialized():
+    response_model = {"name": "x"}
+    serialized = "endpoint return response model"
+    assert response_model and serialized
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/routing.py",
+      sourceFiles: ["pkg/routing.py", "pkg/applications.py"],
+      symbol: "serialize_response",
+      terms: ["validate", "serialize", "endpoint", "return", "response", "model"],
+      limit: 2
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_serialize_response_model.py"
+    });
+    expect(result.matches[0].why).toContain("test path includes symbol name");
+  });
+
   test("prunes unrelated test files before scoring full text", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-pruned-candidates-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

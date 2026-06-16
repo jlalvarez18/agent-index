@@ -303,6 +303,79 @@ describe("runNavigationEval", () => {
     });
   });
 
+  test("passes the top source symbol into related-tests even with multiple source files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-multi-source-symbol-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "routing.py"), "def serialize_response(value):\n    return value\n");
+    await writeFile(path.join(root, "pkg", "applications.py"), "def serialize_endpoint(value):\n    return value\n");
+    await writeFile(
+      path.join(root, "tests", "test_schema_ref.py"),
+      `from pkg import applications
+
+def test_endpoint_response_model_schema():
+    assert applications.serialize_endpoint("validate serialize endpoint return response model")
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_serialize_response_model.py"),
+      `def test_response_model_return_value_is_serialized():
+    response_model = {"name": "x"}
+    serialized = "endpoint return response model"
+    assert response_model and serialized
+`
+    );
+    await indexTarget(root);
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-multi-source-symbol-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify([
+        {
+          id: "multi-source-related-tests-symbol-handoff",
+          task: "Find response serialization code and tests.",
+          kind: "bugfix",
+          agentIndexSteps: [
+            {
+              type: "query",
+              query: {
+                terms: ["serialize_response", "response", "model", "endpoint", "return"],
+                symbolKinds: ["function"],
+                roles: ["source"],
+                pathHints: ["routing"],
+                limit: 2
+              }
+            },
+            {
+              type: "related-tests",
+              sourceFromStep: 1,
+              terms: ["validate", "serialize", "endpoint", "return", "response", "model"],
+              limit: 2
+            }
+          ],
+          rgQueries: [["serialize", "response", "model"]],
+          expected: {
+            files: ["pkg/routing.py", "tests/test_serialize_response_model.py"],
+            symbols: ["serialize_response"],
+            requiredFiles: ["pkg/routing.py", "tests/test_serialize_response_model.py"],
+            requiredSymbols: ["serialize_response"]
+          }
+        }
+      ])
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].agentIndex.steps[1]).toMatchObject({
+      type: "related-tests",
+      usefulRank: 1,
+      usefulFile: "tests/test_serialize_response_model.py"
+    });
+  });
+
   test("credits qualified Python test method symbols against unqualified expected names", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-qualified-tests-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

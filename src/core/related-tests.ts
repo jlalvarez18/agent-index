@@ -194,7 +194,7 @@ function findRelatedTestsForSources(db: Database.Database, options: RelatedTests
       ...options,
       sourceFile,
       sourceFiles: undefined,
-      symbol: undefined
+      symbol: sourceFile === normalizeSourceFile(options.sourceFile) ? options.symbol : undefined
     })
   );
   const bestByFile = new Map<string, RelatedTestMatch>();
@@ -663,7 +663,7 @@ function scoreTestFile(
       why.push("test calls source symbol");
     }
     if (analysis.normalizedTestPath.includes(symbolLeaf)) {
-      score += 12;
+      score += 36;
       why.push("test path includes symbol name");
     }
   }

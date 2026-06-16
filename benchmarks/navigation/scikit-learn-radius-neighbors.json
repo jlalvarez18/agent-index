@@ -12,13 +12,13 @@
           "roles": ["source"],
           "pathHints": ["neighbors", "pairwise distances reduction"]
         },
-        "limit": 8
+        "limit": 6
       },
       {
         "type": "related-tests",
         "sourceFromStep": 1,
         "terms": ["radius", "neighbors", "sort", "results", "distance", "float32", "brute", "merge"],
-        "limit": 10
+        "limit": 2
       }
     ],
     "rgQueries": [

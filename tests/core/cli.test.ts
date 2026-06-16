@@ -253,6 +253,64 @@ def test_load_value():
     expect(json.bundles[0].tests[0].file).toBe("tests/test_cache.py");
   });
 
+  test("supports compact JSON for source and related test navigation", async () => {
+    const { root } = await fixtureProject();
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "tests", "test_cache.py"),
+      `from pkg.cache import load_value
+
+def test_load_value():
+    assert load_value("x") == "x"
+`
+    );
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["source-tests", "semantic cache", "--target", root, "--term", "load_value", "--role", "source", "--json"], {
+      write: (line) => output.push(line)
+    });
+    await runCli(
+      ["source-tests", "semantic cache", "--target", root, "--term", "load_value", "--role", "source", "--format", "compact-json"],
+      { write: (line) => output.push(line) }
+    );
+    await runCli(
+      ["related-tests", "--target", root, "--source", "pkg/cache.py", "--symbol", "load_value", "--format", "compact-json"],
+      { write: (line) => output.push(line) }
+    );
+
+    const fullSourceJson = JSON.parse(output[1]);
+    const compactSourceJson = JSON.parse(output[2]);
+    const compactRelatedJson = JSON.parse(output[3]);
+
+    expect(output[2].length).toBeLessThan(output[1].length);
+    expect(compactSourceJson.bundles[0]).toEqual({
+      source: {
+        file: "pkg/cache.py",
+        symbol: "load_value",
+        line: 1
+      },
+      tests: [
+        {
+          file: "tests/test_cache.py",
+          firstLine: 1,
+          symbols: ["test_load_value"]
+        }
+      ]
+    });
+    expect(compactSourceJson.bundles[0]).not.toHaveProperty("contextChars");
+    expect(compactSourceJson.bundles[0]).not.toHaveProperty("why");
+    expect(fullSourceJson.bundles[0].source).toHaveProperty("contextChars");
+
+    expect(compactRelatedJson.matches[0]).toEqual({
+      file: "tests/test_cache.py",
+      firstLine: 1,
+      symbols: ["test_load_value"]
+    });
+    expect(compactRelatedJson.matches[0]).not.toHaveProperty("why");
+    expect(compactRelatedJson.matches[0]).not.toHaveProperty("score");
+  });
+
   test("supports navigation workflow evaluation through the public command", async () => {
     const { root } = await fixtureProject();
     const navigationEvalPath = await writeNavigationEval(root);

@@ -203,6 +203,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--limit <limit>", "maximum source file clusters to return", "5")
     .option("--test-limit <limit>", "maximum related test files per source", "2")
     .option("--test-fanout-limit <limit>", "maximum source clusters to use for related-test fanout")
+    .option("--format <format>", "source-tests output format: text, json, or compact-json", "text")
     .option("--json", "write full source-tests result as JSON")
     .action(
       (
@@ -220,6 +221,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           limit: string;
           testLimit: string;
           testFanoutLimit?: string;
+          format: string;
           json?: boolean;
         }
       ) => {
@@ -235,7 +237,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           testLimit: Number.parseInt(options.testLimit, 10),
           testFanoutLimit: options.testFanoutLimit ? Number.parseInt(options.testFanoutLimit, 10) : undefined
         });
-        io.write(options.json ? JSON.stringify(result, null, 2) : formatSourceTests(result));
+        const format = options.json ? "json" : parseTestNavigationFormat(options.format, "source-tests");
+        io.write(formatTestNavigationResult(result, format, formatSourceTests, compactSourceTestsJson));
       }
     );
 
@@ -419,6 +422,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--term <term>", "task term for test disambiguation; repeat or comma-separate", collectOption, [])
     .option("--index-path <path>", "SQLite index path")
     .option("--limit <limit>", "maximum test files to return", "5")
+    .option("--format <format>", "related-tests output format: text, json, or compact-json", "text")
     .option("--json", "write full related-tests result as JSON")
     .action(
       (options: {
@@ -428,6 +432,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
         term?: string[];
         indexPath?: string;
         limit: string;
+        format: string;
         json?: boolean;
       }) => {
         const sourceFiles = splitOptionValues(options.source);
@@ -443,7 +448,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           terms: splitOptionValues(options.term),
           limit: Number.parseInt(options.limit, 10)
         });
-        io.write(options.json ? JSON.stringify(result, null, 2) : formatRelatedTests(result));
+        const format = options.json ? "json" : parseTestNavigationFormat(options.format, "related-tests");
+        io.write(formatTestNavigationResult(result, format, formatRelatedTests, compactRelatedTestsJson));
       }
     );
 
@@ -568,6 +574,44 @@ function formatSourceTests(result: SourceTestsResult): string {
       return `${index + 1} ${source}${tests ? ` -> ${tests}` : ""}`;
     })
     .join("\n");
+}
+
+type TestNavigationFormat = "text" | "json" | "compact-json";
+
+function formatTestNavigationResult<T>(
+  result: T,
+  format: TestNavigationFormat,
+  textFormatter: (result: T) => string,
+  compactFormatter: (result: T) => unknown
+): string {
+  if (format === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+  if (format === "compact-json") {
+    return JSON.stringify(compactFormatter(result), null, 2);
+  }
+  return textFormatter(result);
+}
+
+function compactSourceTestsJson(result: SourceTestsResult): unknown {
+  return {
+    query: result.query,
+    bundles: result.bundles.map((bundle) => {
+      const sourceSymbol = bundle.source.symbols[0];
+      return {
+        source: {
+          file: bundle.source.file,
+          symbol: sourceSymbol?.name ?? null,
+          line: sourceSymbol?.lines[0] ?? null
+        },
+        tests: bundle.tests.map((test) => ({
+          file: test.file,
+          firstLine: test.firstLine,
+          symbols: test.symbols
+        }))
+      };
+    })
+  };
 }
 
 function formatAgentEval(result: AgentEvalResult, includeMisses = false): string {
@@ -795,6 +839,19 @@ function formatRelatedTests(result: ReturnType<typeof findRelatedTests>): string
     .join("\n");
 }
 
+function compactRelatedTestsJson(result: ReturnType<typeof findRelatedTests>): unknown {
+  return {
+    sourceFile: result.sourceFile,
+    sourceFiles: result.sourceFiles,
+    symbol: result.symbol,
+    matches: result.matches.map((match) => ({
+      file: match.file,
+      firstLine: match.firstLine,
+      symbols: match.symbols
+    }))
+  };
+}
+
 function formatBenchmarkMisses(result: Awaited<ReturnType<typeof runBenchmark>>): string[] {
   const misses = result.cases.filter((benchmarkCase) => !benchmarkCase.symbolHitAt1);
   if (misses.length === 0) {
@@ -858,6 +915,13 @@ function parseQueryFormat(format: string): "json" | "compact" {
     return format;
   }
   throw new Error(`Invalid query format: ${format}. Expected "json" or "compact".`);
+}
+
+function parseTestNavigationFormat(format: string, command: string): TestNavigationFormat {
+  if (format === "text" || format === "json" || format === "compact-json") {
+    return format;
+  }
+  throw new Error(`Invalid ${command} format: ${format}. Expected "text", "json", or "compact-json".`);
 }
 
 function parsePathMode(mode: string): "hint" | "filter" {

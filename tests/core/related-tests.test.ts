@@ -273,6 +273,42 @@ def test_next_request_preserves_redirect_history():
     expect(result.matches[0].why).toContain("test body matches task terms");
   });
 
+  test("uses task terms in test paths to rank behavior-focused test files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-task-path-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "routing.py"), "def serialize_response(value):\n    return value\n");
+    await writeFile(
+      path.join(root, "tests", "test_custom_route_class.py"),
+      `from pkg import routing
+
+def test_custom_route_class_response_model():
+    assert routing.serialize_response({"name": "x"})
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_serialize_response_model.py"),
+      `def test_response_model_return_value_is_serialized():
+    response_model = {"name": "x"}
+    serialized = "endpoint return response model"
+    assert response_model and serialized
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/routing.py",
+      terms: ["validate", "serialize", "endpoint", "return", "response", "model"],
+      limit: 2
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_serialize_response_model.py"
+    });
+    expect(result.matches[0].why).toContain("test path matches task terms");
+  });
+
   test("matches imports for common src package layouts", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-src-layout-"));
     await mkdir(path.join(root, "src", "pkg"), { recursive: true });

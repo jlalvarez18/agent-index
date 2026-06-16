@@ -1,0 +1,72 @@
+[
+  {
+    "id": "fastapi-response-model-serialization-behavior-only",
+    "task": "Investigate where FastAPI validates and serializes endpoint return values into the response model, and find the related tests, without naming the serializer function.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["validate", "serialize", "endpoint", "return", "response", "model"],
+          "symbolKinds": ["function", "method"],
+          "roles": ["source"],
+          "limit": 5
+        }
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["validate", "serialize", "endpoint", "return", "response", "model"],
+        "limit": 10
+      }
+    ],
+    "rgQueries": [
+      ["validate", "serialize", "endpoint", "return", "response", "model"],
+      ["response_model", "ResponseValidationError", "return", "serialize", "test"]
+    ],
+    "searchTerms": {
+      "seed": ["validate", "serialize", "endpoint", "return", "response", "model"],
+      "forbiddenExact": ["serialize_response"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["validate", "serialize", "endpoint", "return", "response", "model"],
+          "scope": "source",
+          "paths": ["fastapi"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["validate", "serialize", "endpoint", "return", "response", "model"],
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["validate", "serialize", "response", "model", "return", "endpoint", "field", "errors"],
+          "scope": "test",
+          "paths": ["tests"],
+          "globs": ["*test*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["response_model", "ResponseValidationError", "return", "serialize"],
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": ["fastapi/routing.py", "tests/test_serialize_response_model.py", "tests/test_validate_response.py", "tests/test_response_model_as_return_annotation.py"],
+      "symbols": ["serialize_response", "APIRoute.__init__"],
+      "requiredFiles": ["fastapi/routing.py", "tests/test_serialize_response_model.py"],
+      "requiredSymbols": ["serialize_response"]
+    }
+  }
+]

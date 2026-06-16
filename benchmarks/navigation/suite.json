@@ -24,6 +24,12 @@
     "mode": "hybrid"
   },
   {
+    "name": "fastapi",
+    "evalPath": "fastapi-response-serialization.json",
+    "target": "fastapi",
+    "mode": "hybrid"
+  },
+  {
     "name": "rich",
     "evalPath": "rich-print-json-file.json",
     "target": "rich",

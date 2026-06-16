@@ -242,6 +242,12 @@ function scoreTestFile(
     why.push("test path includes source stem");
   }
 
+  const pathTermMatches = taskTermsInPath(terms, normalizedTestPath);
+  if (pathTermMatches.length > 0) {
+    score += Math.min(pathTermMatches.length * 8, 32);
+    why.push("test path matches task terms");
+  }
+
   const sharedPathTokens = sourceTokens.filter((token) => token.length >= 3 && !layoutStopwords.has(token) && normalizedTestPath.includes(token));
   if (sharedPathTokens.length > 0) {
     score += Math.min(sharedPathTokens.length * 4, 16);
@@ -328,6 +334,15 @@ function mayUseRelatedFixture(text: string, normalizedText: string, sourceStem: 
     return false;
   }
   return fixtureNameCandidates(sourceStem, symbol).some((candidate) => normalizedText.includes(candidate));
+}
+
+function taskTermsInPath(terms: string[], normalizedTestPath: string): string[] {
+  return uniqueValues(
+    terms
+      .map(normalize)
+      .flatMap((term) => term.split(/\s+/))
+      .filter((term) => term.length >= 4 && !layoutStopwords.has(term) && normalizedTestPath.includes(term))
+  );
 }
 
 function firstUsefulLine(

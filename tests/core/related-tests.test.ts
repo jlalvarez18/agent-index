@@ -186,6 +186,56 @@ def test_history_behavior():
     expect(result.candidateFilesScored).toBeGreaterThan(1);
   });
 
+  test("merges related tests across multiple plausible source files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-multi-source-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "reporting.py"),
+      `def format_report_section(phase):
+    return f"Captured stdout during {phase}"
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "capture.py"),
+      `def route_captured_output(phase):
+    return f"captured stdout stderr {phase}"
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_reporting.py"),
+      `from pkg.reporting import format_report_section
+
+def test_report_section_label():
+    assert format_report_section("setup")
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_capture.py"),
+      `from pkg.capture import route_captured_output
+
+def test_captured_stdout_stderr_setup_call_teardown():
+    for phase in ["setup", "call", "teardown"]:
+        assert route_captured_output(phase)
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/reporting.py",
+      sourceFiles: ["pkg/reporting.py", "pkg/capture.py"],
+      terms: ["captured", "stdout", "stderr", "setup", "call", "teardown", "report", "section"],
+      limit: 1
+    });
+
+    expect(result.sourceFile).toBe("pkg/reporting.py");
+    expect(result.sourceFiles).toEqual(["pkg/reporting.py", "pkg/capture.py"]);
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_capture.py"
+    });
+  });
+
   test("uses task terms to disambiguate tests that import the same source module", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-task-terms-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

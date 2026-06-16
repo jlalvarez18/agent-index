@@ -6,6 +6,7 @@ export interface RelatedTestsOptions {
   target: string;
   indexPath?: string;
   sourceFile: string;
+  sourceFiles?: string[];
   symbol?: string;
   terms?: string[];
   limit?: number;
@@ -25,6 +26,11 @@ interface TestFileRowsResult {
 }
 
 export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResult {
+  const sourceFiles = uniqueValues((options.sourceFiles && options.sourceFiles.length > 0 ? options.sourceFiles : [options.sourceFile]).map(normalizeSourceFile));
+  if (sourceFiles.length > 1) {
+    return findRelatedTestsForSources(options, sourceFiles);
+  }
+
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
   try {
@@ -37,6 +43,7 @@ export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResu
     }
     return {
       sourceFile: normalizeSourceFile(options.sourceFile),
+      sourceFiles: options.sourceFiles ? sourceFiles : undefined,
       symbol: options.symbol,
       candidateFilesScored: rows.length,
       matches: matches.slice(0, options.limit ?? 5)
@@ -44,6 +51,34 @@ export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResu
   } finally {
     db.close();
   }
+}
+
+function findRelatedTestsForSources(options: RelatedTestsOptions, sourceFiles: string[]): RelatedTestsResult {
+  const results = sourceFiles.map((sourceFile) =>
+    findRelatedTests({
+      ...options,
+      sourceFile,
+      sourceFiles: undefined,
+      symbol: undefined
+    })
+  );
+  const bestByFile = new Map<string, RelatedTestMatch>();
+  for (const result of results) {
+    for (const match of result.matches) {
+      const existing = bestByFile.get(match.file);
+      if (!existing || match.score > existing.score) {
+        bestByFile.set(match.file, match);
+      }
+    }
+  }
+
+  return {
+    sourceFile: normalizeSourceFile(options.sourceFile),
+    sourceFiles,
+    symbol: options.symbol,
+    candidateFilesScored: results.reduce((sum, result) => sum + result.candidateFilesScored, 0),
+    matches: [...bestByFile.values()].sort((a, b) => b.score - a.score || a.file.localeCompare(b.file)).slice(0, options.limit ?? 5)
+  };
 }
 
 function scoreTestRows(rows: TestFileRow[], options: RelatedTestsOptions): RelatedTestMatch[] {

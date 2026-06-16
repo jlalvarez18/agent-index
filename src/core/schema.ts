@@ -484,6 +484,7 @@ export interface RelatedTestMatch {
 
 export interface RelatedTestsResult {
   sourceFile: string;
+  sourceFiles?: string[];
   symbol?: string;
   candidateFilesScored: number;
   matches: RelatedTestMatch[];

@@ -466,6 +466,55 @@ describe("runCli", () => {
     expect(json.matches[0]).toMatchObject({ file: "tests/test_cache.py" });
   });
 
+  test("supports related test discovery from multiple source candidates", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-cli-related-tests-multi-source-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "reporting.py"), "def format_report_section(phase):\n    return phase\n");
+    await writeFile(path.join(root, "pkg", "capture.py"), "def route_captured_output(phase):\n    return phase\n");
+    await writeFile(
+      path.join(root, "tests", "test_reporting.py"),
+      `from pkg.reporting import format_report_section
+
+def test_report_section_label():
+    assert format_report_section("setup")
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_capture.py"),
+      `from pkg.capture import route_captured_output
+
+def test_captured_stdout_stderr_setup_call_teardown():
+    for phase in ["setup", "call", "teardown"]:
+        assert route_captured_output(phase)
+`
+    );
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(
+      [
+        "related-tests",
+        "--target",
+        root,
+        "--source",
+        "pkg/reporting.py",
+        "--source",
+        "pkg/capture.py",
+        "--term",
+        "captured,stdout,stderr,setup,call,teardown,report,section",
+        "--limit",
+        "1",
+        "--json"
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    const json = JSON.parse(output[1]);
+    expect(json.sourceFiles).toEqual(["pkg/reporting.py", "pkg/capture.py"]);
+    expect(json.matches[0]).toMatchObject({ file: "tests/test_capture.py" });
+  });
+
   test("supports structured agent query JSON through the public query command", async () => {
     const { root } = await fixtureProject();
     const output: string[] = [];

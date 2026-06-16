@@ -14,8 +14,7 @@ import type {
   NavigationRgOptimizedStep,
   QueryMatch,
   QueryMode,
-  RelatedTestMatch,
-  RelatedTestsResult
+  RelatedTestMatch
 } from "./schema.js";
 import { findFileClusters } from "./file-clusters.js";
 import { queryAgentIndex } from "./query.js";
@@ -244,21 +243,17 @@ async function runAgentStep(
 
   const sourceFiles = resolveRelatedTestsSources(step, previousSteps);
   const symbol = step.symbol ?? (sourceFiles.length === 1 ? resolveRelatedTestsSymbol(previousSteps) : undefined);
-  const result = mergeRelatedTestMatches(
-    sourceFiles.map((sourceFile) =>
-      findRelatedTests({
-        target: options.target,
-        indexPath: options.indexPath,
-        sourceFile,
-        symbol,
-        terms: step.terms,
-        limit: step.limit ?? 5
-      })
-    ),
-    step.limit ?? 5
-  );
-  const context = formatCompactRelatedTests(result);
-  const useful = usefulRelatedTest(result, navigationCase);
+  const result = findRelatedTests({
+    target: options.target,
+    indexPath: options.indexPath,
+    sourceFile: sourceFiles[0],
+    sourceFiles,
+    symbol,
+    terms: step.terms,
+    limit: step.limit ?? 5
+  });
+  const context = formatCompactRelatedTests(result.matches);
+  const useful = usefulRelatedTest(result.matches, navigationCase);
   return {
     type: "related-tests",
     command: formatRelatedTestsCommand(step),
@@ -267,10 +262,10 @@ async function runAgentStep(
     contextTokens: approximateTokens(context.length),
     usefulRank: useful?.rank ?? null,
     usefulFile: useful?.file ?? null,
-    foundFiles: matchingRelatedTestFiles(result, navigationCase),
-    foundSymbols: matchingRelatedTestSymbols(result, navigationCase),
-    outputFiles: uniqueValues(result.map((match) => match.file)),
-    outputSymbols: compactOutputValues(result.flatMap((match) => match.symbols))
+    foundFiles: matchingRelatedTestFiles(result.matches, navigationCase),
+    foundSymbols: matchingRelatedTestSymbols(result.matches, navigationCase),
+    outputFiles: uniqueValues(result.matches.map((match) => match.file)),
+    outputSymbols: compactOutputValues(result.matches.flatMap((match) => match.symbols))
   };
 }
 
@@ -288,19 +283,6 @@ function resolveRelatedTestsSources(
     throw new Error("related-tests step needs sourceFile or a previous step with at least one output file");
   }
   return sourceFiles;
-}
-
-function mergeRelatedTestMatches(results: RelatedTestsResult[], limit: number): RelatedTestMatch[] {
-  const bestByFile = new Map<string, RelatedTestMatch>();
-  for (const result of results) {
-    for (const match of result.matches) {
-      const existing = bestByFile.get(match.file);
-      if (!existing || match.score > existing.score) {
-        bestByFile.set(match.file, match);
-      }
-    }
-  }
-  return [...bestByFile.values()].sort((a, b) => b.score - a.score || a.file.localeCompare(b.file)).slice(0, limit);
 }
 
 function resolveRelatedTestsSymbol(previousSteps: NavigationEvalStepResult[]): string | undefined {

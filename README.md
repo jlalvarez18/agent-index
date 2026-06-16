@@ -327,12 +327,13 @@ After finding a likely source file, agents can ask for related tests without han
 npm run agent-index -- related-tests \
   --target /path/to/repo \
   --source pkg/cache.py \
+  --source pkg/cache_backend.py \
   --symbol load_value \
   --term cache \
   --term stale
 ```
 
-`related-tests` uses path, symbol, import, call-name, and optional task-term evidence to keep source-to-test navigation compact. Add `--term` values when many tests import the same source module and the agent needs behavior-specific tests. In navigation fixtures, prefer `sourceFromStep` when a prior `file-clusters` or `query` step already found the source file.
+`related-tests` uses path, symbol, import, call-name, and optional task-term evidence to keep source-to-test navigation compact. Add `--term` values when many tests import the same source module and the agent needs behavior-specific tests. Repeat or comma-separate `--source` when a map step returns several plausible implementation files; the tool scores each source candidate and returns one capped test list. In navigation fixtures, prefer `sourceFromStep` when a prior `file-clusters` or `query` step already found likely source files.
 
 Available benchmark modes:
 

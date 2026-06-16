@@ -358,7 +358,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
   program
     .command("related-tests")
     .requiredOption("--target <target>", "target repository or directory")
-    .requiredOption("--source <file>", "source file path relative to the target repository")
+    .requiredOption("--source <file>", "source file path relative to the target repository; repeat or comma-separate", collectOption, [])
     .option("--symbol <symbol>", "source symbol name or qualified name")
     .option("--term <term>", "task term for test disambiguation; repeat or comma-separate", collectOption, [])
     .option("--index-path <path>", "SQLite index path")
@@ -367,17 +367,22 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .action(
       (options: {
         target: string;
-        source: string;
+        source: string[];
         symbol?: string;
         term?: string[];
         indexPath?: string;
         limit: string;
         json?: boolean;
       }) => {
+        const sourceFiles = splitOptionValues(options.source);
+        if (sourceFiles.length === 0) {
+          throw new Error("Missing --source. Provide at least one source file path relative to the target repository.");
+        }
         const result = findRelatedTests({
           target: options.target,
           indexPath: options.indexPath,
-          sourceFile: options.source,
+          sourceFile: sourceFiles[0],
+          sourceFiles,
           symbol: options.symbol,
           terms: splitOptionValues(options.term),
           limit: Number.parseInt(options.limit, 10)

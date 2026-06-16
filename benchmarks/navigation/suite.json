@@ -58,5 +58,11 @@
     "evalPath": "django-streaming-response.json",
     "target": "django",
     "mode": "hybrid"
+  },
+  {
+    "name": "poetry",
+    "evalPath": "poetry-lockfile-source-markers.json",
+    "target": "poetry",
+    "mode": "hybrid"
   }
 ]

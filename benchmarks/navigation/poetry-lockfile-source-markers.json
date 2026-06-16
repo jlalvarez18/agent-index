@@ -1,0 +1,101 @@
+[
+  {
+    "id": "poetry-lockfile-source-marker-install-operations",
+    "task": "Investigate why installing from a lock file can choose the wrong package entry when two lock entries have the same package name and version but differ by source repository and environment marker. Find where Poetry reads source and marker metadata from the lock file, filters package entries for the current environment, turns the result into install operations, and tests source-aware package selection without naming the internal lock-entry or transaction methods.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["lock file", "lock entries", "same version", "source", "repository", "environment marker", "install operations"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"],
+          "pathHints": ["installation", "packages", "puzzle"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["lock entry", "same version", "source", "marker", "platform", "install"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["lock", "entry", "same version", "source", "marker", "install"],
+      ["source", "marker", "platform", "version", "install"]
+    ],
+    "searchTerms": {
+      "seed": ["lock file", "lock entries", "same version", "source", "repository", "environment marker", "install operations"],
+      "forbiddenExact": [
+        "locked_packages",
+        "_get_locked_package",
+        "calculate_operations",
+        "test_installer_distinguishes_locked_packages_with_same_version_by_source",
+        "test_installer_distinguishes_locked_packages_with_local_version_by_source"
+      ]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["lock", "entry", "source", "marker", "install"],
+          "scope": "source",
+          "paths": ["src/poetry"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["lock", "source", "marker", "environment", "operations"],
+          "before": 12,
+          "after": 12,
+          "limit": 6
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["same version", "source", "marker", "platform", "install"],
+          "scope": "test",
+          "paths": ["tests"],
+          "globs": ["test_*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["source", "marker", "platform", "version", "install"],
+          "before": 10,
+          "after": 14,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "src/poetry/installation/installer.py",
+        "src/poetry/packages/locker.py",
+        "src/poetry/puzzle/transaction.py",
+        "tests/installation/test_installer.py"
+      ],
+      "symbols": [
+        "Installer._do_install",
+        "Locker.locked_repository",
+        "Locker.locked_packages",
+        "Locker._get_locked_package",
+        "Transaction.calculate_operations",
+        "test_installer_distinguishes_locked_packages_with_same_version_by_source",
+        "test_installer_distinguishes_locked_packages_with_local_version_by_source"
+      ],
+      "requiredFiles": [
+        "src/poetry/installation/installer.py",
+        "src/poetry/packages/locker.py",
+        "src/poetry/puzzle/transaction.py",
+        "tests/installation/test_installer.py"
+      ],
+      "requiredSymbols": ["Installer._do_install", "Transaction.calculate_operations"]
+    }
+  }
+]

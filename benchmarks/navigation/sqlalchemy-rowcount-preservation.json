@@ -1,0 +1,91 @@
+[
+  {
+    "id": "sqlalchemy-rowcount-preservation-behavior-only",
+    "task": "Find where SQLAlchemy decides when to memoize DBAPI cursor row counts before the cursor is closed, so SELECT and INSERT avoid rowcount access by default but preserve-rowcount execution opts force preservation for all statement types. Include the tests that count cursor rowcount access across INSERT, SELECT, UPDATE, and DELETE, without naming the internal rowcount helpers.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["cursor", "row count", "preserve", "memoize", "closed", "select", "insert", "update", "delete", "execution option"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"],
+          "pathHints": ["lib/sqlalchemy/engine"],
+          "pathMode": "filter"
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["cursor", "rowcount", "preserve", "select", "insert", "update", "delete"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["cursor", "rowcount", "preserve", "memoize", "closed"],
+      ["rowcount", "select", "insert", "update", "delete", "cursor"]
+    ],
+    "searchTerms": {
+      "seed": ["cursor", "row count", "preserve", "memoize", "closed", "select", "insert", "update", "delete", "execution option"],
+      "forbiddenExact": ["_setup_result_proxy", "_setup_dml_or_text_result", "_has_rowcount", "preserve_rowcount"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["cursor", "rowcount", "preserve", "memoize", "closed"],
+          "scope": "source",
+          "paths": ["lib/sqlalchemy/engine"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["cursor", "rowcount", "preserve", "memoize", "closed"],
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["cursor", "rowcount", "select", "insert", "update", "delete"],
+          "scope": "test",
+          "paths": ["test/sql"],
+          "globs": ["test_*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["rowcount", "select", "insert", "update", "delete", "cursor"],
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": ["lib/sqlalchemy/engine/default.py", "lib/sqlalchemy/engine/cursor.py", "lib/sqlalchemy/engine/base.py", "test/sql/test_resultset.py"],
+      "symbols": [
+        "DefaultExecutionContext._has_rowcount",
+        "DefaultExecutionContext._setup_result_proxy",
+        "DefaultExecutionContext._setup_dml_or_text_result",
+        "Connection._exec_insertmany_context",
+        "CursorResultTest.test_no_rowcount_on_selects_inserts",
+        "CursorResultTest.test_rowcount_always_called_when_preserve_rowcount",
+        "CursorResultTest.cursor_wrapper"
+      ],
+      "requiredFiles": [
+        "lib/sqlalchemy/engine/default.py",
+        "lib/sqlalchemy/engine/cursor.py",
+        "lib/sqlalchemy/engine/base.py",
+        "test/sql/test_resultset.py"
+      ],
+      "requiredSymbols": ["DefaultExecutionContext._setup_result_proxy"]
+    }
+  }
+]

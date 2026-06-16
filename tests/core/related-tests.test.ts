@@ -309,6 +309,50 @@ def test_custom_route_class_response_model():
     expect(result.matches[0].why).toContain("test path matches task terms");
   });
 
+  test("uses dense task-term coverage to find behavior tests outside mirrored source paths", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-task-term-candidates-"));
+    await mkdir(path.join(root, "pkg", "engine"), { recursive: true });
+    await mkdir(path.join(root, "tests", "engine"), { recursive: true });
+    await mkdir(path.join(root, "tests", "sql"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "engine", "default.py"),
+      `def setup_result_proxy(cursor):
+    return cursor.rowcount
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "engine", "test_execute.py"),
+      `from pkg.engine import default
+
+def test_execute_cursor():
+    assert default.setup_result_proxy(object())
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "sql", "test_resultset.py"),
+      `def test_rowcount_always_called_when_preserved():
+    cursor = "cursor"
+    rowcount = "rowcount"
+    statements = ["select", "insert", "update", "delete"]
+    preserve = "preserve"
+    assert cursor and rowcount and statements and preserve
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/engine/default.py",
+      terms: ["cursor", "rowcount", "preserve", "select", "insert", "update", "delete"],
+      limit: 2
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/sql/test_resultset.py"
+    });
+    expect(result.matches[0].why).toContain("strong task-term coverage");
+  });
+
   test("matches imports for common src package layouts", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-src-layout-"));
     await mkdir(path.join(root, "src", "pkg"), { recursive: true });

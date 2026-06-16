@@ -30,6 +30,12 @@
     "mode": "hybrid"
   },
   {
+    "name": "sqlalchemy",
+    "evalPath": "sqlalchemy-rowcount-preservation.json",
+    "target": "sqlalchemy",
+    "mode": "hybrid"
+  },
+  {
     "name": "rich",
     "evalPath": "rich-print-json-file.json",
     "target": "rich",

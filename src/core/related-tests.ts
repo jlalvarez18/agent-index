@@ -198,6 +198,25 @@ function testCandidateSqlFilter(options: RelatedTestsOptions): { sql: string; pa
     );
   }
 
+  const candidateTerms = taskTermCandidateTokens(options.terms ?? []);
+  if (candidateTerms.length > 0) {
+    candidateTerms.forEach((term, index) => {
+      params[`candidateTerm${index}`] = `%${term}%`;
+    });
+    clauses.push(
+      `(${candidateTerms
+        .map(
+          (_, index) => `exists (
+        select 1
+        from chunks candidate_c
+        where candidate_c.file_id = files.id
+          and lower(candidate_c.text) like @candidateTerm${index}
+      )`
+        )
+        .join(" and ")})`
+    );
+  }
+
   if (symbolLeaf) {
     params.candidateCall = symbolLeaf;
     clauses.push(
@@ -290,8 +309,12 @@ function scoreTestFile(
 
   const matchedTerms = terms.map(normalize).filter((term) => term.length >= 2 && normalizedText.includes(term));
   if (matchedTerms.length > 0) {
-    score += Math.min(matchedTerms.length * 10, 40);
+    score += Math.min(matchedTerms.length * 12, 84);
     why.push("test body matches task terms");
+    if (matchedTerms.length >= 5) {
+      score += 24;
+      why.push("strong task-term coverage");
+    }
   }
 
   if (symbol) {
@@ -343,6 +366,16 @@ function taskTermsInPath(terms: string[], normalizedTestPath: string): string[] 
       .flatMap((term) => term.split(/\s+/))
       .filter((term) => term.length >= 4 && !layoutStopwords.has(term) && normalizedTestPath.includes(term))
   );
+}
+
+function taskTermCandidateTokens(terms: string[]): string[] {
+  const tokens = uniqueValues(
+    terms
+      .map(normalize)
+      .flatMap((term) => term.split(/\s+/))
+      .filter((term) => term.length >= 5 && !layoutStopwords.has(term))
+  );
+  return tokens.slice(0, Math.min(3, tokens.length));
 }
 
 function firstUsefulLine(

@@ -36,6 +36,17 @@ interface TestFileRowsResult {
   pruned: boolean;
 }
 
+interface TestFileAnalysis {
+  row: TestFileRow;
+  normalizedTestPath: string;
+  normalizedText: string;
+  importedModules: string[];
+  calledNames: string[];
+  fixtureArgs?: string[];
+  parametrizeBlocks?: string[];
+  normalizedParametrizeText?: string;
+}
+
 interface RelatedTestsInternalResult {
   result: RelatedTestsResult;
   candidateFiles: string[];
@@ -76,22 +87,25 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
   }));
   const candidatePathsBySource = sourceOptions.map((sourceOption) => queryCandidateTestPaths(db, sourceOption));
   const allTestPaths = candidatePathsBySource.some((paths) => paths.length === 0) ? queryAllTestPaths(db) : [];
-  const rowCache = rowsByPath(
+  const analysisCache = analysesByPath(
     queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))))
   );
 
   return sourceOptions.map((sourceOption, index) => {
     const candidatePaths = candidatePathsBySource[index].length > 0 ? candidatePathsBySource[index] : allTestPaths;
-    let rows = candidatePaths.map((candidatePath) => rowCache.get(candidatePath)).filter((row): row is TestFileRow => row !== undefined);
-    let matches = scoreTestRows(rows, sourceOption);
+    let analyses = candidatePaths.map((candidatePath) => analysisCache.get(candidatePath)).filter((analysis): analysis is TestFileAnalysis => analysis !== undefined);
+    let matches = scoreTestAnalyses(analyses, sourceOption);
     if (candidatePathsBySource[index].length > 0 && matches.length < (sourceOption.limit ?? 5)) {
-      rows = allTestPaths.length > 0 ? allTestPaths.map((testPath) => rowCache.get(testPath)).filter((row): row is TestFileRow => row !== undefined) : queryAllTestRows(db);
-      matches = scoreTestRows(rows, sourceOption);
+      analyses =
+        allTestPaths.length > 0
+          ? allTestPaths.map((testPath) => analysisCache.get(testPath)).filter((analysis): analysis is TestFileAnalysis => analysis !== undefined)
+          : queryAllTestRows(db).map(analyzeTestFile);
+      matches = scoreTestAnalyses(analyses, sourceOption);
     }
     return {
       sourceFile: normalizeSourceFile(sourceOption.sourceFile),
       symbol: sourceOption.symbol,
-      candidateFilesScored: rows.length,
+      candidateFilesScored: analyses.length,
       matches: matches.slice(0, sourceOption.limit ?? 5)
     };
   });
@@ -146,8 +160,8 @@ function queryAllTestPaths(db: Database.Database): string[] {
   return rows.map((row) => row.path);
 }
 
-function rowsByPath(rows: TestFileRow[]): Map<string, TestFileRow> {
-  return new Map(rows.map((row) => [row.path, row]));
+function analysesByPath(rows: TestFileRow[]): Map<string, TestFileAnalysis> {
+  return new Map(rows.map((row) => [row.path, analyzeTestFile(row)]));
 }
 
 function findRelatedTestsForSources(db: Database.Database, options: RelatedTestsOptions, sourceFiles: string[]): RelatedTestsResult {
@@ -179,10 +193,31 @@ function findRelatedTestsForSources(db: Database.Database, options: RelatedTests
 }
 
 function scoreTestRows(rows: TestFileRow[], options: RelatedTestsOptions): RelatedTestMatch[] {
-  return rows
-    .map((row) => scoreTestFile(row, options.sourceFile, options.symbol, options.terms ?? []))
+  return scoreTestAnalyses(rows.map(analyzeTestFile), options);
+}
+
+function scoreTestAnalyses(analyses: TestFileAnalysis[], options: RelatedTestsOptions): RelatedTestMatch[] {
+  return analyses
+    .map((analysis) => scoreTestFile(analysis, options.sourceFile, options.symbol, options.terms ?? []))
     .filter((match): match is RelatedTestMatch => match !== undefined)
     .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
+}
+
+function analyzeTestFile(row: TestFileRow): TestFileAnalysis {
+  const parametrizeBlocks = row.text.includes("parametrize") ? testParametrizeBlocks(row.text) : undefined;
+  return {
+    row,
+    normalizedTestPath: normalize(row.path),
+    normalizedText: normalize(row.text),
+    importedModules: uniqueValues([
+      ...splitCsv(row.imported_modules).map(normalizeDottedName),
+      ...(row.text.includes("use ") ? rustImportedModules(row.text) : [])
+    ]),
+    calledNames: uniqueValues([...splitCsv(row.called_names).map(normalize), ...calledNamesFromText(row.text)]),
+    fixtureArgs: row.text.includes("def test") ? testFixtureArgs(row.text) : undefined,
+    parametrizeBlocks,
+    normalizedParametrizeText: parametrizeBlocks ? normalize(parametrizeBlocks.join("\n")) : undefined
+  };
 }
 
 function queryTestRows(db: Database.Database, options: RelatedTestsOptions): TestFileRowsResult {
@@ -374,39 +409,31 @@ function testCandidateSqlFilter(options: RelatedTestsOptions): { sql: string; pa
 }
 
 function scoreTestFile(
-  row: TestFileRow,
+  analysis: TestFileAnalysis,
   sourceFile: string,
   symbol: string | undefined,
   terms: string[]
 ): RelatedTestMatch | undefined {
+  const row = analysis.row;
   const normalizedSource = normalizeSourceFile(sourceFile);
   const sourceStem = fileStem(normalizedSource);
   const sourceModules = moduleNamesForSource(normalizedSource);
   const sourceTokens = pathTokens(normalizedSource);
-  const normalizedTestPath = normalize(row.path);
-  const normalizedText = normalize(row.text);
-  let fixtureArgs: string[] | undefined;
-  let parametrizeBlocks: string[] | undefined;
-  const importedModules = uniqueValues([
-    ...splitCsv(row.imported_modules).map(normalizeDottedName),
-    ...(row.text.includes("use ") ? rustImportedModules(row.text) : [])
-  ]);
-  const calledNames = symbol ? uniqueValues([...splitCsv(row.called_names).map(normalize), ...calledNamesFromText(row.text)]) : [];
   const why: string[] = [];
   let score = 0;
 
-  if (normalizedTestPath.includes(sourceStem)) {
+  if (analysis.normalizedTestPath.includes(sourceStem)) {
     score += 20;
     why.push("test path includes source stem");
   }
 
-  const pathTermMatches = taskTermsInPath(terms, normalizedTestPath);
+  const pathTermMatches = taskTermsInPath(terms, analysis.normalizedTestPath);
   if (pathTermMatches.length > 0) {
     score += Math.min(pathTermMatches.length * 8, 32);
     why.push("test path matches task terms");
   }
 
-  const sharedPathTokens = sourceTokens.filter((token) => token.length >= 3 && !layoutStopwords.has(token) && normalizedTestPath.includes(token));
+  const sharedPathTokens = sourceTokens.filter((token) => token.length >= 3 && !layoutStopwords.has(token) && analysis.normalizedTestPath.includes(token));
   if (sharedPathTokens.length > 0) {
     score += Math.min(sharedPathTokens.length * 4, 16);
     why.push("test path shares source path tokens");
@@ -418,22 +445,20 @@ function scoreTestFile(
     why.push("test path mirrors source package layout");
   }
 
-  if (importsSourceModule(importedModules, sourceModules, sourceStem, normalizedText)) {
+  if (importsSourceModule(analysis.importedModules, sourceModules, sourceStem, analysis.normalizedText)) {
     score += 30;
     why.push("test imports source module");
   }
 
-  if (mayUseRelatedFixture(row.text, normalizedText, sourceStem, symbol)) {
-    fixtureArgs = testFixtureArgs(row.text);
-  }
+  const fixtureArgs = mayUseRelatedFixture(row.text, analysis.normalizedText, sourceStem, symbol) ? analysis.fixtureArgs : undefined;
   if (fixtureArgs && usesRelatedFixture(fixtureArgs, sourceStem, symbol)) {
     score += 18;
     why.push("test uses related fixture");
   }
 
-  if (row.text.includes("parametrize")) {
-    parametrizeBlocks = testParametrizeBlocks(row.text);
-    const normalizedParametrizeText = normalize(parametrizeBlocks.join("\n"));
+  const parametrizeBlocks = analysis.parametrizeBlocks;
+  if (parametrizeBlocks) {
+    const normalizedParametrizeText = analysis.normalizedParametrizeText ?? "";
     const parametrizeTermMatches = terms.map(normalize).filter((term) => term.length >= 2 && normalizedParametrizeText.includes(term));
     if (parametrizeTermMatches.length > 0) {
       score += Math.min(parametrizeTermMatches.length * 12, 36);
@@ -446,7 +471,7 @@ function scoreTestFile(
     }
   }
 
-  const matchedTerms = terms.map(normalize).filter((term) => term.length >= 2 && normalizedText.includes(term));
+  const matchedTerms = terms.map(normalize).filter((term) => term.length >= 2 && analysis.normalizedText.includes(term));
   if (matchedTerms.length > 0) {
     score += Math.min(matchedTerms.length * 12, 84);
     why.push("test body matches task terms");
@@ -459,15 +484,15 @@ function scoreTestFile(
   if (symbol) {
     const normalizedSymbol = normalize(symbol);
     const symbolLeaf = normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol);
-    if (normalizedText.includes(normalizedSymbol) || normalizedText.includes(symbolLeaf)) {
+    if (analysis.normalizedText.includes(normalizedSymbol) || analysis.normalizedText.includes(symbolLeaf)) {
       score += 24;
       why.push("test body mentions source symbol");
     }
-    if (calledNames.includes(symbolLeaf)) {
+    if (analysis.calledNames.includes(symbolLeaf)) {
       score += 28;
       why.push("test calls source symbol");
     }
-    if (normalizedTestPath.includes(symbolLeaf)) {
+    if (analysis.normalizedTestPath.includes(symbolLeaf)) {
       score += 12;
       why.push("test path includes symbol name");
     }

@@ -253,6 +253,41 @@ def test_endpoint_response_model_schema_${index}():
     expect(result.matches[0].why).toContain("test path includes symbol name");
   });
 
+  test("hydrates highest-evidence candidate tests before broad task-term candidates", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-ranked-candidate-page-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests", "noise"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "response.py"), "def close_streaming_response(iterator):\n    return iterator\n");
+    await writeFile(
+      path.join(root, "tests", "test_httpwrappers.py"),
+      `def test_streaming_response_cleanup_iterator_resources():
+    assert "streaming async cleanup iterator resources streaming cleanup"
+`
+    );
+    for (let index = 0; index < 40; index += 1) {
+      await writeFile(
+        path.join(root, "tests", "noise", `test_async_cleanup_${index}.py`),
+        `def test_async_cleanup_${index}():
+    assert "streaming async cleanup"
+`
+      );
+    }
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "pkg/response.py",
+      symbol: "close_streaming_response",
+      terms: ["streaming", "async", "cleanup", "iterator", "resources"],
+      limit: 1
+    });
+
+    expect(result.candidateFilesScored).toBeLessThan(20);
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_httpwrappers.py"
+    });
+  });
+
   test("prunes unrelated test files before scoring full text", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-pruned-candidates-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

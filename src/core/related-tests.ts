@@ -143,36 +143,47 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
 }
 
 function queryCandidateTestPaths(db: Database.Database, options: RelatedTestsOptions): string[] {
+  const rankTerms = (options.limit ?? 5) <= 1 ? testTextFilterTerms(options.terms ?? []) : [];
   const symbolPathRows = options.preferSymbolPathCandidates ? querySymbolPathCandidateRows(db, options) : [];
   if (options.preferSymbolPathCandidates && usesTaskTermCandidates(options) && symbolPathRows.length >= Math.min(options.limit ?? 5, 3)) {
     return symbolPathRows.map((row) => row.path);
   }
 
-  if (options.preferSymbolPathCandidates) {
+  if (shouldPageCandidateHydration(options)) {
     const highSignalCandidateQuery = testCandidateSqlQuery(options, "none");
     const highSignalRows = queryCandidateTestPathRows(db, highSignalCandidateQuery);
+    if (highSignalRows.length >= (options.limit ?? 5)) {
+      return highSignalRows.map((row) => row.path);
+    }
+  }
+
+  if (options.preferSymbolPathCandidates) {
+    const highSignalCandidateQuery = testCandidateSqlQuery(options, "none");
+    const highSignalRows = queryCandidateTestPathRows(db, highSignalCandidateQuery, rankTerms);
     if (usesTaskTermCandidates(options) && highSignalRows.length >= Math.min(options.limit ?? 5, 3)) {
       return highSignalRows.map((row) => row.path);
     }
   }
 
   const fastCandidateQuery = testCandidateSqlQuery(options, "fts");
-  const fastRows = queryCandidateTestPathRows(db, fastCandidateQuery);
+  const fastRows = queryCandidateTestPathRows(db, fastCandidateQuery, rankTerms);
   const minimumCandidates = options.limit ?? 5;
   if (!usesTaskTermCandidates(options) || fastRows.length >= minimumCandidates) {
     return fastRows.map((row) => row.path);
   }
 
   const fallbackCandidateQuery = testCandidateSqlQuery(options, "fallback");
-  const fallbackRows = queryCandidateTestPathRows(db, fallbackCandidateQuery);
+  const fallbackRows = queryCandidateTestPathRows(db, fallbackCandidateQuery, rankTerms);
   return fallbackRows.map((row) => row.path);
 }
 
 function queryCandidateTestPathRows(
   db: Database.Database,
-  candidateQuery: { sql: string; params: Record<string, unknown> }
+  candidateQuery: { sql: string; params: Record<string, unknown> },
+  rankTerms: string[] = []
 ): Array<{ path: string }> {
-  return db.prepare(candidatePathSql(candidateQuery.sql)).all(candidateQuery.params) as Array<{ path: string }>;
+  const rankParams = Object.fromEntries(rankTerms.map((term, index) => [`candidateRankTerm${index}`, `%${term}%`]));
+  return db.prepare(candidatePathSql(candidateQuery.sql, rankTerms.length)).all({ ...candidateQuery.params, ...rankParams }) as Array<{ path: string }>;
 }
 
 function querySymbolPathCandidateRows(db: Database.Database, options: RelatedTestsOptions): Array<{ path: string }> {
@@ -193,8 +204,10 @@ function querySymbolPathCandidateRows(db: Database.Database, options: RelatedTes
     .all({ symbolPath: `%${symbolLeaf.split(/\s+/u).join("%")}%` }) as Array<{ path: string }>;
 }
 
-function candidatePathSql(candidateQuerySql: string): string {
-  return `
+function candidatePathSql(candidateQuerySql: string, rankTermCount = 0): string {
+  const termScoreEnabled = rankTermCount > 0;
+  if (!termScoreEnabled) {
+    return `
         with candidate_files(file_id) as (
           ${candidateQuerySql}
         )
@@ -203,6 +216,32 @@ function candidatePathSql(candidateQuerySql: string): string {
         join candidate_files on candidate_files.file_id = files.id
         where role = 'test'
         order by path
+        `;
+  }
+
+  const rankScore =
+    Array.from(
+      { length: rankTermCount },
+      (_, index) => `max(case when lower(c.text) like @candidateRankTerm${index} then 1 else 0 end)`
+    ).join(" + ");
+  return `
+        with candidate_files(file_id) as (
+          ${candidateQuerySql}
+        ),
+        candidate_counts as (
+          select file_id, count(*) as candidate_score
+          from candidate_files
+          group by file_id
+        )
+        select path
+             , candidate_counts.candidate_score
+             , ${rankScore} as term_score
+        from files
+        join candidate_counts on candidate_counts.file_id = files.id
+        left join chunks c on c.file_id = files.id
+        where role = 'test'
+        group by files.id, path, candidate_counts.candidate_score
+        order by candidate_score desc, term_score desc, path
         `;
 }
 
@@ -310,12 +349,21 @@ function analyzeTestFile(row: TestFileRow): TestFileAnalysis {
 
 function queryTestRows(db: Database.Database, options: RelatedTestsOptions): TestFileRowsResult {
   const candidatePaths = queryCandidateTestPaths(db, options);
-  const rows = queryTestRowsByPaths(db, candidatePaths, options.terms);
+  const initialCandidatePaths = shouldPageCandidateHydration(options) ? candidatePaths.slice(0, candidateHydrationLimit(options)) : candidatePaths;
+  const rows = queryTestRowsByPaths(db, initialCandidatePaths, options.terms);
 
   if (rows.length > 0) {
     return { rows, pruned: true };
   }
   return { rows: queryAllTestRows(db), pruned: false };
+}
+
+function shouldPageCandidateHydration(options: RelatedTestsOptions): boolean {
+  return (options.limit ?? 5) <= 1;
+}
+
+function candidateHydrationLimit(options: RelatedTestsOptions): number {
+  return Math.max(8, (options.limit ?? 5) * 4);
 }
 
 function queryTestRowsByPaths(db: Database.Database, paths: string[], terms: string[] = []): TestFileRow[] {

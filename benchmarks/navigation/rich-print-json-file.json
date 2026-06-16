@@ -146,34 +146,44 @@
       ["json", "output", "stream", "file", "helper"],
       ["json", "file", "StringIO"]
     ],
-    "rgOptimizedSteps": [
-      {
-        "type": "files",
-        "terms": ["json", "output", "stream", "file", "helper"],
-        "paths": ["rich"],
-        "globs": ["*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["json", "output", "stream", "file", "helper"],
-        "fromStep": 1,
-        "limit": 5
-      },
-      {
-        "type": "files",
-        "terms": ["json", "file", "StringIO"],
-        "paths": ["tests"],
-        "globs": ["*test*.py"],
-        "limit": 25
-      },
-      {
-        "type": "snippets",
-        "terms": ["json", "file", "StringIO"],
-        "fromStep": 3,
-        "limit": 5
-      }
-    ],
+    "searchTerms": {
+      "seed": ["json", "output", "stream", "file", "helper"],
+      "forbiddenExact": ["print_json"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["json", "output", "stream", "file", "helper"],
+          "scope": "source",
+          "paths": ["rich"],
+          "globs": ["*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["json", "output", "stream", "file", "helper"],
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["json", "file", "stream", "output", "console", "rich", "StringIO"],
+          "scope": "test",
+          "paths": ["tests"],
+          "globs": ["*test*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["json", "file", "stream", "output"],
+          "limit": 5
+        }
+      ]
+    },
     "expected": {
       "files": ["rich/__init__.py", "rich/console.py", "rich/json.py", "tests/test_rich_print.py", "tests/test_console.py"],
       "symbols": ["print_json", "Console.print_json", "JSON.from_data", "test_rich_print_json", "test_print_json"],

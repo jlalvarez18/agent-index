@@ -12,6 +12,17 @@ export interface RelatedTestsOptions {
   limit?: number;
 }
 
+export interface RelatedTestsBatchOptions {
+  target: string;
+  indexPath?: string;
+  sources: Array<{
+    sourceFile: string;
+    symbol?: string;
+  }>;
+  terms?: string[];
+  limit?: number;
+}
+
 interface TestFileRow {
   path: string;
   text: string;
@@ -27,35 +38,57 @@ interface TestFileRowsResult {
 
 export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResult {
   const sourceFiles = uniqueValues((options.sourceFiles && options.sourceFiles.length > 0 ? options.sourceFiles : [options.sourceFile]).map(normalizeSourceFile));
-  if (sourceFiles.length > 1) {
-    return findRelatedTestsForSources(options, sourceFiles);
-  }
-
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
   try {
-    let { rows, pruned } = queryTestRows(db, options);
-    let matches = scoreTestRows(rows, options);
-    if (pruned && matches.length < (options.limit ?? 5)) {
-      rows = queryAllTestRows(db);
-      pruned = false;
-      matches = scoreTestRows(rows, options);
+    if (sourceFiles.length > 1) {
+      return findRelatedTestsForSources(db, options, sourceFiles);
     }
-    return {
-      sourceFile: normalizeSourceFile(options.sourceFile),
-      sourceFiles: options.sourceFiles ? sourceFiles : undefined,
-      symbol: options.symbol,
-      candidateFilesScored: rows.length,
-      matches: matches.slice(0, options.limit ?? 5)
-    };
+    return findRelatedTestsWithDb(db, options);
   } finally {
     db.close();
   }
 }
 
-function findRelatedTestsForSources(options: RelatedTestsOptions, sourceFiles: string[]): RelatedTestsResult {
+export function findRelatedTestsBatch(options: RelatedTestsBatchOptions): RelatedTestsResult[] {
+  const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    return options.sources.map((source) =>
+      findRelatedTestsWithDb(db, {
+        target: options.target,
+        indexPath: options.indexPath,
+        sourceFile: source.sourceFile,
+        symbol: source.symbol,
+        terms: options.terms,
+        limit: options.limit
+      })
+    );
+  } finally {
+    db.close();
+  }
+}
+
+function findRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptions): RelatedTestsResult {
+  let { rows, pruned } = queryTestRows(db, options);
+  let matches = scoreTestRows(rows, options);
+  if (pruned && matches.length < (options.limit ?? 5)) {
+    rows = queryAllTestRows(db);
+    pruned = false;
+    matches = scoreTestRows(rows, options);
+  }
+  return {
+    sourceFile: normalizeSourceFile(options.sourceFile),
+    sourceFiles: options.sourceFiles,
+    symbol: options.symbol,
+    candidateFilesScored: rows.length,
+    matches: matches.slice(0, options.limit ?? 5)
+  };
+}
+
+function findRelatedTestsForSources(db: Database.Database, options: RelatedTestsOptions, sourceFiles: string[]): RelatedTestsResult {
   const results = sourceFiles.map((sourceFile) =>
-    findRelatedTests({
+    findRelatedTestsWithDb(db, {
       ...options,
       sourceFile,
       sourceFiles: undefined,

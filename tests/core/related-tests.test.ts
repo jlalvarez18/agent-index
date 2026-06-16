@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { indexTarget } from "../../src/core/indexer.js";
-import { findRelatedTests } from "../../src/core/related-tests.js";
+import { findRelatedTests, findRelatedTestsBatch } from "../../src/core/related-tests.js";
 
 describe("findRelatedTests", () => {
   test("ranks tests by source path and symbol evidence", async () => {
@@ -72,6 +72,43 @@ def test_client_factory():
       firstLine: 1
     });
     expect(result.matches[0].why).toContain("test imports source module");
+  });
+
+  test("can batch related-test discovery for multiple source symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-batch-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "alpha.py"), "def alpha_workflow():\n    return 'alpha'\n");
+    await writeFile(path.join(root, "pkg", "bravo.py"), "def bravo_workflow():\n    return 'bravo'\n");
+    await writeFile(
+      path.join(root, "tests", "test_alpha.py"),
+      `from pkg.alpha import alpha_workflow
+
+def test_alpha_workflow():
+    assert alpha_workflow() == "alpha"
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_bravo.py"),
+      `from pkg.bravo import bravo_workflow
+
+def test_bravo_workflow():
+    assert bravo_workflow() == "bravo"
+`
+    );
+    await indexTarget(root);
+
+    const results = findRelatedTestsBatch({
+      target: root,
+      sources: [
+        { sourceFile: "pkg/alpha.py", symbol: "alpha_workflow" },
+        { sourceFile: "pkg/bravo.py", symbol: "bravo_workflow" }
+      ],
+      limit: 1
+    });
+
+    expect(results.map((result) => result.sourceFile)).toEqual(["pkg/alpha.py", "pkg/bravo.py"]);
+    expect(results.map((result) => result.matches[0].file)).toEqual(["tests/test_alpha.py", "tests/test_bravo.py"]);
   });
 
   test("prunes unrelated test files before scoring full text", async () => {

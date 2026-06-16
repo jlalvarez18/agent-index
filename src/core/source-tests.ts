@@ -1,6 +1,6 @@
 import type { AgentQuery, SourceTestBundle, SourceTestsResult } from "./schema.js";
 import { findFileClusters } from "./file-clusters.js";
-import { findRelatedTests } from "./related-tests.js";
+import { findRelatedTestsBatch } from "./related-tests.js";
 
 export interface SourceTestsOptions {
   target: string;
@@ -20,18 +20,18 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
   });
 
   const testFanoutLimit = Math.min(sourceResult.clusters.length, options.testFanoutLimit ?? 3);
+  const relatedResults = findRelatedTestsBatch({
+    target: options.target,
+    indexPath: options.indexPath,
+    sources: sourceResult.clusters.slice(0, testFanoutLimit).map((source) => ({
+      sourceFile: source.file,
+      symbol: source.symbols[0]?.name
+    })),
+    terms: agentQuery.terms,
+    limit: testLimit
+  });
   const bundles: SourceTestBundle[] = sourceResult.clusters.map((source, index) => {
-    const tests =
-      index < testFanoutLimit
-        ? findRelatedTests({
-            target: options.target,
-            indexPath: options.indexPath,
-            sourceFile: source.file,
-            symbol: source.symbols[0]?.name,
-            terms: agentQuery.terms,
-            limit: testLimit
-          }).matches
-        : [];
+    const tests = relatedResults[index]?.matches ?? [];
     const contextChars = formatBundleContextChars(source, tests);
     const topTest = tests[0];
     return {

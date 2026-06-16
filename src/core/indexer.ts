@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { stat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { extractCython } from "./extractors/cython.js";
+import { extractJson } from "./extractors/json.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRust } from "./extractors/rust.js";
 import { extractTypeScript } from "./extractors/typescript.js";
@@ -32,8 +33,11 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       if (file.language === "cython") {
         return extractCython(file);
       }
-      if (file.language === "typescript") {
+      if (file.language === "typescript" || file.language === "javascript") {
         return extractTypeScript(file);
+      }
+      if (file.language === "json") {
+        return extractJson(file);
       }
       return extractPython(file);
     });

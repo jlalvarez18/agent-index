@@ -173,10 +173,11 @@ impl ComputedFields {
     );
   });
 
-  test("indexes TypeScript and TSX files alongside Python files", async () => {
+  test("indexes TypeScript, TSX, and JavaScript family files alongside Python files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-typescript-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "src", "views"), { recursive: true });
+    await mkdir(path.join(root, "src", "lib"), { recursive: true });
     await writeFile(path.join(root, "pkg", "main.py"), "def dashboard():\n    return 'python api'\n");
     await writeFile(
       path.join(root, "src", "views", "DashboardScreen.tsx"),
@@ -188,6 +189,15 @@ export const DashboardScreen = () => {
 };
 `
     );
+    await writeFile(
+      path.join(root, "src", "lib", "client.mjs"),
+      `export const apiClient = {
+  async listPayments(params) {
+    return fetch("/payments", { params });
+  }
+};
+`
+    );
 
     const stats = await indexTarget(root);
     const db = new Database(stats.indexPath);
@@ -195,6 +205,9 @@ export const DashboardScreen = () => {
     const symbols = db
       .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
       .all("src/views/DashboardScreen.tsx");
+    const jsSymbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("src/lib/client.mjs");
     const edges = db
       .prepare("select target_name, kind from edges where source_symbol_id is not null order by target_name")
       .all();
@@ -202,6 +215,7 @@ export const DashboardScreen = () => {
 
     expect(files).toEqual([
       { path: "pkg/main.py", language: "python" },
+      { path: "src/lib/client.mjs", language: "javascript" },
       { path: "src/views/DashboardScreen.tsx", language: "typescript" }
     ]);
     expect(symbols).toEqual(
@@ -210,12 +224,50 @@ export const DashboardScreen = () => {
         { qualified_name: "DashboardScreen", kind: "function" }
       ])
     );
+    expect(jsSymbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "src/lib/client.mjs", kind: "module" },
+        { qualified_name: "apiClient", kind: "class" },
+        { qualified_name: "apiClient.listPayments", kind: "method" }
+      ])
+    );
     expect(edges).toEqual(
       expect.arrayContaining([
         { target_name: "@tauri-apps/api/core", kind: "symbol_imports_module" },
         { target_name: "invoke", kind: "symbol_calls_name" }
       ])
     );
+  });
+
+  test("indexes JSON config and diagnostic files as module chunks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-json-"));
+    await mkdir(path.join(root, "src", "compiler"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "compiler", "diagnosticMessages.json"),
+      `{
+  "Cannot_find_name_0": {
+    "code": 2304,
+    "key": "TS2304"
+  }
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const symbols = db.prepare("select qualified_name, kind from symbols order by id").all();
+    const fts = db.prepare("select symbol_name, file_path from chunk_fts").all();
+    db.close();
+
+    expect(files).toEqual([{ path: "src/compiler/diagnosticMessages.json", language: "json", role: "source" }]);
+    expect(symbols).toEqual([{ qualified_name: "src/compiler/diagnosticMessages.json", kind: "module" }]);
+    expect(fts).toEqual([
+      {
+        symbol_name: "src/compiler/diagnosticMessages.json",
+        file_path: "src/compiler/diagnosticMessages.json"
+      }
+    ]);
   });
 
   test("rejects a missing target before creating an index directory", async () => {

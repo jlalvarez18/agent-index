@@ -362,12 +362,13 @@ function scoreTestAnalyses(analyses: TestFileAnalysis[], options: RelatedTestsOp
 
 function analyzeTestFile(row: TestFileRow): TestFileAnalysis {
   const parametrizeBlocks = row.text.includes("parametrize") ? testParametrizeBlocks(row.text) : undefined;
+  const importedModules = splitCsv(row.imported_modules);
   return {
     row,
     normalizedTestPath: normalize(row.path),
     normalizedText: normalize(row.text),
     importedModules: uniqueValues([
-      ...splitCsv(row.imported_modules).map(normalizeDottedName),
+      ...importedModules.flatMap((importedModule) => importModuleVariants(row.path, importedModule)),
       ...(row.text.includes("use ") ? rustImportedModules(row.text) : [])
     ]),
     calledNames: uniqueValues([...splitCsv(row.called_names).map(normalize), ...calledNamesFromText(row.text)]),
@@ -979,12 +980,52 @@ function moduleNamesForSource(file: string): string[] {
   const withoutExtension = file.replace(/\.[^.]+$/u, "");
   const withoutInit = withoutExtension.endsWith("/__init__") ? withoutExtension.slice(0, -"/__init__".length) : withoutExtension;
   const pathVariants = [withoutInit];
+  if (withoutInit.endsWith("/index")) {
+    pathVariants.push(withoutInit.slice(0, -"/index".length));
+  }
   for (const sourceRoot of ["src", "lib"]) {
     if (withoutInit.startsWith(`${sourceRoot}/`)) {
       pathVariants.push(withoutInit.slice(sourceRoot.length + 1));
     }
   }
   return uniqueValues(pathVariants.map((variant) => normalizeDottedName(variant.replace(/\//gu, "."))));
+}
+
+function importModuleVariants(importerFile: string, importedModule: string): string[] {
+  const normalizedImport = importedModule.trim();
+  const variants = [normalizeDottedName(normalizedImport)];
+  if (/^\.{1,2}\//u.test(normalizedImport)) {
+    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(normalizeSourceFile(importerFile)), normalizedImport));
+    variants.push(...modulePathVariants(resolved));
+  } else {
+    variants.push(...modulePathVariants(normalizedImport));
+    variants.push(...aliasModulePathVariants(normalizedImport));
+  }
+  return uniqueValues(variants.filter(Boolean));
+}
+
+function aliasModulePathVariants(modulePath: string): string[] {
+  const aliasMatch = /^(?:@([^/]+)?|~|#)\/(.+)$/u.exec(modulePath);
+  if (!aliasMatch) {
+    return [];
+  }
+  const aliasPrefix = aliasMatch[1] ? `${aliasMatch[1]}/` : "";
+  const aliasedPath = `${aliasPrefix}${aliasMatch[2]}`;
+  return uniqueValues([...modulePathVariants(aliasedPath), ...modulePathVariants(`src/${aliasedPath}`)]);
+}
+
+function modulePathVariants(modulePath: string): string[] {
+  const withoutExtension = modulePath.replace(/\.(?:cjs|mjs|jsx?|tsx?)$/u, "");
+  const withoutIndex = withoutExtension.endsWith("/index") ? withoutExtension.slice(0, -"/index".length) : withoutExtension;
+  const variants = [withoutExtension, withoutIndex];
+  for (const sourceRoot of ["src", "lib"]) {
+    for (const variant of [withoutExtension, withoutIndex]) {
+      if (variant.startsWith(`${sourceRoot}/`)) {
+        variants.push(variant.slice(sourceRoot.length + 1));
+      }
+    }
+  }
+  return uniqueValues(variants.map((variant) => normalizeDottedName(variant.replace(/\//gu, "."))));
 }
 
 function importsSourceModule(

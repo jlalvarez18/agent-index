@@ -745,6 +745,141 @@ def test_client_factory():
     expect(result.matches[0].why).toContain("test imports source module");
   });
 
+  test("resolves JavaScript relative imports to source files for related-test ranking", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-js-relative-imports-"));
+    await mkdir(path.join(root, "src", "runtime"), { recursive: true });
+    await mkdir(path.join(root, "specs", "browser"), { recursive: true });
+    await mkdir(path.join(root, "specs", "noise"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "runtime", "client.ts"),
+      `export function createRuntimeClient(config) {
+  return { config };
+}
+`
+    );
+    await writeFile(
+      path.join(root, "specs", "browser", "http.spec.ts"),
+      `import { createRuntimeClient } from "../../src/runtime/client";
+
+describe("browser http behavior", () => {
+  it("creates a runtime client", () => {
+    expect(createRuntimeClient({ baseUrl: "/" }).config.baseUrl).toBe("/");
+  });
+});
+`
+    );
+    await writeFile(
+      path.join(root, "specs", "noise", "runtime.spec.ts"),
+      `describe("runtime words", () => {
+  it("mentions client config terms without importing the source", () => {
+    expect("runtime client config create").toBeTruthy();
+  });
+});
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/runtime/client.ts",
+      symbol: "createRuntimeClient",
+      terms: ["runtime", "client", "config"],
+      limit: 2
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "specs/browser/http.spec.ts"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol"])
+    );
+  });
+
+  test("resolves TypeScript index imports to source index modules", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-ts-index-imports-"));
+    await mkdir(path.join(root, "src", "features", "payments"), { recursive: true });
+    await mkdir(path.join(root, "tests", "integration"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "features", "payments", "index.ts"),
+      `export function createPaymentIntent(params) {
+  return params;
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "integration", "checkout.test.ts"),
+      `import { createPaymentIntent } from "../../src/features/payments";
+
+test("checkout creates payment intent", () => {
+  expect(createPaymentIntent({ amount: 100 }).amount).toBe(100);
+});
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/features/payments/index.ts",
+      symbol: "createPaymentIntent",
+      terms: ["checkout", "payment", "intent"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/integration/checkout.test.ts"
+    });
+    expect(result.matches[0].why).toContain("test imports source module");
+  });
+
+  test("resolves common TypeScript path aliases to source modules", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-ts-path-aliases-"));
+    await mkdir(path.join(root, "src", "client"), { recursive: true });
+    await mkdir(path.join(root, "src", "client", "__tests__"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "client", "api.ts"),
+      `export function createClient(options) {
+  return { options };
+}
+`
+    );
+    await writeFile(
+      path.join(root, "src", "client", "__tests__", "api.test.ts"),
+      `import { createClient } from "@/client/api";
+
+test.each([
+  ["/api"],
+  ["/rpc"]
+])("createClient forwards base url %s", (baseUrl) => {
+  expect(createClient({ baseUrl }).options.baseUrl).toBe(baseUrl);
+});
+`
+    );
+    await writeFile(
+      path.join(root, "src", "client", "__tests__", "noise.test.ts"),
+      `test("mentions create client words without alias import", () => {
+  expect("create client api base url").toBeTruthy();
+});
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/client/api.ts",
+      symbol: "createClient",
+      terms: ["createClient", "base url"],
+      limit: 2
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "src/client/__tests__/api.test.ts",
+      symbols: ["test_createClient_forwards_base_url_s"]
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol"])
+    );
+  });
+
   test("uses fixture arguments that match the source file stem", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-fixture-stem-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

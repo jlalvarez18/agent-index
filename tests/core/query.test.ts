@@ -145,6 +145,75 @@ def verify_signature(payload, signature):
     expect(result.matches[0]).toMatchObject({ symbol: "load_value", kind: "function" });
   });
 
+  test("hybrid mode surfaces typed generic TypeScript client and config symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-typescript-generics-"));
+    await mkdir(path.join(root, "src", "client"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "client", "api.ts"),
+      `export const createClient: ClientFactory = async <TRequest extends RequestOptions>(
+  request: TRequest
+): Promise<Client<TRequest>> => {
+  return buildClient(request);
+};
+
+export async function loadConfig<TOptions extends UserConfig>(options: TOptions): Promise<ResolvedConfig> {
+  return resolveConfig(options);
+}
+
+class ApiClient {
+  request<TResponse>(config: RequestConfig): Promise<TResponse> {
+    return dispatchRequest(config);
+  }
+}
+`
+    );
+    await indexTarget(root);
+
+    const clientResult = await queryAgentIndex(
+      {
+        terms: ["create", "client", "request", "factory"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["client", "api"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const configResult = await queryAgentIndex(
+      {
+        terms: ["load", "config", "resolve", "options"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["client", "api"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const requestResult = await queryAgentIndex(
+      {
+        terms: ["ApiClient", "request", "dispatch", "config"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["client", "api"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(clientResult.matches[0]).toMatchObject({
+      symbol: "createClient",
+      file: "src/client/api.ts"
+    });
+    expect(configResult.matches[0]).toMatchObject({
+      symbol: "loadConfig",
+      file: "src/client/api.ts"
+    });
+    expect(requestResult.matches[0]).toMatchObject({
+      symbol: "ApiClient.request",
+      file: "src/client/api.ts"
+    });
+  });
+
   test("uses path hints for file-path scoring without turning them into source-text intent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-path-hints-"));
     await mkdir(path.join(root, "pkg", "templates"), { recursive: true });

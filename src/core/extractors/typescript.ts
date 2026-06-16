@@ -3,7 +3,7 @@ import type { LanguageExtractor } from "./types.js";
 
 export const typeScriptExtractor: LanguageExtractor = {
   language: "typescript",
-  extensions: [".ts", ".tsx"],
+  extensions: [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
   extract: extractTypeScript
 };
 
@@ -26,7 +26,7 @@ export function extractTypeScript(file: SourceFile): ExtractionResult {
     startLine: 1,
     endLine: Math.max(lines.length, 1)
   };
-  const items = collectTypeScriptItems(lines, moduleName);
+  const items = collectTypeScriptItems(lines, moduleName, file.role === "test");
   const symbols: CodeSymbol[] = [
     moduleSymbol,
     ...items.map((item) => ({
@@ -56,15 +56,20 @@ export function extractTypeScript(file: SourceFile): ExtractionResult {
   return { file, symbols, chunks, edges };
 }
 
-function collectTypeScriptItems(lines: string[], moduleName: string): TypeScriptItem[] {
+function collectTypeScriptItems(lines: string[], moduleName: string, isTestFile: boolean): TypeScriptItem[] {
   const items: TypeScriptItem[] = [];
   const classStack: Array<{ name: string; depth: number }> = [];
+  const objectStack: Array<{ name: string; depth: number }> = [];
   let depth = 0;
 
   for (const [index, rawLine] of lines.entries()) {
     const line = stripLineComment(rawLine);
+    const signatureLine = signatureWindow(lines, index, line);
     while (classStack.length > 0 && depth < classStack[classStack.length - 1].depth) {
       classStack.pop();
+    }
+    while (objectStack.length > 0 && depth < objectStack[objectStack.length - 1].depth) {
+      objectStack.pop();
     }
 
     const className = classNameForLine(line);
@@ -82,16 +87,52 @@ function collectTypeScriptItems(lines: string[], moduleName: string): TypeScript
       }
     }
 
+    const objectName = objectNameForLine(line);
+    if (!className && objectName && line.includes("{")) {
+      items.push({
+        name: objectName,
+        qualifiedName: objectName,
+        kind: "class",
+        startLine: index + 1,
+        endLine: endLineForBlock(lines, index),
+        parentSymbolName: moduleName
+      });
+      objectStack.push({ name: objectName, depth: depth + braceDelta(line) });
+    }
+
     const owner = classStack[classStack.length - 1]?.name;
-    const functionName = owner ? methodNameForLine(line) : functionNameForLine(line);
+    const objectOwner = owner ? undefined : objectStack[objectStack.length - 1]?.name;
+    const prototypeAssignment = owner || objectOwner ? undefined : prototypeMethodForLine(signatureLine);
+    const functionName = owner
+      ? methodNameForLine(signatureLine)
+      : objectOwner
+        ? objectMethodNameForLine(signatureLine)
+        : prototypeAssignment?.methodName ?? functionNameForLine(signatureLine);
+    const testCaseName = functionName || owner || objectOwner || prototypeAssignment || !isTestFile ? undefined : testCaseNameForLine(signatureLine);
     if (functionName && !className) {
       items.push({
         name: functionName,
-        qualifiedName: owner ? `${owner}.${functionName}` : functionName,
-        kind: owner ? "method" : "function",
+        qualifiedName: owner
+          ? `${owner}.${functionName}`
+          : objectOwner
+            ? `${objectOwner}.${functionName}`
+            : prototypeAssignment
+              ? `${prototypeAssignment.owner}.${prototypeAssignment.methodName}`
+              : functionName,
+        kind: owner || objectOwner || prototypeAssignment ? "method" : "function",
         startLine: index + 1,
         endLine: endLineForBlock(lines, index),
-        parentSymbolName: owner ?? moduleName
+        parentSymbolName: owner ?? objectOwner ?? prototypeAssignment?.owner ?? moduleName
+      });
+    }
+    if (testCaseName && !className) {
+      items.push({
+        name: testCaseName,
+        qualifiedName: testCaseName,
+        kind: "function",
+        startLine: index + 1,
+        endLine: endLineForBlock(lines, index),
+        parentSymbolName: moduleName
       });
     }
 
@@ -106,15 +147,87 @@ function classNameForLine(line: string): string | undefined {
 }
 
 function functionNameForLine(line: string): string | undefined {
-  return (
-    /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/u.exec(line)?.[1] ??
-    /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s*)?(?:<[^>]+>\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*=>/u.exec(line)?.[1] ??
-    /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s+)?function\b/u.exec(line)?.[1]
-  );
+  return firstMatch([
+    /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:<[^>{}]+>)?\s*\(/u.exec(line)?.[1],
+    /^\s*export\s+default\s+(?:async\s+)?function\s*\(/u.test(line) ? "default" : undefined,
+    /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*(?::\s*[^=]+)?=\s*(?:async\s*)?(?:<[^>{}]+>\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*(?::\s*[^=]+)?=>/u.exec(line)?.[1],
+    /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*(?::\s*[^=]+)?=\s*(?:async\s+)?function\b/u.exec(line)?.[1],
+    /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:React\.)?(?:memo|forwardRef|useCallback|useMemo)\s*\(/u.exec(line)?.[1],
+    /^\s*export\s+const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*(?::\s*[^=]+)?=\s*(?:\/\*.*?\*\/\s*)*[A-Za-z_$][A-Za-z0-9_$]*\s*\(/u.exec(line)?.[1],
+    /^\s*export\s+default\s+(?:async\s*)?(?:<[^>{}]+>\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*(?::\s*[^=]+)?=>/u.test(line)
+      ? "default"
+      : undefined,
+    /^\s*export\s+default\s+(?:defineConfig|createConfig|withConfig|memo|forwardRef)\s*\(/u.test(line) ? "default" : undefined,
+    /^\s*(?:module\.)?exports\.([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s+)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][A-Za-z0-9_$]*\s*=>)/u.exec(line)?.[1],
+    /^\s*module\.exports\s*=\s*(?:async\s+)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][A-Za-z0-9_$]*\s*=>)/u.test(line)
+      ? "default"
+      : undefined
+  ]);
 }
 
 function methodNameForLine(line: string): string | undefined {
-  return /^\s*(?:public|private|protected|static|async|readonly|\s)*([A-Za-z_$][A-Za-z0-9_$]*)\s*\([^)]*\)\s*(?::\s*[^={]+)?[{;]/u.exec(line)?.[1];
+  return (
+    /^\s*(?:public|private|protected|static|async|readonly|override|abstract|accessor|get|set|\s)*([#A-Za-z_$][A-Za-z0-9_$]*)\s*(?:<[^>{}]+>)?\s*\([^)]*\)\s*(?::\s*[^={]+)?[{;]/u.exec(line)?.[1]?.replace(/^#/u, "") ??
+    /^\s*(?:public|private|protected|static|readonly|override|\s)*([#A-Za-z_$][A-Za-z0-9_$]*)\s*(?::\s*[^=]+)?=\s*(?:async\s*)?(?:<[^>{}]+>\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*(?::\s*[^=]+)?=>/u.exec(line)?.[1]?.replace(/^#/u, "")
+  );
+}
+
+function objectNameForLine(line: string): string | undefined {
+  return /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*\{/u.exec(line)?.[1];
+}
+
+function objectMethodNameForLine(line: string): string | undefined {
+  return (
+    /^\s*(?:async\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:<[^>{}]+>)?\s*\([^)]*\)\s*(?::\s*[^={]+)?\{/u.exec(line)?.[1] ??
+    /^\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*(?:async\s*)?(?:function\b|(?:<[^>{}]+>\s*)?\([^)]*\)\s*(?::\s*[^=]+)?=>|(?:<[^>{}]+>\s*)?[A-Za-z_$][A-Za-z0-9_$]*\s*(?::\s*[^=]+)?=>)/u.exec(line)?.[1]
+  );
+}
+
+function prototypeMethodForLine(line: string): { owner: string; methodName: string } | undefined {
+  const match = /^\s*([A-Za-z_$][A-Za-z0-9_$]*)\.prototype\.([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s+)?(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][A-Za-z0-9_$]*\s*=>)/u.exec(
+    line
+  );
+  return match ? { owner: match[1], methodName: match[2] } : undefined;
+}
+
+function testCaseNameForLine(line: string): string | undefined {
+  const match = /^\s*(?:test|it)(?:\.(?:only|skip|todo|concurrent|each\s*\([^)]*\)))?(?:\.(?:only|skip|todo|concurrent))?\s*\(\s*(["'`])([^"'`]+)\1/u.exec(
+    line
+  );
+  if (!match) {
+    return undefined;
+  }
+  const name = match[2]
+    .replace(/[^A-Za-z0-9]+/gu, "_")
+    .replace(/^_+|_+$/gu, "")
+    .replace(/_+/gu, "_");
+  return name ? `test_${name}` : undefined;
+}
+
+function firstMatch(values: Array<string | undefined>): string | undefined {
+  return values.find((value) => value !== undefined);
+}
+
+function signatureWindow(lines: string[], index: number, line: string): string {
+  if (!canStartTypeScriptItem(line)) {
+    return line;
+  }
+  return stripLineComment(lines.slice(index, index + 4).join(" "));
+}
+
+function canStartTypeScriptItem(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed === "}" || trimmed === "};" || trimmed.startsWith("return ")) {
+    return false;
+  }
+  return (
+    /^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\b/u.test(trimmed) ||
+    /^(?:export\s+)?(?:const|let|var)\b/u.test(trimmed) ||
+    /^(?:module\.)?exports(?:\.|\s*=)/u.test(trimmed) ||
+    /^(?:test|it)(?:\.(?:only|skip|todo|concurrent|each\b))?\s*\(/u.test(trimmed) ||
+    /^[A-Za-z_$#][A-Za-z0-9_$#]*(?:\s*[:=(<]|\s*$)/u.test(trimmed) ||
+    /^(?:public|private|protected|static|async|readonly|override|abstract|accessor|get|set)\b/u.test(trimmed)
+  );
 }
 
 function importEdges(moduleName: string, text: string): CodeEdge[] {
@@ -122,7 +235,13 @@ function importEdges(moduleName: string, text: string): CodeEdge[] {
   for (const match of text.matchAll(/\bimport\b(?:[^'"]*\bfrom\s*)?["']([^"']+)["']/gu)) {
     modules.add(match[1]);
   }
+  for (const match of text.matchAll(/\bexport\b[^'"]*\bfrom\s*["']([^"']+)["']/gu)) {
+    modules.add(match[1]);
+  }
   for (const match of text.matchAll(/\brequire\s*\(\s*["']([^"']+)["']\s*\)/gu)) {
+    modules.add(match[1]);
+  }
+  for (const match of text.matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu)) {
     modules.add(match[1]);
   }
   return [...modules].sort().map((targetName) => ({

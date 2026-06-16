@@ -135,4 +135,43 @@ def test_chain_group_continuation():
       file: "tests/test_canvas.py"
     });
   });
+
+  test("links colocated TypeScript test files without treating them as source candidates", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-colocated-ts-"));
+    await mkdir(path.join(root, "src", "client"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "client", "api.ts"),
+      `export function createClient(options) {
+  return { options };
+}
+`
+    );
+    await writeFile(
+      path.join(root, "src", "client", "api.test.ts"),
+      `import { createClient } from "./api";
+
+test("createClient forwards options", () => {
+  expect(createClient({ baseUrl: "/" }).options.baseUrl).toBe("/");
+});
+`
+    );
+    await indexTarget(root);
+
+    const result = findSourceTests(
+      {
+        terms: ["createClient", "client", "options"],
+        roles: ["source", "test"],
+        pathHints: ["src/client"]
+      },
+      { target: root, limit: 2, testLimit: 1, testFanoutLimit: 1 }
+    );
+
+    expect(result.bundles[0].source.file).toBe("src/client/api.ts");
+    expect(result.bundles.map((bundle) => bundle.source.file)).not.toContain("src/client/api.test.ts");
+    expect(result.bundles[0].tests[0]).toMatchObject({
+      file: "src/client/api.test.ts",
+      symbols: ["test_createClient_forwards_options"]
+    });
+    expect(result.bundles[0].tests[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
+  });
 });

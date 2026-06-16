@@ -1,4 +1,4 @@
-export type Language = "python" | "rust" | "cython" | "typescript";
+export type Language = "python" | "rust" | "cython" | "typescript" | "javascript" | "json";
 
 export type FileRole = "source" | "test" | "docs" | "example" | "fixture" | "tool" | "benchmark";
 
@@ -240,7 +240,15 @@ export interface AgentEvalResult {
   cases: AgentEvalCaseResult[];
 }
 
-export type NavigationTaskKind = "bugfix" | "feature" | "test-discovery" | "maintenance";
+export type NavigationTaskKind =
+  | "bugfix"
+  | "feature"
+  | "test-discovery"
+  | "maintenance"
+  | "component-navigation"
+  | "sdk-tracing"
+  | "config-build"
+  | "exact-string-audit";
 
 export type NavigationAgentStep =
   | {

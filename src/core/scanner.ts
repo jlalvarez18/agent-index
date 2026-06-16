@@ -21,6 +21,9 @@ const IGNORED_DIRS = new Set([
 const SUPPORT_CODE_DIRS = new Set([
   "tests",
   "test",
+  "__tests__",
+  "spec",
+  "specs",
   "_tests",
   "type_tests",
   "testing",
@@ -42,12 +45,14 @@ const SUPPORT_CODE_DIRS = new Set([
 
 const TOP_LEVEL_SUPPORT_CODE_DIRS = new Set(["t"]);
 
-const TEST_DIRS = new Set(["tests", "test", "_tests", "type_tests", "testing"]);
+const TEST_DIRS = new Set(["tests", "test", "__tests__", "spec", "specs", "_tests", "type_tests", "testing"]);
+const TEST_FILE_NAME_PATTERN = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
 const TOOL_DIRS = new Set(["tools", "_tools", "scripts", "worked"]);
 const BENCHMARK_DIRS = new Set(["benchmarks", "asv_benchmarks"]);
+const SUPPORT_ARTIFACT_JSON_FILES = new Set(["benchmark.json", "graphify-results.json", "navigation-eval.json", "suite.json"]);
 
 export interface ScanOptions {
   includeSupportCode?: boolean;
@@ -58,7 +63,25 @@ export async function scanPythonFiles(target: string, options: ScanOptions = {})
 }
 
 export async function scanCodeFiles(target: string, options: ScanOptions = {}): Promise<SourceFile[]> {
-  return scanFiles(target, options, [".py", ".rs", ".ts", ".tsx", ".pyx", ".pxd", ".pxi", ".pyx.tp", ".pxd.tp", ".pxi.tp"]);
+  return scanFiles(target, options, [
+    ".py",
+    ".rs",
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".json",
+    ".pyx",
+    ".pxd",
+    ".pxi",
+    ".pyx.tp",
+    ".pxd.tp",
+    ".pxi.tp"
+  ]);
 }
 
 async function scanFiles(target: string, options: ScanOptions, suffixes: string[]): Promise<SourceFile[]> {
@@ -93,12 +116,19 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
 
       const absolutePath = path.join(directory, entry.name);
       const relativePath = path.relative(root, absolutePath).split(path.sep).join("/");
+      if (isSupportArtifactFile(relativePath)) {
+        continue;
+      }
       const text = await readFile(absolutePath, "utf8");
+      const role = classifyFileRole(relativePath);
+      if (!includeSupportCode && role !== "source") {
+        continue;
+      }
       files.push({
         absolutePath,
         relativePath,
         language: languageForSuffix(suffix),
-        role: classifyFileRole(relativePath),
+        role,
         text
       });
     }
@@ -116,8 +146,14 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".rs") {
     return "rust";
   }
-  if (suffix === ".ts" || suffix === ".tsx") {
+  if (suffix === ".ts" || suffix === ".tsx" || suffix === ".mts" || suffix === ".cts") {
     return "typescript";
+  }
+  if (suffix === ".js" || suffix === ".jsx" || suffix === ".mjs" || suffix === ".cjs") {
+    return "javascript";
+  }
+  if (suffix === ".json") {
+    return "json";
   }
   if (suffix === ".pyx" || suffix === ".pxd" || suffix === ".pxi" || suffix === ".pyx.tp" || suffix === ".pxd.tp" || suffix === ".pxi.tp") {
     return "cython";
@@ -127,7 +163,7 @@ function languageForSuffix(suffix: string): Language {
 
 export function classifyFileRole(relativePath: string): FileRole {
   const segments = relativePath.split("/").filter(Boolean);
-  if (segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t"))) {
+  if (segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t")) || isJavaScriptTestFile(relativePath)) {
     return "test";
   }
   if (segments.some((segment) => DOCS_DIRS.has(segment))) {
@@ -146,4 +182,13 @@ export function classifyFileRole(relativePath: string): FileRole {
     return "benchmark";
   }
   return "source";
+}
+
+function isSupportArtifactFile(relativePath: string): boolean {
+  const basename = path.posix.basename(relativePath);
+  return SUPPORT_ARTIFACT_JSON_FILES.has(basename) || basename.endsWith("-benchmark.json");
+}
+
+function isJavaScriptTestFile(relativePath: string): boolean {
+  return TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
 }

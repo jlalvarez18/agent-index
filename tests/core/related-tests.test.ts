@@ -365,7 +365,45 @@ def test_pathweight():
     });
   });
 
-  test("falls back to all tests when pruned candidates do not score", async () => {
+  test("ignores generic source package directories when source stem identifies tests", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-generic-package-token-prune-"));
+    await mkdir(path.join(root, "networkx", "algorithms"), { recursive: true });
+    await mkdir(path.join(root, "networkx", "algorithms", "tests"), { recursive: true });
+    await mkdir(path.join(root, "networkx", "algorithms", "approximation", "tests"), { recursive: true });
+    await writeFile(path.join(root, "networkx", "algorithms", "cuts.py"), "def mixing_expansion(graph):\n    return graph\n");
+    await writeFile(
+      path.join(root, "networkx", "algorithms", "tests", "test_cuts.py"),
+      `from networkx.algorithms import cuts
+
+def test_mixing_expansion():
+    assert cuts.mixing_expansion("weighted total graph size") == "weighted total graph size"
+`
+    );
+    for (let index = 0; index < 60; index += 1) {
+      await writeFile(
+        path.join(root, "networkx", "algorithms", "approximation", "tests", `test_algorithm_${index}.py`),
+        `def test_algorithm_${index}():
+    assert "weighted graph size"
+`
+      );
+    }
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "networkx/algorithms/cuts.py",
+      symbol: "mixing_expansion",
+      terms: ["weighted", "graph", "size"],
+      limit: 5
+    });
+
+    expect(result.candidateFilesScored).toBeLessThan(10);
+    expect(result.matches[0]).toMatchObject({
+      file: "networkx/algorithms/tests/test_cuts.py"
+    });
+  });
+
+  test("uses high-signal import candidates instead of broad fallback scans", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-prune-fallback-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "tests", "noise"), { recursive: true });
@@ -397,7 +435,7 @@ def test_history_behavior():
     expect(result.matches[0]).toMatchObject({
       file: "tests/regression/test_behavior.py"
     });
-    expect(result.candidateFilesScored).toBeGreaterThan(1);
+    expect(result.candidateFilesScored).toBe(1);
   });
 
   test("merges related tests across multiple plausible source files", async () => {

@@ -84,7 +84,8 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
     sourceFile: source.sourceFile,
     symbol: source.symbol,
     terms: options.terms,
-    limit: options.limit
+    limit: options.limit,
+    preferSymbolPathCandidates: false
   }));
   const results = scoreRelatedTestsForSourceOptions(db, sourceOptions, options.terms).map(({ result }) => result);
   const symbolsByPath = queryRelatedTestSymbolsByPath(db, uniqueValues(results.flatMap((result) => result.matches.map((match) => match.file))));
@@ -134,7 +135,8 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
   if (
     pruned &&
     matches.length < (options.limit ?? 5) &&
-    !(options.preferSymbolPathCandidates && hasEnoughPrimarySymbolPathMatches(matches, options.limit ?? 5))
+    !(options.preferSymbolPathCandidates && hasEnoughPrimarySymbolPathMatches(matches, options.limit ?? 5)) &&
+    !(options.symbol && hasSourceLinkedMatch(matches))
   ) {
     rows = queryAllTestRows(db);
     pruned = false;
@@ -163,6 +165,14 @@ function queryCandidateTestPaths(db: Database.Database, options: RelatedTestsOpt
     const highSignalCandidateQuery = testCandidateSqlQuery(options, "none");
     const highSignalRows = queryCandidateTestPathRows(db, highSignalCandidateQuery);
     if (highSignalRows.length >= (options.limit ?? 5)) {
+      return highSignalRows.map((row) => row.path);
+    }
+  }
+
+  if (options.symbol && options.preferSymbolPathCandidates !== false && usesTaskTermCandidates(options)) {
+    const highSignalCandidateQuery = testCandidateSqlQuery(options, "none");
+    const highSignalRows = queryCandidateTestPathRows(db, highSignalCandidateQuery);
+    if (highSignalRows.length > 0) {
       return highSignalRows.map((row) => row.path);
     }
   }
@@ -324,6 +334,19 @@ function findRelatedTestsForSources(db: Database.Database, options: RelatedTests
 
 function hasEnoughPrimarySymbolPathMatches(matches: RelatedTestMatch[], limit: number): boolean {
   return matches.filter((match) => match.why.includes("test path includes symbol name")).length >= Math.min(limit, 3);
+}
+
+function hasSourceLinkedMatch(matches: RelatedTestMatch[]): boolean {
+  return matches.some((match) =>
+    match.why.some((reason) =>
+      [
+        "test imports source module",
+        "test calls source symbol",
+        "test body mentions source symbol",
+        "test path includes symbol name"
+      ].includes(reason)
+    )
+  );
 }
 
 function scoreTestRows(rows: TestFileRow[], options: RelatedTestsOptions): RelatedTestMatch[] {
@@ -1025,7 +1048,9 @@ function pathTokens(file: string): string[] {
 }
 
 function candidateSourcePathTokens(sourceFile: string): string[] {
-  const tokens = pathTokens(sourceFile).filter((token) => token.length >= 3 && !layoutStopwords.has(token));
+  const tokens = pathTokens(sourceFile).filter(
+    (token) => token.length >= 3 && !layoutStopwords.has(token) && !genericCandidatePathTokens.has(token)
+  );
   return uniqueValues(tokens.slice(1));
 }
 
@@ -1064,6 +1089,8 @@ const layoutStopwords = new Set([
   "base",
   "main"
 ]);
+
+const genericCandidatePathTokens = new Set(["algorithm", "algorithms"]);
 
 function splitCsv(value: string | null): string[] {
   return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean);

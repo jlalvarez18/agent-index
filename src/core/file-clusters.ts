@@ -117,7 +117,7 @@ function fileClusterSqlPlan(agentQuery: AgentQuery, match: string): FileClusterS
     params: { match, ...filter.params }
   };
   const pathHintFilter = softPathHintSqlFilter(agentQuery);
-  if (pathHintFilter.sql) {
+  if (pathHintFilter.sql && !usesBroadTaskTerms(agentQuery)) {
     return {
       kind: "path-hint-prefilter",
       sql: ftsClusterSql([filter.sql, pathHintFilter.sql].filter(Boolean).join("\n          ")),
@@ -127,6 +127,10 @@ function fileClusterSqlPlan(agentQuery: AgentQuery, match: string): FileClusterS
   }
 
   return ftsPlan;
+}
+
+function usesBroadTaskTerms(agentQuery: AgentQuery): boolean {
+  return normalizedQueryTerms(agentQuery).length >= 8 && (agentQuery.pathHints?.length ?? 0) <= 2;
 }
 
 function ftsClusterSql(filterSql: string): string {

@@ -133,7 +133,7 @@ describe("findFileClusters", () => {
 
   test("uses path hints as an FTS prefilter before broad fallback", () => {
     const queryPlan = fileClusterSqlForTesting({
-      terms: ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "merge"],
+      terms: ["radius", "neighbors", "merge"],
       symbolKinds: ["class", "method", "function"],
       roles: ["source"],
       pathHints: ["neighbors", "pairwise distances reduction"]
@@ -142,6 +142,30 @@ describe("findFileClusters", () => {
     expect(queryPlan.kind).toBe("path-hint-prefilter");
     expect(queryPlan.sql).toContain("chunk_fts match");
     expect(queryPlan.sql).toContain("lower(f.path) like");
+    expect(queryPlan.fallback?.kind).toBe("fts");
+  });
+
+  test("skips soft path prefilters for broad task-term queries", () => {
+    const queryPlan = fileClusterSqlForTesting({
+      terms: ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "query", "batch", "merge"],
+      symbolKinds: ["class", "method", "function"],
+      roles: ["source"],
+      pathHints: ["neighbors", "pairwise distances reduction"]
+    });
+
+    expect(queryPlan.kind).toBe("fts");
+    expect(queryPlan.fallback).toBeUndefined();
+  });
+
+  test("keeps soft path prefilters for broad queries with several module hints", () => {
+    const queryPlan = fileClusterSqlForTesting({
+      terms: ["lock file", "lock entries", "same version", "source", "repository", "environment marker", "install operations"],
+      symbolKinds: ["class", "method", "function"],
+      roles: ["source"],
+      pathHints: ["installation", "packages", "puzzle"]
+    });
+
+    expect(queryPlan.kind).toBe("path-hint-prefilter");
     expect(queryPlan.fallback?.kind).toBe("fts");
   });
 

@@ -91,7 +91,7 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
     queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))))
   );
 
-  return sourceOptions.map((sourceOption, index) => {
+  const results = sourceOptions.map((sourceOption, index) => {
     const candidatePaths = candidatePathsBySource[index].length > 0 ? candidatePathsBySource[index] : allTestPaths;
     let analyses = candidatePaths.map((candidatePath) => analysisCache.get(candidatePath)).filter((analysis): analysis is TestFileAnalysis => analysis !== undefined);
     let matches = scoreTestAnalyses(analyses, sourceOption);
@@ -102,13 +102,19 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
           : queryAllTestRows(db).map(analyzeTestFile);
       matches = scoreTestAnalyses(analyses, sourceOption);
     }
+    const selectedMatches = matches.slice(0, sourceOption.limit ?? 5);
     return {
       sourceFile: normalizeSourceFile(sourceOption.sourceFile),
       symbol: sourceOption.symbol,
       candidateFilesScored: analyses.length,
-      matches: matches.slice(0, sourceOption.limit ?? 5)
+      matches: selectedMatches
     };
   });
+  const symbolsByPath = queryRelatedTestSymbolsByPath(db, uniqueValues(results.flatMap((result) => result.matches.map((match) => match.file))));
+  return results.map((result) => ({
+    ...result,
+    matches: withRelatedTestSymbols(result.matches, symbolsByPath)
+  }));
 }
 
 function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptions): RelatedTestsInternalResult {
@@ -125,7 +131,7 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
       sourceFiles: options.sourceFiles,
       symbol: options.symbol,
       candidateFilesScored: rows.length,
-      matches: matches.slice(0, options.limit ?? 5)
+      matches: hydrateRelatedTestSymbols(db, matches.slice(0, options.limit ?? 5))
     },
     candidateFiles: rows.map((row) => row.path)
   };
@@ -254,14 +260,22 @@ function queryTestRowsByPaths(db: Database.Database, paths: string[]): TestFileR
   }
   const params = Object.fromEntries(paths.map((pathValue, index) => [`path${index}`, pathValue]));
   const pathList = paths.map((_, index) => `@path${index}`).join(", ");
-  return db
-    .prepare(
-      `
+  return db.prepare(testRowSql(pathList, true)).all(params) as TestFileRow[];
+}
+
+export function relatedTestRowSqlForTesting(paths: string[]): string {
+  const pathList = paths.map((_, index) => `@path${index}`).join(", ");
+  return testRowSql(pathList, true);
+}
+
+function testRowSql(pathList: string, includePathFilter: boolean): string {
+  const pathFilter = includePathFilter ? ` and f.path in (${pathList})` : "";
+  return `
         with test_text as (
           select c.file_id, group_concat(c.text, char(10)) as text
           from chunks c
           join files f on f.id = c.file_id
-          where f.role = 'test' and f.path in (${pathList})
+          where f.role = 'test'${pathFilter}
           group by c.file_id
         ),
         test_edges as (
@@ -276,63 +290,55 @@ function queryTestRowsByPaths(db: Database.Database, paths: string[]): TestFileR
           group by s.file_id
         )
         select f.path, test_text.text, test_edges.imported_modules, test_edges.called_names
-        , test_symbols.symbols
+        , null as symbols
         from files f
         join test_text on test_text.file_id = f.id
         left join test_edges on test_edges.file_id = f.id
-        left join (
-          select file_id, group_concat(qualified_name) as symbols
-          from symbols
-          where kind in ('function', 'method', 'class')
-            and file_id in (select file_id from test_text)
-          group by file_id
-        ) test_symbols on test_symbols.file_id = f.id
-        where f.role = 'test' and f.path in (${pathList})
+        where f.role = 'test'${pathFilter}
         order by f.path
-        `
-    )
-    .all(params) as TestFileRow[];
+        `;
 }
 
 function queryAllTestRows(db: Database.Database): TestFileRow[] {
-  return db
+  return db.prepare(testRowSql("", false)).all() as TestFileRow[];
+}
+
+function hydrateRelatedTestSymbols(db: Database.Database, matches: RelatedTestMatch[]): RelatedTestMatch[] {
+  if (matches.length === 0) {
+    return matches;
+  }
+  const symbolsByPath = queryRelatedTestSymbolsByPath(db, matches.map((match) => match.file));
+  return withRelatedTestSymbols(matches, symbolsByPath);
+}
+
+function withRelatedTestSymbols(matches: RelatedTestMatch[], symbolsByPath: Map<string, string[]>): RelatedTestMatch[] {
+  return matches.map((match) => ({
+    ...match,
+    symbols: symbolsByPath.get(match.file) ?? []
+  }));
+}
+
+function queryRelatedTestSymbolsByPath(db: Database.Database, paths: string[]): Map<string, string[]> {
+  if (paths.length === 0) {
+    return new Map();
+  }
+  const params = Object.fromEntries(paths.map((pathValue, index) => [`path${index}`, pathValue]));
+  const pathList = paths.map((_, index) => `@path${index}`).join(", ");
+  const rows = db
     .prepare(
       `
-        with test_text as (
-          select c.file_id, group_concat(c.text, char(10)) as text
-          from chunks c
-          join files f on f.id = c.file_id
-          where f.role = 'test'
-          group by c.file_id
-        ),
-        test_edges as (
-          select
-            s.file_id,
-            group_concat(distinct case when e.kind = 'symbol_imports_module' then e.target_name end) as imported_modules,
-            group_concat(distinct case when e.kind = 'symbol_calls_name' then e.target_name end) as called_names
-          from symbols s
-          join test_text on test_text.file_id = s.file_id
-          join edges e on e.source_symbol_id = s.id
-          where s.file_id in (select file_id from test_text)
-          group by s.file_id
-        )
-        select f.path, test_text.text, test_edges.imported_modules, test_edges.called_names
-        , test_symbols.symbols
+        select f.path, group_concat(s.qualified_name) as symbols
         from files f
-        join test_text on test_text.file_id = f.id
-        left join test_edges on test_edges.file_id = f.id
-        left join (
-          select file_id, group_concat(qualified_name) as symbols
-          from symbols
-          where kind in ('function', 'method', 'class')
-            and file_id in (select file_id from test_text)
-          group by file_id
-        ) test_symbols on test_symbols.file_id = f.id
+        join symbols s on s.file_id = f.id
         where f.role = 'test'
-        order by f.path
+          and f.path in (${pathList})
+          and s.kind in ('function', 'method', 'class')
+        group by f.id, f.path
         `
     )
-    .all() as TestFileRow[];
+    .all(params) as Array<{ path: string; symbols: string | null }>;
+
+  return new Map(rows.map((row) => [row.path, splitCsv(row.symbols)]));
 }
 
 type TaskTermCandidateStrategy = "fts" | "fallback";

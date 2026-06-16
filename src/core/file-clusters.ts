@@ -37,9 +37,10 @@ interface MutableCluster {
 }
 
 interface FileClusterSqlPlan {
-  kind: "fts" | "path-filter";
+  kind: "fts" | "path-filter" | "path-hint-prefilter";
   sql: string;
   params: Record<string, unknown>;
+  fallback?: FileClusterSqlPlan;
 }
 
 export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOptions): FileClusterResult {
@@ -59,11 +60,16 @@ export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOpt
   const db = new Database(dbPath, { readonly: true });
   try {
     const plan = fileClusterSqlPlan(agentQuery, match);
-    const rows = db.prepare(plan.sql).all(plan.params) as ClusterRow[];
+    let rows = db.prepare(plan.sql).all(plan.params) as ClusterRow[];
+    let clusters = clusterRows(rows, agentQuery);
+    if (plan.fallback && clusters.length < (options.limit ?? 8)) {
+      rows = db.prepare(plan.fallback.sql).all(plan.fallback.params) as ClusterRow[];
+      clusters = clusterRows(rows, agentQuery);
+    }
 
     return {
       query: queryText,
-      clusters: clusterRows(rows, agentQuery).slice(0, options.limit ?? 8)
+      clusters: clusters.slice(0, options.limit ?? 8)
     };
   } finally {
     db.close();
@@ -105,9 +111,26 @@ function fileClusterSqlPlan(agentQuery: AgentQuery, match: string): FileClusterS
   }
 
   const filter = clusterSqlFilter(agentQuery);
-  return {
+  const ftsPlan: FileClusterSqlPlan = {
     kind: "fts",
-    sql: `
+    sql: ftsClusterSql(filter.sql),
+    params: { match, ...filter.params }
+  };
+  const pathHintFilter = softPathHintSqlFilter(agentQuery);
+  if (pathHintFilter.sql) {
+    return {
+      kind: "path-hint-prefilter",
+      sql: ftsClusterSql([filter.sql, pathHintFilter.sql].filter(Boolean).join("\n          ")),
+      params: { match, ...filter.params, ...pathHintFilter.params },
+      fallback: ftsPlan
+    };
+  }
+
+  return ftsPlan;
+}
+
+function ftsClusterSql(filterSql: string): string {
+  return `
         select
           c.text as chunk_text,
           s.qualified_name as symbol_name,
@@ -123,12 +146,10 @@ function fileClusterSqlPlan(agentQuery: AgentQuery, match: string): FileClusterS
         join symbols s on s.id = c.symbol_id
         join files f on f.id = c.file_id
         where chunk_fts match @match
-          ${filter.sql}
+          ${filterSql}
         order by rank
         limit 250
-        `,
-    params: { match, ...filter.params }
-  };
+        `;
 }
 
 function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMatch[] {
@@ -337,6 +358,35 @@ function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record
 
 function usesHardPathFilter(agentQuery: AgentQuery): boolean {
   return agentQuery.pathMode === "filter" && Boolean(agentQuery.pathHints && agentQuery.pathHints.length > 0);
+}
+
+function softPathHintSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {
+  if (!agentQuery.pathHints || agentQuery.pathHints.length === 0 || agentQuery.pathMode === "filter") {
+    return { sql: "", params: {} };
+  }
+
+  const clauses: string[] = [];
+  const params: Record<string, unknown> = {};
+  for (const [hintIndex, hint] of agentQuery.pathHints.entries()) {
+    const tokens = normalizePathHintTokens(hint);
+    if (tokens.length === 0) {
+      continue;
+    }
+    clauses.push(
+      `(${tokens
+        .map((token, tokenIndex) => {
+          const key = `softPathHint${hintIndex}_${tokenIndex}`;
+          params[key] = `%${token}%`;
+          return `lower(f.path) like @${key}`;
+        })
+        .join(" and ")})`
+    );
+  }
+
+  return {
+    sql: clauses.length > 0 ? `and (${clauses.join(" or ")})` : "",
+    params
+  };
 }
 
 function pathFilteredTermFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {

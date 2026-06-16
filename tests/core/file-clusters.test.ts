@@ -131,6 +131,20 @@ describe("findFileClusters", () => {
     expect(queryPlan.sql).toContain("idx_files_role_path");
   });
 
+  test("uses path hints as an FTS prefilter before broad fallback", () => {
+    const queryPlan = fileClusterSqlForTesting({
+      terms: ["radius", "neighbors", "sort", "results", "distance", "brute", "float32", "merge"],
+      symbolKinds: ["class", "method", "function"],
+      roles: ["source"],
+      pathHints: ["neighbors", "pairwise distances reduction"]
+    });
+
+    expect(queryPlan.kind).toBe("path-hint-prefilter");
+    expect(queryPlan.sql).toContain("chunk_fts match");
+    expect(queryPlan.sql).toContain("lower(f.path) like");
+    expect(queryPlan.fallback?.kind).toBe("fts");
+  });
+
   test("prefers files with broader task-term coverage over repeated partial noise", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-coverage-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

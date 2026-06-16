@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { indexTarget } from "../../src/core/indexer.js";
-import { findRelatedTests, findRelatedTestsBatch, relatedTestCandidateSqlForTesting } from "../../src/core/related-tests.js";
+import {
+  findRelatedTests,
+  findRelatedTestsBatch,
+  relatedTestCandidateSqlForTesting,
+  relatedTestRowSqlForTesting
+} from "../../src/core/related-tests.js";
 
 describe("findRelatedTests", () => {
   test("ranks tests by source path and symbol evidence", async () => {
@@ -435,6 +440,14 @@ def test_execute_cursor():
 
     expect(candidateQuery.sql).toContain("chunk_fts match");
     expect(candidateQuery.fallbackSql).toContain("lower(candidate_c.text) like");
+  });
+
+  test("does not hydrate test symbols while scoring candidate rows", () => {
+    const rowQuery = relatedTestRowSqlForTesting(["tests/sql/test_resultset.py"]);
+
+    expect(rowQuery).not.toContain("test_symbols");
+    expect(rowQuery).not.toContain("group_concat(qualified_name) as symbols");
+    expect(rowQuery).toContain("test_edges");
   });
 
   test("falls back to substring task-term candidates when FTS tokenization misses compounds", async () => {

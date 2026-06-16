@@ -450,6 +450,15 @@ def test_execute_cursor():
     expect(rowQuery).toContain("test_edges");
   });
 
+  test("filters candidate test row text by task terms before grouping", () => {
+    const rowQuery = relatedTestRowSqlForTesting(["tests/sql/test_resultset.py"], ["rowcount", "preserve"]);
+
+    expect(rowQuery).toContain("candidate_chunks");
+    expect(rowQuery).toContain("lower(c.text) like @testTextTerm0");
+    expect(rowQuery).toContain("lower(c.text) like @testTextTerm1");
+    expect(rowQuery).toContain("group_concat(candidate_chunks.text");
+  });
+
   test("hydrates compact task-relevant symbols for large related test files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-compact-symbols-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

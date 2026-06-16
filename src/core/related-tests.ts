@@ -88,7 +88,7 @@ function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTests
   const candidatePathsBySource = sourceOptions.map((sourceOption) => queryCandidateTestPaths(db, sourceOption));
   const allTestPaths = candidatePathsBySource.some((paths) => paths.length === 0) ? queryAllTestPaths(db) : [];
   const analysisCache = analysesByPath(
-    queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))))
+    queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))), options.terms)
   );
 
   const results = sourceOptions.map((sourceOption, index) => {
@@ -246,7 +246,7 @@ function analyzeTestFile(row: TestFileRow): TestFileAnalysis {
 
 function queryTestRows(db: Database.Database, options: RelatedTestsOptions): TestFileRowsResult {
   const candidatePaths = queryCandidateTestPaths(db, options);
-  const rows = queryTestRowsByPaths(db, candidatePaths);
+  const rows = queryTestRowsByPaths(db, candidatePaths, options.terms);
 
   if (rows.length > 0) {
     return { rows, pruned: true };
@@ -254,29 +254,53 @@ function queryTestRows(db: Database.Database, options: RelatedTestsOptions): Tes
   return { rows: queryAllTestRows(db), pruned: false };
 }
 
-function queryTestRowsByPaths(db: Database.Database, paths: string[]): TestFileRow[] {
+function queryTestRowsByPaths(db: Database.Database, paths: string[], terms: string[] = []): TestFileRow[] {
   if (paths.length === 0) {
     return [];
   }
   const params = Object.fromEntries(paths.map((pathValue, index) => [`path${index}`, pathValue]));
   const pathList = paths.map((_, index) => `@path${index}`).join(", ");
-  return db.prepare(testRowSql(pathList, true)).all(params) as TestFileRow[];
+  const textTerms = testTextFilterTerms(terms);
+  if (textTerms.length === 0) {
+    return db.prepare(testRowSql(pathList, true)).all(params) as TestFileRow[];
+  }
+
+  const scopedParams = {
+    ...params,
+    ...Object.fromEntries(textTerms.map((term, index) => [`testTextTerm${index}`, `%${term}%`]))
+  };
+  const scopedRows = db.prepare(testRowSql(pathList, true, textTerms.length)).all(scopedParams) as TestFileRow[];
+  if (scopedRows.length === paths.length) {
+    return scopedRows;
+  }
+
+  const scopedPaths = new Set(scopedRows.map((row) => row.path));
+  const missingPaths = paths.filter((pathValue) => !scopedPaths.has(pathValue));
+  return [...scopedRows, ...queryTestRowsByPaths(db, missingPaths)];
 }
 
-export function relatedTestRowSqlForTesting(paths: string[]): string {
+export function relatedTestRowSqlForTesting(paths: string[], terms: string[] = []): string {
   const pathList = paths.map((_, index) => `@path${index}`).join(", ");
-  return testRowSql(pathList, true);
+  return testRowSql(pathList, true, testTextFilterTerms(terms).length);
 }
 
-function testRowSql(pathList: string, includePathFilter: boolean): string {
+function testRowSql(pathList: string, includePathFilter: boolean, textTermCount = 0): string {
   const pathFilter = includePathFilter ? ` and f.path in (${pathList})` : "";
+  const textFilter =
+    textTermCount > 0
+      ? ` and (${Array.from({ length: textTermCount }, (_, index) => `lower(c.text) like @testTextTerm${index}`).join(" or ")})`
+      : "";
   return `
-        with test_text as (
-          select c.file_id, group_concat(c.text, char(10)) as text
+        with candidate_chunks as (
+          select c.file_id, c.text
           from chunks c
           join files f on f.id = c.file_id
-          where f.role = 'test'${pathFilter}
-          group by c.file_id
+          where f.role = 'test'${pathFilter}${textFilter}
+        ),
+        test_text as (
+          select candidate_chunks.file_id, group_concat(candidate_chunks.text, char(10)) as text
+          from candidate_chunks
+          group by candidate_chunks.file_id
         ),
         test_edges as (
           select
@@ -301,6 +325,14 @@ function testRowSql(pathList: string, includePathFilter: boolean): string {
 
 function queryAllTestRows(db: Database.Database): TestFileRow[] {
   return db.prepare(testRowSql("", false)).all() as TestFileRow[];
+}
+
+function testTextFilterTerms(terms: string[]): string[] {
+  return uniqueValues(
+    terms
+      .flatMap((term) => normalize(term).split(/\s+/u))
+      .filter((term) => term.length >= 4 && !layoutStopwords.has(term))
+  ).slice(0, 6);
 }
 
 function hydrateRelatedTestSymbols(db: Database.Database, matches: RelatedTestMatch[], options: RelatedTestsOptions): RelatedTestMatch[] {

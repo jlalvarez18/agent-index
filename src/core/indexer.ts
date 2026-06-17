@@ -5,10 +5,13 @@ import path from "node:path";
 import { extractCython } from "./extractors/cython.js";
 import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
+import { extractKotlin } from "./extractors/kotlin.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRust } from "./extractors/rust.js";
 import { extractSwift } from "./extractors/swift.js";
+import { extractToml } from "./extractors/toml.js";
 import { extractTypeScript } from "./extractors/typescript.js";
+import { extractXml } from "./extractors/xml.js";
 import { scanCodeFiles } from "./scanner.js";
 import type { CodeEdge, CodeSymbol, ExtractionResult, IndexStats } from "./schema.js";
 
@@ -35,6 +38,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       if (file.language === "swift") {
         return extractSwift(file);
       }
+      if (file.language === "kotlin") {
+        return extractKotlin(file);
+      }
       if (file.language === "go") {
         return extractGo(file);
       }
@@ -46,6 +52,12 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "json") {
         return extractJson(file);
+      }
+      if (file.language === "xml") {
+        return extractXml(file);
+      }
+      if (file.language === "toml") {
+        return extractToml(file);
       }
       return extractPython(file);
     });

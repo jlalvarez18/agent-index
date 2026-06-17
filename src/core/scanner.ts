@@ -48,6 +48,7 @@ const TOP_LEVEL_SUPPORT_CODE_DIRS = new Set(["t"]);
 const TEST_DIRS = new Set(["tests", "test", "__tests__", "spec", "specs", "_tests", "type_tests", "testing"]);
 const TEST_FILE_NAME_PATTERN = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const GO_TEST_FILE_NAME_PATTERN = /_test\.go$/u;
+const KOTLIN_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.kts?$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
@@ -83,7 +84,11 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     ".pyx.tp",
     ".pxd.tp",
     ".pxi.tp",
-    ".swift"
+    ".swift",
+    ".kt",
+    ".kts",
+    ".xml",
+    ".toml"
   ]);
 }
 
@@ -164,6 +169,15 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".swift") {
     return "swift";
   }
+  if (suffix === ".kt" || suffix === ".kts") {
+    return "kotlin";
+  }
+  if (suffix === ".xml") {
+    return "xml";
+  }
+  if (suffix === ".toml") {
+    return "toml";
+  }
   if (suffix === ".pyx" || suffix === ".pxd" || suffix === ".pxi" || suffix === ".pyx.tp" || suffix === ".pxd.tp" || suffix === ".pxi.tp") {
     return "cython";
   }
@@ -176,26 +190,45 @@ export function classifyFileRole(relativePath: string): FileRole {
     segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t")) ||
     isJavaScriptTestFile(relativePath) ||
     isGoTestFile(relativePath) ||
-    isSwiftTestFile(relativePath)
+    isSwiftTestFile(relativePath) ||
+    isKotlinTestFile(relativePath)
   ) {
     return "test";
   }
-  if (segments.some((segment) => DOCS_DIRS.has(segment))) {
+  if (segments.some((segment, index) => isSupportRoleSegment(segments, index, DOCS_DIRS))) {
     return "docs";
   }
-  if (segments.some((segment) => EXAMPLE_DIRS.has(segment))) {
+  if (segments.some((segment, index) => isSupportRoleSegment(segments, index, EXAMPLE_DIRS))) {
     return "example";
   }
-  if (segments.some((segment) => FIXTURE_DIRS.has(segment))) {
+  if (segments.some((segment, index) => isSupportRoleSegment(segments, index, FIXTURE_DIRS))) {
     return "fixture";
   }
-  if (segments.some((segment) => TOOL_DIRS.has(segment))) {
+  if (segments.some((segment, index) => isSupportRoleSegment(segments, index, TOOL_DIRS))) {
     return "tool";
   }
-  if (segments.some((segment) => BENCHMARK_DIRS.has(segment))) {
+  if (segments.some((segment, index) => isSupportRoleSegment(segments, index, BENCHMARK_DIRS))) {
     return "benchmark";
   }
   return "source";
+}
+
+function isSupportRoleSegment(segments: string[], index: number, roleDirs: Set<string>): boolean {
+  return roleDirs.has(segments[index]) && !isInsideJvmSourcePackagePath(segments, index);
+}
+
+function isInsideJvmSourcePackagePath(segments: string[], index: number): boolean {
+  const srcIndex = segments.lastIndexOf("src", index);
+  if (srcIndex === -1 || index <= srcIndex + 2) {
+    return false;
+  }
+  const sourceSet = segments[srcIndex + 1];
+  const languageRoot = segments[srcIndex + 2];
+  return (
+    typeof sourceSet === "string" &&
+    /^(?:main|commonMain|jvmMain|androidMain|iosMain|jsMain|nativeMain|wasmJsMain)$/u.test(sourceSet) &&
+    (languageRoot === "kotlin" || languageRoot === "java")
+  );
 }
 
 function isSupportArtifactFile(relativePath: string): boolean {
@@ -213,4 +246,9 @@ function isGoTestFile(relativePath: string): boolean {
 
 function isSwiftTestFile(relativePath: string): boolean {
   return path.posix.basename(relativePath).endsWith("Tests.swift");
+}
+
+function isKotlinTestFile(relativePath: string): boolean {
+  const basename = path.posix.basename(relativePath);
+  return KOTLIN_TEST_FILE_NAME_PATTERN.test(basename) || relativePath.includes("/src/test/") || relativePath.includes("/src/androidTest/");
 }

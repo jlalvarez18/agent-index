@@ -49,6 +49,13 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("src/client/checkout.spec.tsx")).toBe("test");
     expect(classifyFileRole("pkg/server/handler_test.go")).toBe("test");
     expect(classifyFileRole("Tests/AppTests/CheckoutViewModelTests.swift")).toBe("test");
+    expect(classifyFileRole("app/src/test/java/com/acme/CheckoutViewModelTest.kt")).toBe("test");
+    expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutScreenTest.kt")).toBe("test");
+    expect(classifyFileRole("core/src/main/kotlin/com/acme/PaymentRepository.kt")).toBe("source");
+    expect(classifyFileRole("feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouViewModel.kt")).toBe("source");
+    expect(classifyFileRole("app/build.gradle.kts")).toBe("source");
+    expect(classifyFileRole("pom.xml")).toBe("source");
+    expect(classifyFileRole("gradle/libs.versions.toml")).toBe("source");
     expect(classifyFileRole("_tests/test_service.py")).toBe("test");
     expect(classifyFileRole("pkg/type_tests/cases.py")).toBe("test");
     expect(classifyFileRole("testing/test_service.py")).toBe("test");
@@ -78,6 +85,8 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, "src", "client"), { recursive: true });
     await mkdir(path.join(root, "Sources", "App"), { recursive: true });
     await mkdir(path.join(root, "Tests", "AppTests"), { recursive: true });
+    await mkdir(path.join(root, "app", "src", "main", "java", "com", "acme"), { recursive: true });
+    await mkdir(path.join(root, "app", "src", "test", "java", "com", "acme"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
     await writeFile(path.join(root, "cmd", "server", "main.go"), "package main\nfunc main() {}\n");
     await writeFile(path.join(root, "internal", "config", "loader_test.go"), "package config\nfunc TestLoad(t *testing.T) {}\n");
@@ -89,6 +98,12 @@ describe("scanPythonFiles", () => {
     await writeFile(path.join(root, "src", "views", "DashboardScreen.tsx"), "export function DashboardScreen() { return null }\n");
     await writeFile(path.join(root, "Sources", "App", "CheckoutViewModel.swift"), "struct CheckoutViewModel {}\n");
     await writeFile(path.join(root, "Tests", "AppTests", "CheckoutViewModelTests.swift"), "final class CheckoutViewModelTests {}\n");
+    await writeFile(path.join(root, "app", "build.gradle.kts"), "plugins { kotlin(\"android\") }\n");
+    await writeFile(path.join(root, "app", "src", "main", "java", "com", "acme", "CheckoutViewModel.kt"), "class CheckoutViewModel\n");
+    await writeFile(path.join(root, "app", "src", "test", "java", "com", "acme", "CheckoutViewModelTest.kt"), "class CheckoutViewModelTest\n");
+    await writeFile(path.join(root, "pom.xml"), "<project><artifactId>checkout-parent</artifactId></project>\n");
+    await mkdir(path.join(root, "gradle"), { recursive: true });
+    await writeFile(path.join(root, "gradle", "libs.versions.toml"), "[libraries]\ncoroutines = \"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1\"\n");
     await writeFile(path.join(root, "benchmark.json"), "[]\n");
     await writeFile(path.join(root, "misses-benchmark.json"), "[]\n");
     await writeFile(path.join(root, "graphify-results.json"), "[]\n");
@@ -96,10 +111,15 @@ describe("scanPythonFiles", () => {
     const files = await scanCodeFiles(root);
 
     expect(files.map((file) => ({ relativePath: file.relativePath, language: file.language }))).toEqual([
+      { relativePath: "app/build.gradle.kts", language: "kotlin" },
+      { relativePath: "app/src/main/java/com/acme/CheckoutViewModel.kt", language: "kotlin" },
+      { relativePath: "app/src/test/java/com/acme/CheckoutViewModelTest.kt", language: "kotlin" },
       { relativePath: "cmd/server/main.go", language: "go" },
       { relativePath: "core/src/serializer.rs", language: "rust" },
+      { relativePath: "gradle/libs.versions.toml", language: "toml" },
       { relativePath: "internal/config/loader_test.go", language: "go" },
       { relativePath: "pkg/service.py", language: "python" },
+      { relativePath: "pom.xml", language: "xml" },
       { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" },
       { relativePath: "Sources/App/CheckoutViewModel.swift", language: "swift" },
       { relativePath: "src/client/api.mts", language: "typescript" },
@@ -111,6 +131,7 @@ describe("scanPythonFiles", () => {
     expect(files.find((file) => file.relativePath === "src/client/api.test.ts")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "internal/config/loader_test.go")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "Tests/AppTests/CheckoutViewModelTests.swift")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutViewModelTest.kt")?.role).toBe("test");
   });
 
   test("can skip tests and tools for source-only benchmark indexing", async () => {

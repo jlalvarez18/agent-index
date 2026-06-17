@@ -227,6 +227,162 @@ impl ComputedFields {
     );
   });
 
+  test("indexes Kotlin source, Gradle Kotlin DSL files, and resolves interface implementations across files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-kotlin-"));
+    await mkdir(path.join(root, "core", "src", "main", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "core", "src", "main", "kotlin", "com", "acme", "checkout", "PaymentRepository.kt"),
+      `package com.acme.checkout
+
+import kotlinx.coroutines.flow.Flow
+
+interface PaymentRepository {
+    fun observePayments(): Flow<PaymentState>
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout", "CheckoutViewModel.kt"),
+      `package com.acme.checkout
+
+class CheckoutViewModel(
+    private val repository: PaymentRepository
+) : PaymentRepository {
+    override fun observePayments() = repository.observePayments()
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "build.gradle.kts"),
+      `plugins {
+    id("com.android.application")
+    kotlin("android")
+}
+
+dependencies {
+    implementation(project(":core:model"))
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("app/src/main/kotlin/com/acme/checkout/CheckoutViewModel.kt");
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, target.qualified_name as target, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        left join symbols target on target.id = e.target_symbol_id
+        where e.kind = 'symbol_conforms_to'
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "app/build.gradle.kts", language: "kotlin" },
+      { path: "app/src/main/kotlin/com/acme/checkout/CheckoutViewModel.kt", language: "kotlin" },
+      { path: "core/src/main/kotlin/com/acme/checkout/PaymentRepository.kt", language: "kotlin" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "com.acme.checkout.CheckoutViewModel", kind: "class" },
+        { qualified_name: "com.acme.checkout.CheckoutViewModel.observePayments", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "com.acme.checkout.CheckoutViewModel",
+          target: "com.acme.checkout.PaymentRepository",
+          target_name: "PaymentRepository",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "com.acme.checkout.CheckoutViewModel.observePayments",
+          target: "com.acme.checkout.PaymentRepository.observePayments",
+          target_name: "com.acme.checkout.PaymentRepository.observePayments",
+          kind: "symbol_conforms_to"
+        }
+      ])
+    );
+  });
+
+  test("indexes Maven pom.xml ownership symbols for Kotlin JVM projects", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-maven-"));
+    await writeFile(
+      path.join(root, "pom.xml"),
+      `<project>
+  <groupId>com.acme</groupId>
+  <artifactId>checkout-parent</artifactId>
+  <modules>
+    <module>checkout-core</module>
+  </modules>
+  <dependencies>
+    <dependency>
+      <groupId>org.jetbrains.kotlinx</groupId>
+      <artifactId>kotlinx-coroutines-core</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db.prepare("select qualified_name, kind from symbols order by id").all();
+    db.close();
+
+    expect(files).toEqual([{ path: "pom.xml", language: "xml" }]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "maven.project.checkout_parent", kind: "method" },
+        { qualified_name: "maven.module.checkout_core", kind: "method" },
+        { qualified_name: "maven.dependency.org_jetbrains_kotlinx_kotlinx_coroutines_core", kind: "method" }
+      ])
+    );
+  });
+
+  test("indexes Gradle version catalog aliases for Kotlin dependency ownership", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-version-catalog-"));
+    await mkdir(path.join(root, "gradle"), { recursive: true });
+    await writeFile(
+      path.join(root, "gradle", "libs.versions.toml"),
+      `[versions]
+coroutines = "1.8.1"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version = "2.0.0" }
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db.prepare("select qualified_name, kind from symbols order by id").all();
+    db.close();
+
+    expect(files).toEqual([{ path: "gradle/libs.versions.toml", language: "toml" }]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "gradle.catalog.version.coroutines", kind: "method" },
+        { qualified_name: "gradle.catalog.library.kotlinx_coroutines_core", kind: "method" },
+        { qualified_name: "gradle.catalog.plugin.kotlin_multiplatform", kind: "method" }
+      ])
+    );
+  });
+
   test("indexes TypeScript, TSX, and JavaScript family files alongside Python files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-typescript-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

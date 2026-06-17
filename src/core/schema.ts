@@ -1,4 +1,4 @@
-export type Language = "python" | "go" | "rust" | "cython" | "typescript" | "javascript" | "json" | "swift";
+export type Language = "python" | "go" | "rust" | "cython" | "typescript" | "javascript" | "json" | "swift" | "kotlin" | "xml" | "toml";
 
 export type FileRole = "source" | "test" | "docs" | "example" | "fixture" | "tool" | "benchmark";
 

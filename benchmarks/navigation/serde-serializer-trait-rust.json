@@ -1,0 +1,33 @@
+[
+  {
+    "id": "serde-serializer-trait-rust",
+    "task": "Find the Serde serializer trait methods that own map and struct serialization behavior.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Serializer", "serialize_map", "serialize_struct", "SerializeMap", "SerializeStruct"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["serde_core/src/ser", "serializer"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["Serializer", "serialize_map", "serialize_struct"], ["SerializeMap", "SerializeStruct", "ser"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Serializer", "serialize_map", "serialize_struct"], "paths": ["serde_core/src/ser"], "globs": ["*.rs"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["serialize_map", "serialize_struct"], "fromStep": 1, "before": 8, "after": 12, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["serde_core/src/ser/mod.rs"],
+      "symbols": ["ser.Serializer", "ser.Serializer.serialize_map", "ser.Serializer.serialize_struct"],
+      "requiredFiles": ["serde_core/src/ser/mod.rs"],
+      "requiredSymbols": ["ser.Serializer.serialize_map"]
+    }
+  }
+]

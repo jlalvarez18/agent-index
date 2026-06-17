@@ -59,4 +59,59 @@ ktor-server = ["ktor-server-core"]
       ])
     );
   });
+
+  test("extracts Cargo package, target, feature, and dependency ownership", () => {
+    const result = extractToml({
+      absolutePath: "/repo/Cargo.toml",
+      relativePath: "Cargo.toml",
+      language: "toml",
+      role: "source",
+      text: `[package]
+name = "agent-runtime"
+version = "0.1.0"
+
+[features]
+full = ["tokio/rt-multi-thread", "serde/derive"]
+
+[dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+serde = "1"
+
+[[bin]]
+name = "agent-runtime-cli"
+path = "src/bin/agent-runtime.rs"
+
+[[test]]
+name = "runtime-integration"
+path = "tests/runtime.rs"
+`
+    });
+
+    expect(result.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ qualifiedName: "cargo.package.agent_runtime", kind: "method" }),
+        expect.objectContaining({ qualifiedName: "cargo.feature.full", kind: "method" }),
+        expect.objectContaining({ qualifiedName: "cargo.dependency.tokio", kind: "method" }),
+        expect.objectContaining({ qualifiedName: "cargo.dependency.serde", kind: "method" }),
+        expect.objectContaining({ qualifiedName: "cargo.bin.agent_runtime_cli", kind: "method" }),
+        expect.objectContaining({ qualifiedName: "cargo.test.runtime_integration", kind: "method" })
+      ])
+    );
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        {
+          sourceSymbolName: "cargo.dependency.tokio",
+          targetName: "tokio",
+          kind: "symbol_calls_name",
+          confidence: "name"
+        },
+        {
+          sourceSymbolName: "cargo.bin.agent_runtime_cli",
+          targetName: "src/bin/agent-runtime.rs",
+          kind: "symbol_calls_name",
+          confidence: "name"
+        }
+      ])
+    );
+  });
 });

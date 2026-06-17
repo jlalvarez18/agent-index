@@ -1,0 +1,33 @@
+[
+  {
+    "id": "ripgrep-searcher-rust",
+    "task": "Trace ripgrep core searcher orchestration from path search into reader/search sink behavior.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Searcher", "search_path", "search_reader", "Sink", "before_context", "after_context"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["crates/searcher/src/searcher", "searcher"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["Searcher", "search_path", "search_reader", "Sink"], ["before_context", "after_context", "searcher"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Searcher", "search_path", "search_reader"], "paths": ["crates/searcher/src/searcher"], "globs": ["*.rs"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["search_path", "search_reader", "Sink"], "fromStep": 1, "before": 8, "after": 14, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["crates/searcher/src/searcher/mod.rs"],
+      "symbols": ["searcher.Searcher", "searcher.Searcher.search_path", "searcher.Searcher.search_reader"],
+      "requiredFiles": ["crates/searcher/src/searcher/mod.rs"],
+      "requiredSymbols": ["searcher.Searcher.search_path"]
+    }
+  }
+]

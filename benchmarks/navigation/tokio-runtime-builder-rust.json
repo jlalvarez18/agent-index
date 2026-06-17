@@ -1,0 +1,33 @@
+[
+  {
+    "id": "tokio-runtime-builder-rust",
+    "task": "Navigate Tokio runtime builder configuration from scheduler selection through worker-thread and blocking-pool options.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Builder", "new_multi_thread", "worker_threads", "max_blocking_threads", "runtime"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["tokio/src/runtime", "runtime builder"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["Builder", "new_multi_thread", "worker_threads", "max_blocking_threads"], ["runtime", "builder", "scheduler", "blocking"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Builder", "worker_threads", "max_blocking_threads"], "paths": ["tokio/src/runtime"], "globs": ["*.rs"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["Builder", "worker_threads", "max_blocking_threads"], "fromStep": 1, "before": 8, "after": 14, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["tokio/src/runtime/builder.rs"],
+      "symbols": ["runtime.builder.Builder", "runtime.builder.Builder.worker_threads", "runtime.builder.Builder.max_blocking_threads"],
+      "requiredFiles": ["tokio/src/runtime/builder.rs"],
+      "requiredSymbols": ["runtime.builder.Builder.worker_threads"]
+    }
+  }
+]

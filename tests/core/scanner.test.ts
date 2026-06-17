@@ -48,11 +48,28 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("src/client/api.test.ts")).toBe("test");
     expect(classifyFileRole("src/client/checkout.spec.tsx")).toBe("test");
     expect(classifyFileRole("pkg/server/handler_test.go")).toBe("test");
+    expect(classifyFileRole("src/cache_test.c")).toBe("test");
+    expect(classifyFileRole("include/CacheTests.h")).toBe("test");
+    expect(classifyFileRole("pkg/_fast_test.pyx")).toBe("test");
+    expect(classifyFileRole("pkg/test_fast.pxd.in")).toBe("test");
     expect(classifyFileRole("Tests/AppTests/CheckoutViewModelTests.swift")).toBe("test");
     expect(classifyFileRole("app/src/test/java/com/acme/CheckoutViewModelTest.kt")).toBe("test");
     expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutScreenTest.kt")).toBe("test");
     expect(classifyFileRole("app/src/test/java/com/acme/CheckoutServiceTest.java")).toBe("test");
     expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutInstrumentedTest.java")).toBe("test");
+    expect(classifyFileRole("source/common/router/checkout_service_test.cc")).toBe("test");
+    expect(classifyFileRole("test/common/router/checkout_service_test.cpp")).toBe("test");
+    expect(classifyFileRole("tests/router/route_matcher_test.cxx")).toBe("test");
+    expect(classifyFileRole("include/acme/checkout_service.hpp")).toBe("source");
+    expect(classifyFileRole("CMakeLists.txt")).toBe("source");
+    expect(classifyFileRole("BUILD.bazel")).toBe("source");
+    expect(classifyFileRole("meson.build")).toBe("source");
+    expect(classifyFileRole("crates/runtime/src/lib.rs")).toBe("source");
+    expect(classifyFileRole("crates/runtime/src/bin/server.rs")).toBe("source");
+    expect(classifyFileRole("crates/runtime/src/tests.rs")).toBe("test");
+    expect(classifyFileRole("crates/runtime/tests/runtime_tests.rs")).toBe("test");
+    expect(classifyFileRole("crates/runtime/benches/scheduler.rs")).toBe("benchmark");
+    expect(classifyFileRole("crates/runtime/examples/echo.rs")).toBe("example");
     expect(classifyFileRole("core/src/main/kotlin/com/acme/PaymentRepository.kt")).toBe("source");
     expect(classifyFileRole("core/src/main/java/com/acme/PaymentRepository.java")).toBe("source");
     expect(classifyFileRole("feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouViewModel.kt")).toBe("source");
@@ -77,13 +94,19 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
   });
 
-  test("can scan mixed Python, Java, Go, Rust, Cython template, TypeScript, JSON, and Swift source files for indexing", async () => {
+  test("can scan mixed Python, C++, Java, Go, Rust, Cython template, TypeScript, JSON, and Swift source files for indexing", async () => {
     const root = await fixtureDir();
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "cmd", "server"), { recursive: true });
+    await mkdir(path.join(root, "include", "acme"), { recursive: true });
+    await mkdir(path.join(root, "include"), { recursive: true });
     await mkdir(path.join(root, "internal", "config"), { recursive: true });
+    await mkdir(path.join(root, "source", "common", "router"), { recursive: true });
     await mkdir(path.join(root, "core", "src"), { recursive: true });
+    await mkdir(path.join(root, "crates", "runtime", "src", "bin"), { recursive: true });
+    await mkdir(path.join(root, "crates", "runtime", "tests"), { recursive: true });
     await mkdir(path.join(root, "sklearn", "metrics"), { recursive: true });
+    await mkdir(path.join(root, "sklearn", "utils"), { recursive: true });
     await mkdir(path.join(root, "src", "views"), { recursive: true });
     await mkdir(path.join(root, "src", "compiler"), { recursive: true });
     await mkdir(path.join(root, "src", "client"), { recursive: true });
@@ -92,10 +115,29 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, "app", "src", "main", "java", "com", "acme"), { recursive: true });
     await mkdir(path.join(root, "app", "src", "test", "java", "com", "acme"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
+    await writeFile(path.join(root, "CMakeLists.txt"), "add_library(checkout_core source/common/router/checkout_service.cc)\n");
+    await writeFile(path.join(root, "BUILD.bazel"), "cc_library(name = \"checkout_core\")\n");
+    await writeFile(path.join(root, "meson.build"), "library('checkout_core', 'checkout_service.cc')\n");
+    await writeFile(path.join(root, "Makefile"), "cache_test: source/common/router/cache.o\n");
+    await writeFile(path.join(root, "include", "acme", "checkout_service.hpp"), "class CheckoutService {};\n");
+    await writeFile(path.join(root, "include", "acme", "detail.hh"), "struct Detail {};\n");
+    await writeFile(path.join(root, "include", "cache.h"), "typedef struct CacheEntry CacheEntry;\nCacheEntry *cache_lookup(const char *key);\n");
+    await writeFile(path.join(root, "source", "common", "router", "cache.c"), "#include \"cache.h\"\nCacheEntry *cache_lookup(const char *key) { return 0; }\n");
+    await writeFile(path.join(root, "source", "common", "router", "cache_test.c"), "void test_cache_lookup(void) {}\n");
+    await writeFile(path.join(root, "source", "common", "router", "checkout_service.cc"), "class CheckoutService {};\n");
+    await writeFile(path.join(root, "source", "common", "router", "route_matcher.cpp"), "class RouteMatcher {};\n");
+    await writeFile(path.join(root, "source", "common", "router", "codec.cxx"), "class Codec {};\n");
+    await writeFile(path.join(root, "source", "common", "router", "config.h"), "class Config {};\n");
+    await writeFile(path.join(root, "source", "common", "router", "checkout_service_test.cc"), "TEST(CheckoutServiceTest, FindsPayment) {}\n");
     await writeFile(path.join(root, "cmd", "server", "main.go"), "package main\nfunc main() {}\n");
     await writeFile(path.join(root, "internal", "config", "loader_test.go"), "package config\nfunc TestLoad(t *testing.T) {}\n");
     await writeFile(path.join(root, "core", "src", "serializer.rs"), "pub struct ComputedFields {}\n");
+    await writeFile(path.join(root, "crates", "runtime", "src", "lib.rs"), "pub struct Runtime {}\n");
+    await writeFile(path.join(root, "crates", "runtime", "src", "bin", "server.rs"), "fn main() {}\n");
+    await writeFile(path.join(root, "crates", "runtime", "tests", "runtime_tests.rs"), "#[test]\nfn starts_runtime() {}\n");
     await writeFile(path.join(root, "sklearn", "metrics", "_radius_neighbors.pyx.tp"), "cdef class RadiusNeighbors{{name_suffix}}:\n    pass\n");
+    await writeFile(path.join(root, "sklearn", "utils", "_typedefs.pxd.in"), "ctypedef double float64_t\n");
+    await writeFile(path.join(root, "sklearn", "utils", "test_fast.pyx"), "def test_fast():\n    pass\n");
     await writeFile(path.join(root, "src", "compiler", "diagnosticMessages.json"), "{\"key\":\"TS2304\"}\n");
     await writeFile(path.join(root, "src", "client", "api.mts"), "export function createClient() { return {} }\n");
     await writeFile(path.join(root, "src", "client", "api.test.ts"), "test('createClient', () => createClient())\n");
@@ -122,13 +164,32 @@ describe("scanPythonFiles", () => {
       { relativePath: "app/src/main/java/com/acme/CheckoutViewModel.kt", language: "kotlin" },
       { relativePath: "app/src/test/java/com/acme/CheckoutServiceTest.java", language: "java" },
       { relativePath: "app/src/test/java/com/acme/CheckoutViewModelTest.kt", language: "kotlin" },
+      { relativePath: "BUILD.bazel", language: "cpp" },
+      { relativePath: "CMakeLists.txt", language: "cpp" },
       { relativePath: "cmd/server/main.go", language: "go" },
       { relativePath: "core/src/serializer.rs", language: "rust" },
+      { relativePath: "crates/runtime/src/bin/server.rs", language: "rust" },
+      { relativePath: "crates/runtime/src/lib.rs", language: "rust" },
+      { relativePath: "crates/runtime/tests/runtime_tests.rs", language: "rust" },
       { relativePath: "gradle/libs.versions.toml", language: "toml" },
+      { relativePath: "include/acme/checkout_service.hpp", language: "cpp" },
+      { relativePath: "include/acme/detail.hh", language: "cpp" },
+      { relativePath: "include/cache.h", language: "c" },
       { relativePath: "internal/config/loader_test.go", language: "go" },
+      { relativePath: "Makefile", language: "c" },
+      { relativePath: "meson.build", language: "cpp" },
       { relativePath: "pkg/service.py", language: "python" },
       { relativePath: "pom.xml", language: "xml" },
       { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" },
+      { relativePath: "sklearn/utils/_typedefs.pxd.in", language: "cython" },
+      { relativePath: "sklearn/utils/test_fast.pyx", language: "cython" },
+      { relativePath: "source/common/router/cache_test.c", language: "c" },
+      { relativePath: "source/common/router/cache.c", language: "c" },
+      { relativePath: "source/common/router/checkout_service_test.cc", language: "cpp" },
+      { relativePath: "source/common/router/checkout_service.cc", language: "cpp" },
+      { relativePath: "source/common/router/codec.cxx", language: "cpp" },
+      { relativePath: "source/common/router/config.h", language: "cpp" },
+      { relativePath: "source/common/router/route_matcher.cpp", language: "cpp" },
       { relativePath: "Sources/App/CheckoutViewModel.swift", language: "swift" },
       { relativePath: "src/client/api.mts", language: "typescript" },
       { relativePath: "src/client/api.test.ts", language: "typescript" },
@@ -138,9 +199,14 @@ describe("scanPythonFiles", () => {
     ]);
     expect(files.find((file) => file.relativePath === "src/client/api.test.ts")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "internal/config/loader_test.go")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "source/common/router/cache_test.c")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "sklearn/utils/test_fast.pyx")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "Tests/AppTests/CheckoutViewModelTests.swift")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutViewModelTest.kt")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutServiceTest.java")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "source/common/router/checkout_service_test.cc")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "crates/runtime/src/bin/server.rs")?.role).toBe("source");
+    expect(files.find((file) => file.relativePath === "crates/runtime/tests/runtime_tests.rs")?.role).toBe("test");
   });
 
   test("can skip tests and tools for source-only benchmark indexing", async () => {

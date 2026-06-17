@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { stat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
+import { extractC } from "./extractors/c.js";
+import { extractCpp } from "./extractors/cpp.js";
 import { extractCython } from "./extractors/cython.js";
 import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
@@ -50,6 +52,12 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "cython") {
         return extractCython(file);
+      }
+      if (file.language === "cpp") {
+        return extractCpp(file);
+      }
+      if (file.language === "c") {
+        return extractC(file);
       }
       if (file.language === "typescript" || file.language === "javascript") {
         return extractTypeScript(file);

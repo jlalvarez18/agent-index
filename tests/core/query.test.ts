@@ -214,6 +214,118 @@ class ApiClient {
     });
   });
 
+  test("hybrid mode surfaces C++ override methods and build ownership symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-cpp-"));
+    await mkdir(path.join(root, "source", "common", "router"), { recursive: true });
+    await writeFile(
+      path.join(root, "source", "common", "router", "route_matcher.cc"),
+      `#include "source/common/router/route_matcher.h"
+
+namespace envoy::router {
+
+class RouteMatcher final : public Matcher {
+public:
+  MatchResult MatchRoute(const RequestHeaders& headers) const override {
+    return trie_->Find(headers.Path()).Map(&MatchResult::FromRouteEntry);
+  }
+};
+
+}  // namespace envoy::router
+`
+    );
+    await writeFile(
+      path.join(root, "CMakeLists.txt"),
+      `add_library(envoy_router source/common/router/route_matcher.cc)
+target_link_libraries(envoy_router PUBLIC envoy_http)
+`
+    );
+    await indexTarget(root);
+
+    const methodResult = await queryAgentIndex(
+      {
+        terms: ["RouteMatcher", "MatchRoute", "headers", "trie", "Find"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["source/common/router"],
+        expand: ["parents"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const buildResult = await queryAgentIndex(
+      {
+        terms: ["envoy", "router", "target", "link", "http"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["CMakeLists.txt"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(methodResult.matches[0]).toMatchObject({
+      symbol: "envoy::router::RouteMatcher.MatchRoute",
+      kind: "method",
+      file: "source/common/router/route_matcher.cc"
+    });
+    expect(methodResult.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "incoming_symbol_contains_symbol",
+          symbol: "envoy::router::RouteMatcher"
+        })
+      ])
+    );
+    expect(buildResult.matches[0]).toMatchObject({
+      symbol: "cmake.target.envoy_router",
+      file: "CMakeLists.txt"
+    });
+  });
+
+  test("hybrid mode surfaces C implementation functions over headers and build files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-c-"));
+    await mkdir(path.join(root, "include"), { recursive: true });
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await writeFile(
+      path.join(root, "include", "cache.h"),
+      `typedef struct CacheEntry CacheEntry;
+CacheEntry *cache_lookup(CacheEntry *head, const char *key);
+`
+    );
+    await writeFile(
+      path.join(root, "src", "cache.c"),
+      `#include "cache.h"
+#include <string.h>
+
+CacheEntry *cache_lookup(CacheEntry *head, const char *key) {
+    if (strcmp(head->key, key) == 0) {
+        return head;
+    }
+    return cache_miss(key);
+}
+`
+    );
+    await writeFile(path.join(root, "Makefile"), "cache_test: src/cache.o\n");
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["cache_lookup", "strcmp", "cache_miss"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["src", "cache"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "cache_lookup",
+      kind: "function",
+      file: "src/cache.c"
+    });
+    expect(result.matches[0].why).toContain("path hint match");
+  });
+
   test("uses path hints for file-path scoring without turning them into source-text intent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-path-hints-"));
     await mkdir(path.join(root, "pkg", "templates"), { recursive: true });
@@ -403,10 +515,112 @@ impl ComputedFields {
     );
 
     expect(result.matches[0]).toMatchObject({
-      symbol: "ComputedFields.serialize",
+      symbol: "serializers.computed_fields.ComputedFields.serialize",
       kind: "method",
       file: "pydantic-core/src/serializers/computed_fields.rs"
     });
+  });
+
+  test("structured hybrid queries prefer Rust impl methods over trait declarations and modules", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-rust-impl-"));
+    await mkdir(path.join(root, "src", "runtime"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "runtime", "executor.rs"),
+      `pub trait Executor {
+    fn spawn(&self, task: Task);
+}
+`
+    );
+    await writeFile(
+      path.join(root, "src", "runtime", "mod.rs"),
+      `use crate::runtime::executor::Executor;
+
+pub struct Runtime {
+    handle: Handle,
+}
+
+impl Runtime {
+    pub async fn spawn(&self, task: Task) {
+        self.handle.spawn(task);
+        trace_ready!();
+    }
+}
+
+impl Executor for Runtime {
+    fn spawn(&self, task: Task) {
+        self.spawn(task);
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["Runtime.spawn", "spawn", "handle", "trace_ready", "task"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["src/runtime"],
+        expand: ["callees", "parents"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "runtime.Runtime.spawn",
+      kind: "method",
+      file: "src/runtime/mod.rs"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "symbol_conforms_to",
+          symbol: "runtime.executor.Executor.spawn"
+        })
+      ])
+    );
+  });
+
+  test("boosts Cython backend symbols for Cython-shaped navigation tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-cython-backend-"));
+    await mkdir(path.join(root, "sklearn", "cluster"), { recursive: true });
+    await writeFile(
+      path.join(root, "sklearn", "cluster", "_dbscan.py"),
+      `def dbscan(X):
+    """Python dispatcher mentioning dbscan core neighborhoods labels stack backend."""
+    return X
+`
+    );
+    await writeFile(
+      path.join(root, "sklearn", "cluster", "_dbscan_inner.pyx"),
+      `from libcpp.vector cimport vector
+from sklearn.utils._typedefs cimport uint8_t, intp_t
+
+def dbscan_inner(const uint8_t[::1] is_core, object[:] neighborhoods, intp_t[::1] labels):
+    cdef vector[intp_t] stack
+    while stack.size() > 0:
+        labels[stack.back()] = 1
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["dbscan", "inner", "cython", "core", "neighborhoods", "labels", "stack"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["cluster"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "dbscan_inner",
+      kind: "function",
+      file: "sklearn/cluster/_dbscan_inner.pyx"
+    });
+    expect(result.matches[0].why).toContain("Cython navigation signal match");
   });
 
   test("filters structured agent queries by stored file role", async () => {

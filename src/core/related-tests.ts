@@ -977,12 +977,18 @@ function fileStem(file: string): string {
 }
 
 function moduleNamesForSource(file: string): string[] {
-  const withoutExtension = file.replace(/\.[^.]+$/u, "");
+  const withoutExtension = file.replace(/\.(?:pyx|pxd|pxi)(?:\.(?:tp|in))?$/u, "").replace(/\.[^.]+$/u, "");
   const withoutInit = withoutExtension.endsWith("/__init__") ? withoutExtension.slice(0, -"/__init__".length) : withoutExtension;
   const pathVariants = [withoutInit];
   const segments = withoutInit.split("/");
   if (file.endsWith(".go") && withoutInit.includes("/")) {
     pathVariants.push(withoutInit.slice(0, withoutInit.lastIndexOf("/")));
+  }
+  if (file.endsWith(".c") || file.endsWith(".h")) {
+    pathVariants.push(...cSourceModuleVariants(file, withoutInit));
+  }
+  if (file.endsWith(".rs")) {
+    pathVariants.push(...rustSourceModuleVariants(segments));
   }
   if (file.endsWith(".swift")) {
     pathVariants.push(...swiftSourceModuleVariants(segments));
@@ -1002,6 +1008,20 @@ function moduleNamesForSource(file: string): string[] {
     }
   }
   return uniqueValues(pathVariants.map((variant) => normalizeDottedName(variant.replace(/\//gu, "."))));
+}
+
+function rustSourceModuleVariants(segments: string[]): string[] {
+  const srcIndex = segments.findIndex((segment) => segment === "src");
+  if (srcIndex === -1 || srcIndex + 1 >= segments.length) {
+    return [];
+  }
+  const moduleSegments = segments.slice(srcIndex + 1).map((segment, index, all) =>
+    index === all.length - 1 ? segment.replace(/\.rs$/u, "") : segment
+  );
+  const withoutSpecialLeaf = ["mod", "lib", "main"].includes(moduleSegments[moduleSegments.length - 1] ?? "")
+    ? moduleSegments.slice(0, -1)
+    : moduleSegments;
+  return uniqueValues([moduleSegments.join("/"), withoutSpecialLeaf.join("/")].filter(Boolean));
 }
 
 function swiftSourceModuleVariants(segments: string[]): string[] {
@@ -1043,6 +1063,26 @@ function javaSourceModuleVariants(segments: string[]): string[] {
   return uniqueValues([packageSegments.join("/"), withoutLeaf.join("/")].filter(Boolean));
 }
 
+function cSourceModuleVariants(file: string, withoutExtension: string): string[] {
+  const variants = [withoutExtension];
+  const stem = path.posix.basename(withoutExtension);
+  const directory = path.posix.dirname(withoutExtension);
+  variants.push(stem);
+  if (file.endsWith(".c")) {
+    variants.push(`${withoutExtension}.h`, `${stem}.h`);
+    if (directory !== ".") {
+      variants.push(`${directory}/${stem}.h`);
+    }
+  }
+  if (file.endsWith(".h")) {
+    variants.push(`${withoutExtension}.c`, `${stem}.c`);
+    if (directory !== ".") {
+      variants.push(`${directory}/${stem}.c`);
+    }
+  }
+  return uniqueValues(variants);
+}
+
 function importModuleVariants(importerFile: string, importedModule: string): string[] {
   const normalizedImport = importedModule.trim();
   const variants = [normalizeDottedName(normalizedImport)];
@@ -1067,7 +1107,7 @@ function aliasModulePathVariants(modulePath: string): string[] {
 }
 
 function modulePathVariants(modulePath: string): string[] {
-  const withoutExtension = modulePath.replace(/\.(?:cjs|mjs|jsx?|tsx?)$/u, "");
+  const withoutExtension = modulePath.replace(/\.(?:cjs|mjs|jsx?|tsx?|[ch])$/u, "");
   const withoutIndex = withoutExtension.endsWith("/index") ? withoutExtension.slice(0, -"/index".length) : withoutExtension;
   const variants = [withoutExtension, withoutIndex];
   for (const sourceRoot of ["src", "lib"]) {

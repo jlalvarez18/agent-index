@@ -37,6 +37,7 @@ const SUPPORT_CODE_DIRS = new Set([
   "example",
   "benchmarks",
   "asv_benchmarks",
+  "benches",
   "fixtures",
   "fixture",
   "samples",
@@ -48,13 +49,17 @@ const TOP_LEVEL_SUPPORT_CODE_DIRS = new Set(["t"]);
 const TEST_DIRS = new Set(["tests", "test", "__tests__", "spec", "specs", "_tests", "type_tests", "testing"]);
 const TEST_FILE_NAME_PATTERN = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const GO_TEST_FILE_NAME_PATTERN = /_test\.go$/u;
+const RUST_TEST_FILE_NAME_PATTERN = /(?:^test_|_test|_tests|tests)\.rs$/u;
+const C_TEST_FILE_NAME_PATTERN = /(?:^test_|_test|_tests|Test|Tests)\.[ch]$/u;
+const CPP_TEST_FILE_NAME_PATTERN = /(?:^test_|_test|_tests|Test|Tests)\.(?:cc|cpp|cxx|hpp|hh|hxx|h)$/u;
+const CYTHON_TEST_FILE_NAME_PATTERN = /(?:^test_|_test)(?:[A-Za-z0-9_]*)(?:\.pyx|\.pxd|\.pxi)(?:\.(?:tp|in))?$/u;
 const KOTLIN_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.kts?$/u;
 const JAVA_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|IT|ITCase)\.java$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
 const TOOL_DIRS = new Set(["tools", "_tools", "scripts", "worked"]);
-const BENCHMARK_DIRS = new Set(["benchmarks", "asv_benchmarks"]);
+const BENCHMARK_DIRS = new Set(["benchmarks", "asv_benchmarks", "benches"]);
 const SUPPORT_ARTIFACT_JSON_FILES = new Set(["benchmark.json", "graphify-results.json", "navigation-eval.json", "suite.json"]);
 
 export interface ScanOptions {
@@ -70,6 +75,20 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     ".py",
     ".go",
     ".rs",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".hpp",
+    ".hh",
+    ".hxx",
+    ".c",
+    ".h",
+    ".mk",
+    "Makefile",
+    "BUILD",
+    "BUILD.bazel",
+    "CMakeLists.txt",
+    "meson.build",
     ".ts",
     ".tsx",
     ".mts",
@@ -85,6 +104,9 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     ".pyx.tp",
     ".pxd.tp",
     ".pxi.tp",
+    ".pyx.in",
+    ".pxd.in",
+    ".pxi.in",
     ".swift",
     ".kt",
     ".kts",
@@ -137,7 +159,7 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
       files.push({
         absolutePath,
         relativePath,
-        language: languageForSuffix(suffix),
+        language: languageForFile(suffix, relativePath, text),
         role,
         text
       });
@@ -158,6 +180,12 @@ function languageForSuffix(suffix: string): Language {
   }
   if (suffix === ".rs") {
     return "rust";
+  }
+  if (isCppSuffix(suffix) || suffix === "BUILD" || suffix === "BUILD.bazel") {
+    return "cpp";
+  }
+  if (suffix === ".c" || suffix === ".h" || suffix === ".mk" || suffix === "Makefile" || suffix === "CMakeLists.txt" || suffix === "meson.build") {
+    return "c";
   }
   if (suffix === ".ts" || suffix === ".tsx" || suffix === ".mts" || suffix === ".cts") {
     return "typescript";
@@ -183,10 +211,45 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".toml") {
     return "toml";
   }
-  if (suffix === ".pyx" || suffix === ".pxd" || suffix === ".pxi" || suffix === ".pyx.tp" || suffix === ".pxd.tp" || suffix === ".pxi.tp") {
+  if (
+    suffix === ".pyx" ||
+    suffix === ".pxd" ||
+    suffix === ".pxi" ||
+    suffix === ".pyx.tp" ||
+    suffix === ".pxd.tp" ||
+    suffix === ".pxi.tp" ||
+    suffix === ".pyx.in" ||
+    suffix === ".pxd.in" ||
+    suffix === ".pxi.in"
+  ) {
     return "cython";
   }
   return "python";
+}
+
+function languageForFile(suffix: string, relativePath: string, text: string): Language {
+  if (isCppSuffix(suffix) || (suffix === ".h" && looksLikeCppHeader(text)) || isCppBuildFile(suffix, relativePath, text)) {
+    return "cpp";
+  }
+  return languageForSuffix(suffix);
+}
+
+function isCppSuffix(suffix: string): boolean {
+  return [".cc", ".cpp", ".cxx", ".hpp", ".hh", ".hxx"].includes(suffix);
+}
+
+function looksLikeCppHeader(text: string): boolean {
+  return /\b(?:class|namespace|template|public|private|protected)\b/u.test(text) || /\bstd::|[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_~]/u.test(text);
+}
+
+function isCppBuildFile(suffix: string, relativePath: string, text: string): boolean {
+  if (suffix === "BUILD" || suffix === "BUILD.bazel") {
+    return /\bcc_(?:library|binary|test|proto_library)\b/u.test(text);
+  }
+  if (suffix === "CMakeLists.txt" || suffix === "meson.build") {
+    return /\.(?:cc|cpp|cxx|hpp|hh|hxx)\b/u.test(text) || /\bcc_(?:library|binary|test)\b|\bCXX\b/u.test(text);
+  }
+  return path.posix.basename(relativePath) === "CMakeLists.txt" && /\bCXX\b/u.test(text);
 }
 
 export function classifyFileRole(relativePath: string): FileRole {
@@ -195,6 +258,10 @@ export function classifyFileRole(relativePath: string): FileRole {
     segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t")) ||
     isJavaScriptTestFile(relativePath) ||
     isGoTestFile(relativePath) ||
+    isRustTestFile(relativePath) ||
+    isCppTestFile(relativePath) ||
+    isCTestFile(relativePath) ||
+    isCythonTestFile(relativePath) ||
     isSwiftTestFile(relativePath) ||
     isKotlinTestFile(relativePath) ||
     isJavaTestFile(relativePath)
@@ -248,6 +315,22 @@ function isJavaScriptTestFile(relativePath: string): boolean {
 
 function isGoTestFile(relativePath: string): boolean {
   return GO_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
+}
+
+function isRustTestFile(relativePath: string): boolean {
+  return RUST_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
+}
+
+function isCppTestFile(relativePath: string): boolean {
+  return CPP_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
+}
+
+function isCTestFile(relativePath: string): boolean {
+  return C_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
+}
+
+function isCythonTestFile(relativePath: string): boolean {
+  return CYTHON_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
 }
 
 function isSwiftTestFile(relativePath: string): boolean {

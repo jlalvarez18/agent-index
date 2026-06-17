@@ -150,19 +150,22 @@ function usesBoundedTermFts(agentQuery: AgentQuery, limit: number | undefined): 
 
 function boundedTermFtsPlan(agentQuery: AgentQuery, filter: { sql: string; params: Record<string, unknown> }): FileClusterSqlPlan {
   const terms = normalizedQueryTerms(agentQuery).slice(0, 10);
+  const pathHintCandidates = boundedPathHintCandidateFilter(agentQuery, terms);
   const params = {
     ...filter.params,
-    ...Object.fromEntries(terms.map((term, index) => [`boundedTerm${index}`, ftsMatchQuery(term) ?? `"${term}"`]))
+    ...Object.fromEntries(terms.map((term, index) => [`boundedTerm${index}`, ftsMatchQuery(term) ?? `"${term}"`])),
+    ...pathHintCandidates.params
   };
   return {
     kind: "bounded-term-fts",
-    sql: boundedTermFtsClusterSql(filter.sql, terms.length),
+    sql: boundedTermFtsClusterSql(filter.sql, terms.length, pathHintCandidates.sql),
     params
   };
 }
 
-function boundedTermFtsClusterSql(filterSql: string, termCount: number): string {
-  const candidateBranches = Array.from(
+function boundedTermFtsClusterSql(filterSql: string, termCount: number, pathHintCandidateSql: string): string {
+  const candidateBranches = [
+    ...Array.from(
     { length: termCount },
     (_, index) => `
             select chunk_id, rank
@@ -173,7 +176,9 @@ function boundedTermFtsClusterSql(filterSql: string, termCount: number): string 
               order by rank
               limit 80
             )`
-  ).join("\n          union all\n");
+    ),
+    pathHintCandidateSql
+  ].filter(Boolean).join("\n          union all\n");
 
   return `
         with candidate_chunks(chunk_id, rank) as (
@@ -202,6 +207,55 @@ function boundedTermFtsClusterSql(filterSql: string, termCount: number): string 
         order by candidate_chunks.rank
         limit 250
         `;
+}
+
+function boundedPathHintCandidateFilter(agentQuery: AgentQuery, terms: string[]): { sql: string; params: Record<string, unknown> } {
+  if (!agentQuery.pathHints || agentQuery.pathHints.length === 0 || agentQuery.pathMode === "filter" || terms.length === 0) {
+    return { sql: "", params: {} };
+  }
+
+  const params: Record<string, unknown> = {};
+  const hintClauses = agentQuery.pathHints.flatMap((hint, hintIndex) => {
+    const tokens = normalizePathHintTokens(hint);
+    if (tokens.length === 0) {
+      return [];
+    }
+    return [
+      `(${tokens
+        .map((token, tokenIndex) => {
+          const key = `boundedPathHint${hintIndex}_${tokenIndex}`;
+          params[key] = `%${token}%`;
+          return `lower(f.path) like @${key}`;
+        })
+        .join(" and ")})`
+    ];
+  });
+
+  if (hintClauses.length === 0) {
+    return { sql: "", params: {} };
+  }
+
+  const termClauses = terms.map((term, index) => {
+    const key = `boundedPathTerm${index}`;
+    params[key] = `%${term}%`;
+    return `lower(c.text || ' ' || s.qualified_name || ' ' || f.path) like @${key}`;
+  });
+
+  return {
+    sql: `
+            select chunk_id, rank
+            from (
+              select c.id as chunk_id, 0 as rank, f.path as file_path, s.start_line as start_line
+              from files f
+              join chunks c on c.file_id = f.id
+              join symbols s on s.id = c.symbol_id
+              where (${hintClauses.join(" or ")})
+                and (${termClauses.join(" or ")})
+              order by file_path, start_line
+              limit 160
+            )`,
+    params
+  };
 }
 
 function ftsClusterSql(filterSql: string): string {
@@ -289,11 +343,17 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       if (buildToolBoost > 0) {
         cluster.why.add("build tool ownership match");
       }
+      const cythonBoost = cythonClusterBoost(cluster, queryTerms);
+      if (cythonBoost > 0) {
+        cluster.why.add("Cython navigation signal match");
+      }
       return {
         file: cluster.file,
         role: cluster.role,
         language: cluster.language,
-        score: Number((cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost + kotlinBoost + buildToolBoost).toFixed(2)),
+        score: Number(
+          (cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost + kotlinBoost + buildToolBoost + cythonBoost).toFixed(2)
+        ),
         matchedChunks: cluster.matchedChunks,
         contextChars: cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0),
         contextTokens: approximateTokens(cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0)),
@@ -452,6 +512,46 @@ function buildToolClusterBoost(cluster: MutableCluster, queryTerms: string[]): n
     (term) => symbolText.includes(term) || evidence.includes(term) || file.includes(term)
   );
   return Math.min(12 + evidenceTerms.length * 4, 28);
+}
+
+function cythonClusterBoost(cluster: MutableCluster, queryTerms: string[]): number {
+  if (cluster.language !== "cython") {
+    return 0;
+  }
+  const querySet = new Set(queryTerms);
+  if (
+    ![
+      "backend",
+      "brute",
+      "cdef",
+      "cimport",
+      "cpdef",
+      "cython",
+      "dense",
+      "distance",
+      "distances",
+      "float32",
+      "float64",
+      "fused",
+      "nogil",
+      "parallel",
+      "prange",
+      "reduction",
+      "sparse",
+      "template"
+    ].some((term) => querySet.has(term))
+  ) {
+    return 0;
+  }
+
+  const file = normalize(cluster.file);
+  const symbolText = normalize(cluster.symbols.map((symbol) => symbol.name).join(" "));
+  const evidence = normalize(cluster.evidence ?? "");
+  const haystack = `${file} ${symbolText} ${evidence}`;
+  const evidenceTerms = ["cdef", "cpdef", "cimport", "nogil", "prange", "floating", "float32", "float64", "intp", "parallel", "reduction", "distances"].filter(
+    (term) => haystack.includes(term)
+  );
+  return evidenceTerms.length === 0 ? 0 : Math.min(10 + evidenceTerms.length * 4, 30);
 }
 
 function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {

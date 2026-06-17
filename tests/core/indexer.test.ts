@@ -130,8 +130,105 @@ impl ComputedFields {
     ]);
     expect(symbols).toEqual(
       expect.arrayContaining([
-        { qualified_name: "ComputedFields", kind: "class" },
-        { qualified_name: "ComputedFields.serialize", kind: "method" }
+        { qualified_name: "serializers.computed_fields.ComputedFields", kind: "class" },
+        { qualified_name: "serializers.computed_fields.ComputedFields.serialize", kind: "method" }
+      ])
+    );
+  });
+
+  test("indexes Rust crate metadata and resolves trait implementations across files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-rust-traits-"));
+    await mkdir(path.join(root, "src", "runtime"), { recursive: true });
+    await writeFile(
+      path.join(root, "Cargo.toml"),
+      `[package]
+name = "agent-runtime"
+version = "0.1.0"
+
+[dependencies]
+tokio = "1"
+
+[[bin]]
+name = "agent-runtime-cli"
+path = "src/main.rs"
+`
+    );
+    await writeFile(
+      path.join(root, "src", "runtime", "executor.rs"),
+      `pub trait Executor {
+    fn spawn(&self, task: Task);
+}
+`
+    );
+    await writeFile(
+      path.join(root, "src", "runtime", "mod.rs"),
+      `use crate::runtime::executor::Executor;
+
+pub struct Runtime;
+
+impl Runtime {
+    pub fn spawn(&self, task: Task) {
+        schedule(task);
+    }
+}
+
+impl Executor for Runtime {
+    fn spawn(&self, task: Task) {
+        self.spawn(task);
+    }
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const rustSymbols = db
+      .prepare("select qualified_name, kind from symbols where qualified_name like 'runtime.%' or qualified_name like 'cargo.%' order by qualified_name")
+      .all();
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, target.qualified_name as target, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        left join symbols target on target.id = e.target_symbol_id
+        where e.kind = 'symbol_conforms_to'
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "Cargo.toml", language: "toml", role: "source" },
+      { path: "src/runtime/executor.rs", language: "rust", role: "source" },
+      { path: "src/runtime/mod.rs", language: "rust", role: "source" }
+    ]);
+    expect(rustSymbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "cargo.package.agent_runtime", kind: "method" },
+        { qualified_name: "cargo.dependency.tokio", kind: "method" },
+        { qualified_name: "runtime.executor.Executor", kind: "class" },
+        { qualified_name: "runtime.executor.Executor.spawn", kind: "method" },
+        { qualified_name: "runtime.Runtime", kind: "class" },
+        { qualified_name: "runtime.Runtime.spawn", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "runtime.Runtime",
+          target: "runtime.executor.Executor",
+          target_name: "Executor",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "runtime.Runtime.spawn",
+          target: "runtime.executor.Executor.spawn",
+          target_name: "runtime.executor.Executor.spawn",
+          kind: "symbol_conforms_to"
+        }
       ])
     );
   });
@@ -143,7 +240,9 @@ impl ComputedFields {
     await writeFile(path.join(root, "pkg", "main.py"), "def radius_neighbors():\n    return 'python api'\n");
     await writeFile(
       path.join(root, "sklearn", "metrics", "_pairwise_distances_reduction", "_radius_neighbors.pyx.tp"),
-      `cdef class RadiusNeighbors{{name_suffix}}:
+      `from sklearn.metrics._pairwise_distances_reduction._base cimport BaseDistancesReduction{{name_suffix}}
+
+cdef class RadiusNeighbors{{name_suffix}}(BaseDistancesReduction{{name_suffix}}):
     def compute(self, sort_results=False):
         return self._finalize_results()
 
@@ -158,6 +257,18 @@ impl ComputedFields {
     const symbols = db
       .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
       .all("sklearn/metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp");
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, e.target_name, e.kind
+        from edges e
+        left join symbols source on source.id = e.source_symbol_id
+        join files f on f.id = source.file_id
+        where f.path = ?
+        order by e.kind, source.qualified_name, e.target_name
+        `
+      )
+      .all("sklearn/metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp");
     db.close();
 
     expect(files).toEqual([
@@ -169,6 +280,112 @@ impl ComputedFields {
         { qualified_name: "RadiusNeighbors", kind: "class" },
         { qualified_name: "RadiusNeighbors.compute", kind: "method" },
         { qualified_name: "RadiusNeighbors._finalize_results", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "sklearn/metrics/_pairwise_distances_reduction/_radius_neighbors.pyx.tp",
+          target_name: "sklearn.metrics._pairwise_distances_reduction._base",
+          kind: "symbol_imports_module"
+        },
+        {
+          source: "RadiusNeighbors",
+          target_name: "BaseDistancesReduction",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "RadiusNeighbors.compute",
+          target_name: "_finalize_results",
+          kind: "symbol_calls_name"
+        }
+      ])
+    );
+  });
+
+  test("indexes C source, headers, tests, and C build ownership files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-c-"));
+    await mkdir(path.join(root, "include"), { recursive: true });
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "include", "cache.h"),
+      `typedef struct CacheEntry CacheEntry;
+CacheEntry *cache_lookup(CacheEntry *head, const char *key);
+`
+    );
+    await writeFile(
+      path.join(root, "src", "cache.c"),
+      `#include "cache.h"
+#include <string.h>
+
+typedef struct CacheEntry {
+    const char *key;
+} CacheEntry;
+
+CacheEntry *cache_lookup(CacheEntry *head, const char *key) {
+    if (strcmp(head->key, key) == 0) {
+        return head;
+    }
+    return 0;
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_cache.c"),
+      `#include "../include/cache.h"
+
+void test_cache_lookup(void) {
+    cache_lookup(0, "missing");
+}
+`
+    );
+    await writeFile(path.join(root, "Makefile"), "cache_test: tests/test_cache.o src/cache.o\n");
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const sourceSymbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("src/cache.c");
+    const testSymbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("tests/test_cache.c");
+    const makeSymbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("Makefile");
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "Makefile", language: "c", role: "source" },
+      { path: "include/cache.h", language: "c", role: "source" },
+      { path: "src/cache.c", language: "c", role: "source" },
+      { path: "tests/test_cache.c", language: "c", role: "test" }
+    ]);
+    expect(sourceSymbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "CacheEntry", kind: "class" },
+        { qualified_name: "cache_lookup", kind: "function" }
+      ])
+    );
+    expect(testSymbols).toEqual(expect.arrayContaining([{ qualified_name: "test_cache_lookup", kind: "function" }]));
+    expect(makeSymbols).toEqual(expect.arrayContaining([{ qualified_name: "make.target.cache_test", kind: "method" }]));
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        { source: "src/cache.c", target_name: "cache.h", kind: "symbol_imports_module" },
+        { source: "cache_lookup", target_name: "strcmp", kind: "symbol_calls_name" },
+        { source: "test_cache_lookup", target_name: "cache_lookup", kind: "symbol_calls_name" },
+        { source: "make.target.cache_test", target_name: "tests/test_cache.o", kind: "symbol_calls_name" }
       ])
     );
   });
@@ -386,6 +603,92 @@ public class CheckoutService implements PaymentRepository {
           source: "com.acme.checkout.CheckoutService.findById",
           target: "com.acme.checkout.PaymentRepository.findById",
           target_name: "com.acme.checkout.PaymentRepository.findById",
+          kind: "symbol_conforms_to"
+        }
+      ])
+    );
+  });
+
+  test("indexes C++ source, headers, build ownership, and resolves interface implementations across files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-cpp-"));
+    await mkdir(path.join(root, "include", "acme", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "source", "common", "checkout"), { recursive: true });
+    await writeFile(path.join(root, "CMakeLists.txt"), "add_library(checkout_core source/common/checkout/checkout_service.cc)\n");
+    await writeFile(
+      path.join(root, "include", "acme", "checkout", "payment_repository.h"),
+      `#pragma once
+
+namespace acme::checkout {
+
+class PaymentRepository {
+public:
+  virtual ~PaymentRepository() = default;
+  virtual PaymentState FindById(const std::string& id) const = 0;
+};
+
+}  // namespace acme::checkout
+`
+    );
+    await writeFile(
+      path.join(root, "source", "common", "checkout", "checkout_service.cc"),
+      `#include "acme/checkout/payment_repository.h"
+
+namespace acme::checkout {
+
+class CheckoutService final : public PaymentRepository {
+public:
+  PaymentState FindById(const std::string& id) const override {
+    return gateway_->Fetch(id);
+  }
+};
+
+}  // namespace acme::checkout
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("source/common/checkout/checkout_service.cc");
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, target.qualified_name as target, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        left join symbols target on target.id = e.target_symbol_id
+        where e.kind = 'symbol_conforms_to'
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "CMakeLists.txt", language: "cpp" },
+      { path: "include/acme/checkout/payment_repository.h", language: "cpp" },
+      { path: "source/common/checkout/checkout_service.cc", language: "cpp" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "acme::checkout::CheckoutService", kind: "class" },
+        { qualified_name: "acme::checkout::CheckoutService.FindById", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "acme::checkout::CheckoutService",
+          target: "acme::checkout::PaymentRepository",
+          target_name: "PaymentRepository",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "acme::checkout::CheckoutService.FindById",
+          target: "acme::checkout::PaymentRepository.FindById",
+          target_name: "acme::checkout::PaymentRepository.FindById",
           kind: "symbol_conforms_to"
         }
       ])

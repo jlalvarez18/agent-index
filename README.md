@@ -2,7 +2,7 @@
 
 `agent-index` is a TypeScript/Node prototype for local, symbol-first code search by LLM agents.
 
-The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, Rust files get minimal line-based symbol extraction for mixed repos, results are stored in a local SQLite/FTS5 index, queried with lexical, symbol, or hybrid ranking, and evaluated with golden benchmark cases. The product model is that the LLM translates user intent into explicit search terms and constraints; `agent-index` is the fast code map, not an embedded LLM.
+The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, Rust and several other languages use deterministic line-based extraction, results are stored in a local SQLite/FTS5 index, queried with lexical, symbol, or hybrid ranking, and evaluated with golden benchmark cases. The product model is that the LLM translates user intent into explicit search terms and constraints; `agent-index` is the fast code map, not an embedded LLM.
 
 Think of it as a library catalog for code. Plain text search finds pages with matching words; `agent-index` tries to return the function, class, file, and nearby code relationships that make those pages useful to a coding agent.
 
@@ -399,7 +399,7 @@ The test suite covers scanner filtering, Python extraction, SQLite indexing, que
 
 ## Current Limits
 
-- Python, TypeScript/JavaScript, Go, and Swift have first-class navigation coverage; Rust/Cython/JSON extraction remains intentionally lightweight.
+- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, and C/C++ have first-class or active first-class navigation tracks; Cython/JSON extraction remains intentionally narrower.
 - Full reindex only.
 - No embeddings.
 - No MCP server.
@@ -434,5 +434,6 @@ The running lab notebook lives in:
 - `docs/findings/wsproto-benchmark-results.md`
 - `docs/findings/trio-benchmark-results.md`
 - `docs/findings/urllib3-benchmark-results.md`
+- `docs/findings/rust-benchmark-results.md`
 - `docs/findings/agent-index-readiness.md`
 - `docs/findings/publishing-outline.md`

@@ -79,6 +79,53 @@ def test_client_factory():
     expect(result.matches[0].why).toContain("test imports source module");
   });
 
+  test("links Cython source modules to Python tests that import their package sidecar", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-cython-"));
+    await mkdir(path.join(root, "sklearn", "cluster"), { recursive: true });
+    await mkdir(path.join(root, "sklearn", "cluster", "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "sklearn", "cluster", "_dbscan_inner.pyx"),
+      `from libcpp.vector cimport vector
+
+def dbscan_inner(is_core, neighborhoods, labels):
+    cdef vector[int] stack
+    return labels
+`
+    );
+    await writeFile(
+      path.join(root, "sklearn", "cluster", "tests", "test_dbscan.py"),
+      `from sklearn.cluster import _dbscan_inner
+
+def test_dbscan_inner_core_neighborhoods():
+    labels = _dbscan_inner.dbscan_inner([True], [[0]], [-1])
+    assert labels is not None
+`
+    );
+    await writeFile(
+      path.join(root, "sklearn", "cluster", "tests", "test_other.py"),
+      `def test_unrelated():
+    assert True
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "sklearn/cluster/_dbscan_inner.pyx",
+      symbol: "dbscan_inner",
+      terms: ["core", "neighborhoods"],
+      limit: 2
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "sklearn/cluster/tests/test_dbscan.py",
+      firstLine: 1
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test body mentions source symbol", "test calls source symbol"])
+    );
+  });
+
   test("links Go source files to table-driven subtests through imports, calls, and source stems", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-go-"));
     await mkdir(path.join(root, "internal", "server"), { recursive: true });
@@ -151,6 +198,176 @@ func TestUnrelated(t *testing.T) {
       expect.arrayContaining(["test imports source module", "test calls source symbol", "test path includes source stem", "test body matches task terms"])
     );
     expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["TestHandlerServe", "TestHandlerServe.subtest_missing_record"]));
+  });
+
+  test("links C source files to tests through header includes, calls, and source stems", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-c-"));
+    await mkdir(path.join(root, "include"), { recursive: true });
+    await mkdir(path.join(root, "src"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "include", "cache.h"),
+      `typedef struct CacheEntry CacheEntry;
+CacheEntry *cache_lookup(CacheEntry *head, const char *key);
+`
+    );
+    await writeFile(
+      path.join(root, "src", "cache.c"),
+      `#include "../include/cache.h"
+
+CacheEntry *cache_lookup(CacheEntry *head, const char *key) {
+    return head;
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_cache_lookup.c"),
+      `#include "../include/cache.h"
+
+void test_cache_lookup_missing_key(void) {
+    cache_lookup(0, "missing");
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "test_unrelated.c"),
+      `void test_unrelated(void) {}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/cache.c",
+      symbol: "cache_lookup",
+      terms: ["missing", "key"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/test_cache_lookup.c"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol", "test path includes source stem", "test body matches task terms"])
+    );
+    expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["test_cache_lookup_missing_key"]));
+  });
+
+  test("links Rust source files to integration tests through use imports and method calls", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-rust-"));
+    await mkdir(path.join(root, "src", "runtime"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "runtime", "mod.rs"),
+      `pub struct Runtime;
+
+impl Runtime {
+    pub fn spawn(&self, task: Task) {
+        schedule(task);
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "runtime_tests.rs"),
+      `use agent_runtime::runtime::Runtime;
+
+#[test]
+fn spawns_task_on_runtime() {
+    let runtime = Runtime;
+    runtime.spawn(task());
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "unrelated_tests.rs"),
+      `#[test]
+fn unrelated() {
+    assert!(true);
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/runtime/mod.rs",
+      symbol: "runtime.Runtime.spawn",
+      terms: ["spawn", "task"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/runtime_tests.rs"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol", "test body matches task terms"])
+    );
+    expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["runtime_tests.spawns_task_on_runtime"]));
+  });
+
+  test("links C++ source files to gtest coverage through includes, calls, and source stems", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-cpp-"));
+    await mkdir(path.join(root, "source", "common", "router"), { recursive: true });
+    await mkdir(path.join(root, "test", "common", "router"), { recursive: true });
+    await writeFile(
+      path.join(root, "source", "common", "router", "route_matcher.cc"),
+      `#include "source/common/router/route_matcher.h"
+
+namespace envoy::router {
+
+class RouteMatcher {
+public:
+  MatchResult MatchRoute(const RequestHeaders& headers) const {
+    return trie_->Find(headers.Path());
+  }
+};
+
+}  // namespace envoy::router
+`
+    );
+    await writeFile(
+      path.join(root, "test", "common", "router", "route_matcher_test.cc"),
+      `#include "source/common/router/route_matcher.h"
+
+#include "gtest/gtest.h"
+
+namespace envoy::router {
+
+TEST(RouteMatcherTest, MatchRouteFindsRouteEntry) {
+  RouteMatcher matcher;
+  EXPECT_TRUE(matcher.MatchRoute(RequestHeaders()).ok());
+}
+
+}  // namespace envoy::router
+`
+    );
+    await writeFile(
+      path.join(root, "test", "common", "router", "unrelated_test.cc"),
+      `#include "gtest/gtest.h"
+
+TEST(UnrelatedTest, DoesNothing) {
+  EXPECT_TRUE(true);
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "source/common/router/route_matcher.cc",
+      symbol: "envoy::router::RouteMatcher.MatchRoute",
+      terms: ["route", "entry"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "test/common/router/route_matcher_test.cc"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol", "test path includes source stem", "test body matches task terms"])
+    );
+    expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["envoy::router::RouteMatcherTest.MatchRouteFindsRouteEntry"]));
   });
 
   test("can batch related-test discovery for multiple source symbols", async () => {

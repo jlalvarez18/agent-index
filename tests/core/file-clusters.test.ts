@@ -302,6 +302,46 @@ data class PaymentState(val label: String)
     expect(result.clusters[0].why).toContain("build tool ownership match");
   });
 
+  test("boosts Cython backend clusters for mixed Python-to-Cython navigation", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-cython-"));
+    await mkdir(path.join(root, "sklearn", "cluster"), { recursive: true });
+    await writeFile(
+      path.join(root, "sklearn", "cluster", "_dbscan.py"),
+      `def dbscan(X):
+    """Python dispatcher for dbscan core neighborhoods labels stack backend."""
+    return X
+`
+    );
+    await writeFile(
+      path.join(root, "sklearn", "cluster", "_dbscan_inner.pyx"),
+      `from libcpp.vector cimport vector
+from sklearn.utils._typedefs cimport uint8_t, intp_t
+
+def dbscan_inner(const uint8_t[::1] is_core, object[:] neighborhoods, intp_t[::1] labels):
+    cdef vector[intp_t] stack
+    while stack.size() > 0:
+        labels[stack.back()] = 1
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["dbscan", "cython", "core", "neighborhoods", "labels", "stack", "backend"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["cluster"]
+      },
+      { target: root, limit: 3 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "sklearn/cluster/_dbscan_inner.pyx",
+      language: "cython"
+    });
+    expect(result.clusters[0].why).toContain("Cython navigation signal match");
+  });
+
   test("boosts Gradle version catalog clusters for Kotlin alias ownership tasks", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-catalog-"));
     await mkdir(path.join(root, "gradle"), { recursive: true });

@@ -3,6 +3,8 @@ export type Language =
   | "go"
   | "rust"
   | "cython"
+  | "c"
+  | "cpp"
   | "typescript"
   | "javascript"
   | "json"

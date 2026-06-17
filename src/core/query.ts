@@ -83,7 +83,12 @@ async function queryWithText(
     const candidateRows =
       mode === "fts"
         ? ftsRows
-        : mergeCandidateRows([...searchPathHintCandidates(db, agentQuery), ...searchIntentCandidates(db, scoringQuestion, agentQuery), ...ftsRows]);
+        : mergeCandidateRows([
+            ...searchExactSymbolCandidates(db, agentQuery),
+            ...searchPathHintCandidates(db, agentQuery),
+            ...searchIntentCandidates(db, scoringQuestion, agentQuery),
+            ...ftsRows
+          ]);
     const rows = applyAgentQueryFilters(candidateRows, agentQuery);
     const matches = rankRows(db, rows, scoringQuestion, mode, options.limit ?? 5, options.debug ?? false, agentQuery);
     return { query: question, mode, matches };
@@ -276,6 +281,59 @@ function searchPathHintCandidates(db: Database.Database, agentQuery: AgentQuery 
       `
     )
     .all(params) as CandidateRow[];
+}
+
+function searchExactSymbolCandidates(db: Database.Database, agentQuery: AgentQuery | undefined): CandidateRow[] {
+  const terms = uniqueValues(
+    (agentQuery?.terms ?? [])
+      .map((term) => term.trim())
+      .filter((term) => /^[A-Za-z_][A-Za-z0-9_:.#-]*$/u.test(term))
+      .filter((term) => /[A-Z_:.#-]/u.test(term))
+      .map((term) => term.toLowerCase())
+  ).slice(0, 12);
+  if (terms.length === 0) {
+    return [];
+  }
+
+  const filter = candidateSqlFilter(agentQuery);
+  const placeholders = terms.map((_, index) => `@exactSymbol${index}`);
+  const params: Record<string, unknown> = {
+    ...filter.params,
+    ...Object.fromEntries(terms.map((term, index) => [`exactSymbol${index}`, term]))
+  };
+
+  return (db
+    .prepare(
+      `
+      select
+        c.id as chunk_id,
+        c.text as chunk_text,
+        c.start_line as chunk_start_line,
+        c.end_line as chunk_end_line,
+        s.id as symbol_id,
+        s.name as symbol_name,
+        s.qualified_name as qualified_name,
+        s.kind as kind,
+        s.start_line as symbol_start_line,
+        s.end_line as symbol_end_line,
+        f.path as file_path,
+        f.role as file_role,
+        0 as rank
+      from symbols s
+      join chunks c on c.symbol_id = s.id
+      join files f on f.id = s.file_id
+      where (lower(s.name) in (${placeholders.join(", ")}) or lower(s.qualified_name) in (${placeholders.join(", ")}))
+        ${filter.sql}
+      order by f.path, s.start_line
+      limit 40
+      `
+    )
+    .all(params) as CandidateRow[]).map((row) => ({
+    ...row,
+    intentBoost: Math.max(row.intentBoost ?? 0, 42),
+    intentReasons: uniqueValues([...(row.intentReasons ?? []), "exact symbol term match"]),
+    candidateSources: uniqueCandidateSources([...(row.candidateSources ?? []), "intent"])
+  }));
 }
 
 function searchIntentCandidates(db: Database.Database, question: string, agentQuery?: AgentQuery): CandidateRow[] {
@@ -712,6 +770,12 @@ function toMatch(
   score += buildToolNavigation.score;
   if (buildToolNavigation.score > 0) {
     addWhy(why, buildToolNavigation.reason);
+  }
+
+  const cythonNavigation = cythonNavigationAdjustment(row, question);
+  score += cythonNavigation.score;
+  if (cythonNavigation.score > 0) {
+    addWhy(why, cythonNavigation.reason);
   }
 
   const testApi = testApiEvidenceAdjustment(row, question);
@@ -1513,6 +1577,54 @@ function buildToolNavigationAdjustment(row: CandidateRow, question: string): { s
   if (["dependency", "implementation", "api", "plugin", "module", "project", "catalog", "library", "version", "sourceset"].some((term) => symbol.includes(term))) score += 8;
   if (["dependency", "artifactid", "groupid", "plugin", "module", "project", "version", "version ref"].some((term) => chunk.includes(term))) score += 6;
   return { score: Math.min(score, 30), reason: "build tool ownership match" };
+}
+
+function cythonNavigationAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  if (!isCythonPath(row.file_path)) {
+    return { score: 0, reason: "Cython navigation signal match" };
+  }
+
+  const tokens = new Set(rankedQueryTokens(question));
+  const chunk = normalize(row.chunk_text);
+  const symbol = normalize(row.qualified_name);
+  const file = normalize(row.file_path);
+  const asksForCythonBackend = [
+    "backend",
+    "brute",
+    "cdef",
+    "cimport",
+    "cpdef",
+    "cython",
+    "dense",
+    "distance",
+    "distances",
+    "float32",
+    "float64",
+    "fused",
+    "nogil",
+    "parallel",
+    "prange",
+    "reduction",
+    "sparse",
+    "template"
+  ].some((term) => tokens.has(term));
+  if (!asksForCythonBackend) {
+    return { score: 0, reason: "Cython navigation signal match" };
+  }
+
+  const evidenceTerms = ["cdef", "cpdef", "cimport", "nogil", "prange", "floating", "float32", "float64", "intp", "parallel", "reduction", "distances"].filter(
+    (term) => chunk.includes(term) || symbol.includes(term) || file.includes(term)
+  );
+  if (evidenceTerms.length === 0) {
+    return { score: 0, reason: "Cython navigation signal match" };
+  }
+
+  const kindBoost = row.kind === "method" || row.kind === "function" ? 8 : row.kind === "class" ? 5 : 2;
+  return { score: Math.min(kindBoost + evidenceTerms.length * 3, 28), reason: "Cython navigation signal match" };
+}
+
+function isCythonPath(filePath: string): boolean {
+  return /\.(?:pyx|pxd|pxi)(?:\.(?:tp|in))?$/u.test(filePath);
 }
 
 function testApiEvidenceAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
@@ -5069,6 +5181,10 @@ function stemToken(token: string): string {
     return token.slice(0, -1);
   }
   return token;
+}
+
+function uniqueValues<T>(values: T[]): T[] {
+  return [...new Set(values)];
 }
 
 function addWhy(why: string[], reason: string): void {

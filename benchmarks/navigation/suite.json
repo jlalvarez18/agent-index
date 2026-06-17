@@ -42,6 +42,12 @@
     "mode": "hybrid"
   },
   {
+    "name": "scikit-learn-cython-dbscan",
+    "evalPath": "scikit-learn-dbscan-cython-inner-loop.json",
+    "target": "scikit-learn",
+    "mode": "hybrid"
+  },
+  {
     "name": "rich",
     "evalPath": "rich-print-json-file.json",
     "target": "rich",
@@ -159,6 +165,27 @@
     "name": "go",
     "evalPath": "go-exact-string-audit.json",
     "target": "go",
+    "mode": "hybrid"
+  },
+  {
+    "name": "tokio-rust",
+    "evalPath": "tokio-runtime-builder-rust.json",
+    "target": "tokio",
+    "repoUrl": "https://github.com/tokio-rs/tokio.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "serde-rust",
+    "evalPath": "serde-serializer-trait-rust.json",
+    "target": "serde",
+    "repoUrl": "https://github.com/serde-rs/serde.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "ripgrep-rust",
+    "evalPath": "ripgrep-searcher-rust.json",
+    "target": "ripgrep",
+    "repoUrl": "https://github.com/BurntSushi/ripgrep.git",
     "mode": "hybrid"
   },
   {
@@ -306,6 +333,34 @@
     "evalPath": "android-architecture-components-java-room-path.json",
     "target": "architecture-components-samples",
     "repoUrl": "https://github.com/android/architecture-components-samples.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "redis-c",
+    "evalPath": "redis-dict-rehash-c.json",
+    "target": "redis",
+    "repoUrl": "https://github.com/redis/redis.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "sqlite-c",
+    "evalPath": "sqlite-btree-cursor-c.json",
+    "target": "sqlite",
+    "repoUrl": "https://github.com/sqlite/sqlite.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "curl-c",
+    "evalPath": "curl-http-request-c.json",
+    "target": "curl",
+    "repoUrl": "https://github.com/curl/curl.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "firebase-firestore-cpp",
+    "evalPath": "firebase-firestore-remote-store-cpp-watch.json",
+    "target": "firebase-ios-sdk",
+    "repoUrl": "https://github.com/firebase/firebase-ios-sdk.git",
     "mode": "hybrid"
   }
 ]

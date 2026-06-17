@@ -1,0 +1,58 @@
+[
+  {
+    "id": "guava-listenable-future-interface-java-implementation",
+    "task": "Find what implements the ListenableFuture contract and where AbstractFuture listener behavior is tested.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["ListenableFuture", "addListener"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["guava/src/com/google/common/util/concurrent/ListenableFuture.java"],
+          "expand": ["parents", "children"]
+        }
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["ListenableFuture", "addListener", "AbstractFuture", "TrustedFuture", "implements"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["guava/src/com/google/common/util/concurrent"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["AbstractFuture", "ListenableFuture", "addListener", "cancel", "setFuture"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["ListenableFuture", "addListener", "AbstractFuture", "implements"], ["AbstractFutureTest", "addListener", "cancel"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["interface ListenableFuture", "addListener"], "paths": ["guava/src/com/google/common/util/concurrent"], "globs": ["*.java"], "limit": 40 },
+        { "type": "search-files", "terms": ["extends AbstractFuture", "implements ListenableFuture"], "paths": ["guava/src/com/google/common/util/concurrent"], "globs": ["*.java"], "limit": 50 },
+        { "type": "search-files", "terms": ["AbstractFutureTest", "addListener"], "scope": "test", "paths": ["guava-tests/test/com/google/common/util/concurrent"], "globs": ["*.java"], "limit": 40 }
+      ]
+    },
+    "expected": {
+      "files": [
+        "guava/src/com/google/common/util/concurrent/ListenableFuture.java",
+        "guava/src/com/google/common/util/concurrent/AbstractFuture.java",
+        "guava-tests/test/com/google/common/util/concurrent/AbstractFutureTest.java"
+      ],
+      "symbols": ["com.google.common.util.concurrent.ListenableFuture", "com.google.common.util.concurrent.ListenableFuture.addListener", "com.google.common.util.concurrent.AbstractFuture"],
+      "requiredFiles": [
+        "guava/src/com/google/common/util/concurrent/ListenableFuture.java",
+        "guava/src/com/google/common/util/concurrent/AbstractFuture.java"
+      ],
+      "requiredSymbols": ["com.google.common.util.concurrent.ListenableFuture.addListener", "com.google.common.util.concurrent.AbstractFuture"]
+    }
+  }
+]

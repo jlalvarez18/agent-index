@@ -49,6 +49,7 @@ const TEST_DIRS = new Set(["tests", "test", "__tests__", "spec", "specs", "_test
 const TEST_FILE_NAME_PATTERN = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const GO_TEST_FILE_NAME_PATTERN = /_test\.go$/u;
 const KOTLIN_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.kts?$/u;
+const JAVA_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|IT|ITCase)\.java$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
@@ -87,6 +88,7 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     ".swift",
     ".kt",
     ".kts",
+    ".java",
     ".xml",
     ".toml"
   ]);
@@ -172,6 +174,9 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".kt" || suffix === ".kts") {
     return "kotlin";
   }
+  if (suffix === ".java") {
+    return "java";
+  }
   if (suffix === ".xml") {
     return "xml";
   }
@@ -191,7 +196,8 @@ export function classifyFileRole(relativePath: string): FileRole {
     isJavaScriptTestFile(relativePath) ||
     isGoTestFile(relativePath) ||
     isSwiftTestFile(relativePath) ||
-    isKotlinTestFile(relativePath)
+    isKotlinTestFile(relativePath) ||
+    isJavaTestFile(relativePath)
   ) {
     return "test";
   }
@@ -251,4 +257,9 @@ function isSwiftTestFile(relativePath: string): boolean {
 function isKotlinTestFile(relativePath: string): boolean {
   const basename = path.posix.basename(relativePath);
   return KOTLIN_TEST_FILE_NAME_PATTERN.test(basename) || relativePath.includes("/src/test/") || relativePath.includes("/src/androidTest/");
+}
+
+function isJavaTestFile(relativePath: string): boolean {
+  const basename = path.posix.basename(relativePath);
+  return JAVA_TEST_FILE_NAME_PATTERN.test(basename) || relativePath.includes("/src/test/") || relativePath.includes("/src/androidTest/");
 }

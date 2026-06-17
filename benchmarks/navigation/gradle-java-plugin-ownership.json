@@ -1,0 +1,46 @@
+[
+  {
+    "id": "gradle-java-plugin-ownership",
+    "task": "Find which Gradle module owns Java plugin wiring and follow the plugin API path to tests.",
+    "kind": "config-build",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["JavaPlugin", "JavaBasePlugin", "Plugin", "Project", "apply", "sourceCompatibility"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["platforms/jvm/plugins-java/src/main/java"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["JavaPlugin", "JavaBasePlugin", "apply", "sourceCompatibility"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["JavaPlugin", "JavaBasePlugin", "Project", "apply"], ["JavaPluginTest", "sourceCompatibility"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["class JavaPlugin", "class JavaBasePlugin"], "paths": ["platforms/jvm/plugins-java/src/main/java"], "globs": ["*.java"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["Plugin", "Project", "apply"], "fromStep": 1, "before": 8, "after": 14, "limit": 10 },
+        { "type": "search-files", "terms": ["JavaPlugin", "JavaBasePlugin"], "scope": "test", "paths": ["platforms/jvm/plugins-java/src/integTest/groovy", "platforms/jvm/plugins-java-base/src/integTest/groovy"], "globs": ["*.java", "*.groovy"], "limit": 50 }
+      ]
+    },
+    "expected": {
+      "files": [
+        "platforms/jvm/plugins-java/src/main/java/org/gradle/api/plugins/JavaPlugin.java",
+        "platforms/jvm/plugins-java-base/src/main/java/org/gradle/api/plugins/JavaBasePlugin.java"
+      ],
+      "symbols": ["org.gradle.api.plugins.JavaPlugin", "org.gradle.api.plugins.JavaBasePlugin"],
+      "requiredFiles": [
+        "platforms/jvm/plugins-java/src/main/java/org/gradle/api/plugins/JavaPlugin.java"
+      ],
+      "requiredSymbols": ["org.gradle.api.plugins.JavaPlugin"]
+    }
+  }
+]

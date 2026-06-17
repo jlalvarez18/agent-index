@@ -1,0 +1,46 @@
+[
+  {
+    "id": "android-architecture-components-java-room-path",
+    "task": "Navigate Android Java UI/data flow from ProductFragment through ViewModel and Room-backed repository tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["ProductFragment", "ProductViewModel", "ProductRepository", "LiveData", "Room", "Dao"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source", "test"],
+          "pathHints": ["BasicSample/app/src/main/java"]
+        },
+        "limit": 8,
+        "testLimit": 4,
+        "testFanoutLimit": 4
+      }
+    ],
+    "rgQueries": [["ProductFragment", "ProductViewModel", "ProductRepository", "LiveData"], ["ProductTest", "Room", "Dao"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["ProductFragment", "ProductViewModel"], "paths": ["BasicSample/app/src/main/java"], "globs": ["*.java"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["LiveData", "ProductRepository", "Dao"], "fromStep": 1, "before": 8, "after": 14, "limit": 12 },
+        { "type": "search-files", "terms": ["ProductTest", "ProductRepository", "Dao"], "scope": "test", "paths": ["BasicSample/app/src/androidTest/java"], "globs": ["*.java"], "limit": 40 }
+      ]
+    },
+    "expected": {
+      "files": [
+        "BasicSample/app/src/main/java/com/example/android/persistence/ui/ProductFragment.java",
+        "BasicSample/app/src/main/java/com/example/android/persistence/viewmodel/ProductViewModel.java",
+        "BasicSample/app/src/main/java/com/example/android/persistence/DataRepository.java"
+      ],
+      "symbols": ["com.example.android.persistence.ui.ProductFragment", "com.example.android.persistence.viewmodel.ProductViewModel", "com.example.android.persistence.DataRepository"],
+      "requiredFiles": [
+        "BasicSample/app/src/main/java/com/example/android/persistence/ui/ProductFragment.java",
+        "BasicSample/app/src/main/java/com/example/android/persistence/viewmodel/ProductViewModel.java"
+      ],
+      "requiredSymbols": [
+        "com.example.android.persistence.ui.ProductFragment",
+        "com.example.android.persistence.viewmodel.ProductViewModel"
+      ]
+    }
+  }
+]

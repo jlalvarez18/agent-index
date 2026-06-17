@@ -1,0 +1,46 @@
+[
+  {
+    "id": "spring-framework-autowired-bean-post-processor-java-di",
+    "task": "Navigate Spring annotation-based dependency injection from @Autowired metadata to the BeanPostProcessor implementation and tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["AutowiredAnnotationBeanPostProcessor", "Autowired", "Inject", "findAutowiringMetadata", "BeanPostProcessor"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["spring-beans/src/main/java/org/springframework/beans/factory/annotation"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["AutowiredAnnotationBeanPostProcessor", "Autowired", "Inject", "constructor", "field"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["AutowiredAnnotationBeanPostProcessor", "Autowired", "Inject", "BeanPostProcessor"], ["findAutowiringMetadata", "AutowiredAnnotationBeanPostProcessorTests"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["AutowiredAnnotationBeanPostProcessor", "findAutowiringMetadata"], "paths": ["spring-beans/src/main/java"], "globs": ["*.java"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["@Autowired", "jakarta.inject.Inject", "BeanPostProcessor"], "fromStep": 1, "before": 10, "after": 16, "limit": 12 },
+        { "type": "search-files", "terms": ["AutowiredAnnotationBeanPostProcessorTests", "Autowired"], "scope": "test", "paths": ["spring-beans/src/test/java"], "globs": ["*.java"], "limit": 40 }
+      ]
+    },
+    "expected": {
+      "files": [
+        "spring-beans/src/main/java/org/springframework/beans/factory/annotation/AutowiredAnnotationBeanPostProcessor.java",
+        "spring-beans/src/test/java/org/springframework/beans/factory/annotation/AutowiredAnnotationBeanPostProcessorTests.java"
+      ],
+      "symbols": ["org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor", "org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.findAutowiringMetadata"],
+      "requiredFiles": [
+        "spring-beans/src/main/java/org/springframework/beans/factory/annotation/AutowiredAnnotationBeanPostProcessor.java"
+      ],
+      "requiredSymbols": ["org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor", "org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.findAutowiringMetadata"]
+    }
+  }
+]

@@ -265,5 +265,47 @@
     "target": "nowinandroid",
     "repoUrl": "https://github.com/android/nowinandroid.git",
     "mode": "hybrid"
+  },
+  {
+    "name": "spring-petclinic-java",
+    "evalPath": "spring-petclinic-owner-controller-java-flow.json",
+    "target": "spring-petclinic",
+    "repoUrl": "https://github.com/spring-projects/spring-petclinic.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "spring-framework-java-di",
+    "evalPath": "spring-framework-autowired-bean-post-processor-java-di.json",
+    "target": "spring-framework",
+    "repoUrl": "https://github.com/spring-projects/spring-framework.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "guava-java",
+    "evalPath": "guava-listenable-future-interface-java-implementation.json",
+    "target": "guava",
+    "repoUrl": "https://github.com/google/guava.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "junit5-java",
+    "evalPath": "junit5-test-engine-java-discovery.json",
+    "target": "junit5",
+    "repoUrl": "https://github.com/junit-team/junit5.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "gradle-java",
+    "evalPath": "gradle-java-plugin-ownership.json",
+    "target": "gradle",
+    "repoUrl": "https://github.com/gradle/gradle.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "android-architecture-components-java",
+    "evalPath": "android-architecture-components-java-room-path.json",
+    "target": "architecture-components-samples",
+    "repoUrl": "https://github.com/android/architecture-components-samples.git",
+    "mode": "hybrid"
   }
 ]

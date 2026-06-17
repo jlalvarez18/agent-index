@@ -990,6 +990,9 @@ function moduleNamesForSource(file: string): string[] {
   if (file.endsWith(".kt") || file.endsWith(".kts")) {
     pathVariants.push(...kotlinSourceModuleVariants(segments));
   }
+  if (file.endsWith(".java")) {
+    pathVariants.push(...javaSourceModuleVariants(segments));
+  }
   if (withoutInit.endsWith("/index")) {
     pathVariants.push(withoutInit.slice(0, -"/index".length));
   }
@@ -1016,6 +1019,19 @@ function kotlinSourceModuleVariants(segments: string[]): string[] {
   const rootIndex = segments.findIndex(
     (segment, index) => segment === "src" && (segments[index + 2] === "kotlin" || segments[index + 2] === "java")
   );
+  if (rootIndex === -1) {
+    return [];
+  }
+  const packageSegments = segments.slice(rootIndex + 3);
+  if (packageSegments.length === 0) {
+    return [];
+  }
+  const withoutLeaf = packageSegments.slice(0, -1);
+  return uniqueValues([packageSegments.join("/"), withoutLeaf.join("/")].filter(Boolean));
+}
+
+function javaSourceModuleVariants(segments: string[]): string[] {
+  const rootIndex = segments.findIndex((segment, index) => segment === "src" && segments[index + 2] === "java");
   if (rootIndex === -1) {
     return [];
   }

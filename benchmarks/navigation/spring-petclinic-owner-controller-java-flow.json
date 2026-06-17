@@ -1,0 +1,52 @@
+[
+  {
+    "id": "spring-petclinic-owner-controller-java-flow",
+    "task": "Trace the Spring MVC owner request path from controller methods through repository calls and locate the controller tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["OwnerController", "GetMapping", "PostMapping", "OwnerRepository", "findByLastNameStartingWith", "MockMvc"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source", "test"],
+          "pathHints": ["src/main/java/org/springframework/samples/petclinic/owner"]
+        },
+        "limit": 6,
+        "testLimit": 4,
+        "testFanoutLimit": 3
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["OwnerRepository", "findByLastNameStartingWith", "save", "findById"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["owner"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["OwnerController", "GetMapping", "PostMapping", "OwnerRepository"], ["OwnerControllerTests", "MockMvc", "findByLastNameStartingWith"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["class OwnerController", "OwnerRepository"], "paths": ["src/main/java/org/springframework/samples/petclinic/owner"], "globs": ["*.java"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["@GetMapping", "@PostMapping", "findByLastNameStartingWith"], "fromStep": 1, "before": 8, "after": 14, "limit": 8 },
+        { "type": "search-files", "terms": ["OwnerControllerTests", "MockMvc"], "scope": "test", "paths": ["src/test/java/org/springframework/samples/petclinic/owner"], "globs": ["*.java"], "limit": 20 }
+      ]
+    },
+    "expected": {
+      "files": [
+        "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java",
+        "src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java"
+      ],
+      "symbols": ["org.springframework.samples.petclinic.owner.OwnerController", "org.springframework.samples.petclinic.owner.OwnerController.processFindForm"],
+      "requiredFiles": [
+        "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java",
+        "src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java"
+      ],
+      "requiredSymbols": ["org.springframework.samples.petclinic.owner.OwnerController", "org.springframework.samples.petclinic.owner.OwnerController.processFindForm"]
+    }
+  }
+]

@@ -5,6 +5,7 @@ import path from "node:path";
 import { extractCython } from "./extractors/cython.js";
 import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
+import { extractJava } from "./extractors/java.js";
 import { extractKotlin } from "./extractors/kotlin.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRust } from "./extractors/rust.js";
@@ -40,6 +41,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "kotlin") {
         return extractKotlin(file);
+      }
+      if (file.language === "java") {
+        return extractJava(file);
       }
       if (file.language === "go") {
         return extractGo(file);

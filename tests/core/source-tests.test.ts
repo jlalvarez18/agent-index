@@ -286,4 +286,58 @@ class CheckoutViewModelTest {
     });
     expect(result.bundles[0].tests[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
   });
+
+  test("links Java Spring services to JUnit tests through imports and method calls", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-java-"));
+    await mkdir(path.join(root, "service", "src", "main", "java", "com", "acme", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "service", "src", "test", "java", "com", "acme", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "service", "src", "main", "java", "com", "acme", "checkout", "CheckoutService.java"),
+      `package com.acme.checkout;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class CheckoutService {
+    public Receipt submit(OrderRequest request) {
+        return workflow.submit(request).receipt();
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "service", "src", "test", "java", "com", "acme", "checkout", "CheckoutServiceTest.java"),
+      `package com.acme.checkout;
+
+import org.junit.jupiter.api.Test;
+import com.acme.checkout.CheckoutService;
+
+class CheckoutServiceTest {
+    @Test
+    void submitReturnsReceipt() {
+        CheckoutService service = new CheckoutService();
+        service.submit(OrderRequest.fixture());
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findSourceTests(
+      {
+        terms: ["CheckoutService", "submit", "receipt"],
+        roles: ["source", "test"],
+        pathHints: ["service/src/main/java"]
+      },
+      { target: root, limit: 2, testLimit: 1, testFanoutLimit: 1 }
+    );
+
+    expect(result.bundles[0].source.file).toBe("service/src/main/java/com/acme/checkout/CheckoutService.java");
+    expect(result.bundles.map((bundle) => bundle.source.file)).not.toContain("service/src/test/java/com/acme/checkout/CheckoutServiceTest.java");
+    expect(result.bundles[0].tests[0]).toMatchObject({
+      file: "service/src/test/java/com/acme/checkout/CheckoutServiceTest.java",
+      symbols: expect.arrayContaining(["com.acme.checkout.CheckoutServiceTest.submitReturnsReceipt"])
+    });
+    expect(result.bundles[0].tests[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
+  });
 });

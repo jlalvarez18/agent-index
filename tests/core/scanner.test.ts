@@ -51,8 +51,12 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("Tests/AppTests/CheckoutViewModelTests.swift")).toBe("test");
     expect(classifyFileRole("app/src/test/java/com/acme/CheckoutViewModelTest.kt")).toBe("test");
     expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutScreenTest.kt")).toBe("test");
+    expect(classifyFileRole("app/src/test/java/com/acme/CheckoutServiceTest.java")).toBe("test");
+    expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutInstrumentedTest.java")).toBe("test");
     expect(classifyFileRole("core/src/main/kotlin/com/acme/PaymentRepository.kt")).toBe("source");
+    expect(classifyFileRole("core/src/main/java/com/acme/PaymentRepository.java")).toBe("source");
     expect(classifyFileRole("feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouViewModel.kt")).toBe("source");
+    expect(classifyFileRole("feature/foryou/impl/src/main/java/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouController.java")).toBe("source");
     expect(classifyFileRole("app/build.gradle.kts")).toBe("source");
     expect(classifyFileRole("pom.xml")).toBe("source");
     expect(classifyFileRole("gradle/libs.versions.toml")).toBe("source");
@@ -73,7 +77,7 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
   });
 
-  test("can scan mixed Python, Go, Rust, Cython template, TypeScript, JSON, and Swift source files for indexing", async () => {
+  test("can scan mixed Python, Java, Go, Rust, Cython template, TypeScript, JSON, and Swift source files for indexing", async () => {
     const root = await fixtureDir();
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "cmd", "server"), { recursive: true });
@@ -101,6 +105,8 @@ describe("scanPythonFiles", () => {
     await writeFile(path.join(root, "app", "build.gradle.kts"), "plugins { kotlin(\"android\") }\n");
     await writeFile(path.join(root, "app", "src", "main", "java", "com", "acme", "CheckoutViewModel.kt"), "class CheckoutViewModel\n");
     await writeFile(path.join(root, "app", "src", "test", "java", "com", "acme", "CheckoutViewModelTest.kt"), "class CheckoutViewModelTest\n");
+    await writeFile(path.join(root, "app", "src", "main", "java", "com", "acme", "CheckoutService.java"), "class CheckoutService {}\n");
+    await writeFile(path.join(root, "app", "src", "test", "java", "com", "acme", "CheckoutServiceTest.java"), "class CheckoutServiceTest {}\n");
     await writeFile(path.join(root, "pom.xml"), "<project><artifactId>checkout-parent</artifactId></project>\n");
     await mkdir(path.join(root, "gradle"), { recursive: true });
     await writeFile(path.join(root, "gradle", "libs.versions.toml"), "[libraries]\ncoroutines = \"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1\"\n");
@@ -112,7 +118,9 @@ describe("scanPythonFiles", () => {
 
     expect(files.map((file) => ({ relativePath: file.relativePath, language: file.language }))).toEqual([
       { relativePath: "app/build.gradle.kts", language: "kotlin" },
+      { relativePath: "app/src/main/java/com/acme/CheckoutService.java", language: "java" },
       { relativePath: "app/src/main/java/com/acme/CheckoutViewModel.kt", language: "kotlin" },
+      { relativePath: "app/src/test/java/com/acme/CheckoutServiceTest.java", language: "java" },
       { relativePath: "app/src/test/java/com/acme/CheckoutViewModelTest.kt", language: "kotlin" },
       { relativePath: "cmd/server/main.go", language: "go" },
       { relativePath: "core/src/serializer.rs", language: "rust" },
@@ -132,6 +140,7 @@ describe("scanPythonFiles", () => {
     expect(files.find((file) => file.relativePath === "internal/config/loader_test.go")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "Tests/AppTests/CheckoutViewModelTests.swift")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutViewModelTest.kt")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutServiceTest.java")?.role).toBe("test");
   });
 
   test("can skip tests and tools for source-only benchmark indexing", async () => {

@@ -647,6 +647,12 @@ function toMatch(
     addWhy(why, pathHint.reason);
   }
 
+  const swiftUIViewBody = swiftUIViewBodyAdjustment(row, question);
+  score += swiftUIViewBody.score;
+  if (swiftUIViewBody.score > 0) {
+    addWhy(why, swiftUIViewBody.reason);
+  }
+
   const testApi = testApiEvidenceAdjustment(row, question);
   score += testApi.score;
   if (testApi.score > 0) {
@@ -777,7 +783,10 @@ function expandNeighbors(db: Database.Database, symbolId: number): QueryNeighbor
       join symbols source on source.id = e.source_symbol_id
       join files f on f.id = source.file_id
       where e.target_symbol_id = @symbolId or e.target_name = current.qualified_name or e.target_name = current.name
-      order by e.id
+      order by
+        case when e.target_symbol_id = @symbolId then 0 else 1 end,
+        case when e.kind = 'symbol_conforms_to' then 0 else 1 end,
+        e.id
       limit 5
       `
     )
@@ -796,7 +805,12 @@ function rowToNeighbor(row: Record<string, unknown>): QueryNeighbor {
 }
 
 function rowToIncomingNeighbor(row: Record<string, unknown>): QueryNeighbor {
-  const relation = row.relation === "symbol_calls_name" ? "called_by_name" : `incoming_${String(row.relation)}`;
+  const relation =
+    row.relation === "symbol_calls_name"
+      ? "called_by_name"
+      : row.relation === "symbol_conforms_to"
+        ? "conformed_to_by"
+        : `incoming_${String(row.relation)}`;
   return {
     relation,
     symbol: String(row.symbol),
@@ -1287,6 +1301,22 @@ function pathHintMatchesFile(normalizedFile: string, normalizedHint: string): bo
   return hintTokens.every((hintToken) =>
     [...fileTokens].some((fileToken) => fileToken === hintToken || tokensLooselyMatch(fileToken, hintToken))
   );
+}
+
+function swiftUIViewBodyAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  if (!row.file_path.endsWith(".swift") || row.kind !== "method" || row.symbol_name !== "body") {
+    return { score: 0, reason: "SwiftUI view body flow match" };
+  }
+
+  const tokens = new Set(rankedQueryTokens(question));
+  const asksForViewFlow =
+    tokens.has("swiftui") ||
+    (tokens.has("view") && (tokens.has("body") || tokens.has("model") || tokens.has("action") || tokens.has("button")));
+  if (!asksForViewFlow || !tokens.has("body")) {
+    return { score: 0, reason: "SwiftUI view body flow match" };
+  }
+
+  return { score: 14, reason: "SwiftUI view body flow match" };
 }
 
 function testApiEvidenceAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {

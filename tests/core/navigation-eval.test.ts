@@ -130,6 +130,224 @@ describe("runNavigationEval", () => {
     expect(result.caseResults[0].tokenSavings).toBeGreaterThan(0);
   });
 
+  test("runs Swift exact-string audit workflows against indexed Swift test files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-swift-exact-"));
+    await mkdir(path.join(root, "test", "Concurrency"), { recursive: true });
+    await writeFile(
+      path.join(root, "test", "Concurrency", "sendable_checking.swift"),
+      `func capturesMutableState() async {
+  var value = 0
+  Task {
+    value += 1 // expected-warning {{reference to captured var 'value' in concurrently-executing code}}
+  }
+}
+`
+    );
+    await indexTarget(root);
+
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-swift-exact-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "swift-exact-string-audit",
+            task: "Audit exact Swift concurrency diagnostic expectations where rg should be a strong baseline.",
+            kind: "exact-string-audit",
+            agentIndexSteps: [
+              {
+                type: "query",
+                query: {
+                  terms: ["reference to captured var", "concurrently-executing code", "expected-warning", "Concurrency"],
+                  roles: ["source", "test"],
+                  pathHints: ["test/Concurrency"]
+                }
+              }
+            ],
+            rgQueries: [["reference to captured var", "concurrently-executing code"]],
+            rgOptimizedPlan: {
+              version: 2,
+              steps: [
+                {
+                  type: "search-files",
+                  terms: ["reference to captured var", "concurrently-executing code"],
+                  paths: ["test/Concurrency"],
+                  globs: ["*.swift"],
+                  limit: 10
+                },
+                {
+                  type: "read-snippets",
+                  terms: ["reference to captured var", "concurrently-executing code"],
+                  fromStep: 1,
+                  before: 2,
+                  after: 2,
+                  limit: 4
+                }
+              ]
+            },
+            expected: {
+              files: ["test/Concurrency/sendable_checking.swift"],
+              requiredFiles: ["test/Concurrency/sendable_checking.swift"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0]).toMatchObject({
+      id: "swift-exact-string-audit",
+      agentIndex: {
+        foundUseful: true,
+        taskComplete: true,
+        foundFiles: ["test/Concurrency/sendable_checking.swift"]
+      },
+      rg: {
+        foundUseful: true,
+        taskComplete: true
+      },
+      rgOptimized: {
+        foundUseful: true,
+        taskComplete: true
+      }
+    });
+  });
+
+  test("counts compact query neighbor symbols toward navigation completion", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-neighbor-symbols-"));
+    await mkdir(path.join(root, "Sources", "DequeModule"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "DequeModule", "Deque.swift"),
+      `public struct Deque<Element> {
+  internal var _storage: ContiguousArray<Element>
+
+  public mutating func append(_ element: Element) {
+    _storage.append(element)
+  }
+}
+`
+    );
+    await indexTarget(root);
+
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-neighbor-symbols-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify([
+        {
+          id: "swift-parent-neighbor-symbol",
+          task: "Find the Deque storage-backed append implementation and identify the owning type.",
+          kind: "test-discovery",
+          agentIndexSteps: [
+            {
+              type: "query",
+              query: {
+                terms: ["Deque", "append", "storage"],
+                symbolKinds: ["method"],
+                roles: ["source"],
+                pathHints: ["Sources/DequeModule"],
+                expand: ["parents"]
+              }
+            }
+          ],
+          rgQueries: [["Deque", "append", "storage"]],
+          expected: {
+            files: ["Sources/DequeModule/Deque.swift"],
+            symbols: ["Deque"],
+            requiredFiles: ["Sources/DequeModule/Deque.swift"],
+            requiredSymbols: ["Deque"]
+          }
+        }
+      ])
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].agentIndex).toMatchObject({
+      taskComplete: true,
+      foundSymbols: ["Deque"],
+      missingSymbols: []
+    });
+    expect(result.caseResults[0].agentIndex.steps[0].outputSymbols).toContain("Deque");
+  });
+
+  test("counts top-level file symbols from file-cluster results toward navigation completion", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-cluster-file-symbols-"));
+    await mkdir(path.join(root, "Sources", "NIOCore"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "NIOCore", "EventLoop.swift"),
+      `public protocol EventLoop {}
+
+public final class EventLoopFuture<Value> {}
+
+extension EventLoopFuture {
+  public func flatMapError(_ callback: (Error) -> EventLoopFuture<Value>) -> EventLoopFuture<Value> {
+    callback(ChannelError.ioOnClosedChannel)
+  }
+}
+
+public enum ChannelError: Error {
+  case ioOnClosedChannel
+}
+`
+    );
+    await indexTarget(root);
+
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-cluster-file-symbols-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify([
+        {
+          id: "swift-file-cluster-top-symbol",
+          task: "Find EventLoopFuture error propagation extension behavior and identify the owning future type.",
+          kind: "component-navigation",
+          agentIndexSteps: [
+            {
+              type: "file-clusters",
+              query: {
+                terms: ["EventLoopFuture", "flatMapError", "Error", "extension"],
+                symbolKinds: ["method"],
+                roles: ["source"],
+                pathHints: ["Sources/NIOCore"]
+              },
+              limit: 4
+            }
+          ],
+          rgQueries: [["EventLoopFuture", "flatMapError", "Error"]],
+          expected: {
+            files: ["Sources/NIOCore/EventLoop.swift"],
+            symbols: ["EventLoopFuture"],
+            requiredFiles: ["Sources/NIOCore/EventLoop.swift"],
+            requiredSymbols: ["EventLoopFuture"]
+          }
+        }
+      ])
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.caseResults[0].agentIndex).toMatchObject({
+      taskComplete: true,
+      foundSymbols: ["EventLoopFuture"],
+      missingSymbols: []
+    });
+    expect(result.caseResults[0].agentIndex.steps[0].outputSymbols).toContain("EventLoopFuture");
+  });
+
   test("can evaluate multi-tool agent workflows with file clusters and related tests", async () => {
     const { root } = await fixtureProject();
     const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-steps-"));

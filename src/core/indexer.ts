@@ -7,6 +7,7 @@ import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRust } from "./extractors/rust.js";
+import { extractSwift } from "./extractors/swift.js";
 import { extractTypeScript } from "./extractors/typescript.js";
 import { scanCodeFiles } from "./scanner.js";
 import type { CodeEdge, CodeSymbol, ExtractionResult, IndexStats } from "./schema.js";
@@ -30,6 +31,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
     const extractions = files.map((file) => {
       if (file.language === "rust") {
         return extractRust(file);
+      }
+      if (file.language === "swift") {
+        return extractSwift(file);
       }
       if (file.language === "go") {
         return extractGo(file);
@@ -207,6 +211,9 @@ function writeExtractions(db: Database.Database, extractions: ExtractionResult[]
         edgeCount++;
       }
     }
+
+    resolveCrossFileConformanceTargets(db);
+    edgeCount += insertProtocolImplementationEdges(db);
   });
 
   transaction();
@@ -223,6 +230,99 @@ function edgeParams(edge: CodeEdge, symbolIds: Map<string, number>) {
   };
 }
 
+function resolveCrossFileConformanceTargets(db: Database.Database): number {
+  const edges = db
+    .prepare(
+      `
+      select id, target_name
+      from edges
+      where kind = 'symbol_conforms_to'
+        and target_symbol_id is null
+      `
+    )
+    .all() as Array<{ id: number; target_name: string }>;
+  if (edges.length === 0) {
+    return 0;
+  }
+
+  const targetNames = uniqueValues(edges.map((edge) => edge.target_name));
+  const symbolsByName = symbolTargetsByName(db, targetNames);
+  const updateEdge = db.prepare("update edges set target_symbol_id = @targetSymbolId where id = @id");
+  let resolved = 0;
+  for (const edge of edges) {
+    const targetSymbolId = symbolsByName.get(edge.target_name);
+    if (targetSymbolId !== undefined) {
+      updateEdge.run({ id: edge.id, targetSymbolId });
+      resolved++;
+    }
+  }
+  return resolved;
+}
+
+function symbolTargetsByName(db: Database.Database, targetNames: string[]): Map<string, number> {
+  if (targetNames.length === 0) {
+    return new Map();
+  }
+  const params = Object.fromEntries(targetNames.map((targetName, index) => [`target${index}`, targetName]));
+  const nameList = targetNames.map((_, index) => `@target${index}`).join(", ");
+  const rows = db
+    .prepare(
+      `
+      select id, name, qualified_name
+      from symbols
+      where name in (${nameList})
+         or qualified_name in (${nameList})
+      order by id
+      `
+    )
+    .all(params) as Array<{ id: number; name: string; qualified_name: string }>;
+  const byName = new Map<string, number>();
+  for (const targetName of targetNames) {
+    const exact = rows.find((row) => row.qualified_name === targetName);
+    const named = rows.find((row) => row.name === targetName);
+    const match = exact ?? named;
+    if (match) {
+      byName.set(targetName, match.id);
+    }
+  }
+  return byName;
+}
+
+function insertProtocolImplementationEdges(db: Database.Database): number {
+  const result = db
+    .prepare(
+      `
+      insert into edges(source_symbol_id, target_symbol_id, target_name, kind, confidence)
+      select implementer_requirement.id,
+             protocol_requirement.id,
+             protocol_requirement.qualified_name,
+             'symbol_conforms_to',
+             'name'
+      from edges conformance
+      join symbols conforming_type on conforming_type.id = conformance.source_symbol_id
+      join symbols protocol_type on protocol_type.id = conformance.target_symbol_id
+      join symbols protocol_requirement on protocol_requirement.parent_symbol_id = protocol_type.id
+      join symbols implementer_requirement
+        on implementer_requirement.parent_symbol_id = conforming_type.id
+       and implementer_requirement.name = protocol_requirement.name
+       and implementer_requirement.kind = protocol_requirement.kind
+      where conformance.kind = 'symbol_conforms_to'
+        and conforming_type.kind = 'class'
+        and protocol_type.kind = 'class'
+        and protocol_requirement.kind in ('function', 'method')
+        and not exists (
+          select 1
+          from edges existing
+          where existing.source_symbol_id = implementer_requirement.id
+            and existing.target_symbol_id = protocol_requirement.id
+            and existing.kind = 'symbol_conforms_to'
+        )
+      `
+    )
+    .run();
+  return result.changes;
+}
+
 function hashText(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
@@ -235,4 +335,8 @@ function searchableText(text: string): string {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function uniqueValues<T>(values: T[]): T[] {
+  return values.filter((value, index) => values.indexOf(value) === index);
 }

@@ -1082,7 +1082,7 @@ def test_captured_stdout_stderr_setup_call_teardown():
     await runCli(["index", root], { write: () => undefined });
 
     await expect(runCli(["query", "--target", root, "--term", "semantic", "--kind", "property"])).rejects.toThrow(
-      'Invalid --kind value: property. Expected one of: function, method, class, module.'
+      'Invalid --kind value: property. Expected one of: function, method, class, module, typealias.'
     );
     await expect(runCli(["query", "--target", root, "--term", "semantic", "--expand", "siblings"])).rejects.toThrow(
       'Invalid --expand value: siblings. Expected one of: callers, callees, imports, parents, children.'

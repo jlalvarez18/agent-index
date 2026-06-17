@@ -1,0 +1,42 @@
+[
+  {
+    "id": "alamofire-bugfix-result-error-flow",
+    "task": "Find Alamofire request serialization and validation paths for a bug where AFError should preserve the underlying Result failure.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["AFError", "Result", "validate", "serialize", "response", "underlyingError"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["Source"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["AFError", "Result", "validate", "response"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["AFError", "Result", "validate", "underlyingError"], ["AFError", "validate", "response", "test"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["AFError", "Result", "validate"], "paths": ["Source"], "globs": ["*.swift"], "limit": 50 },
+        { "type": "read-snippets", "terms": ["AFError", "Result", "validate", "underlyingError"], "fromStep": 1, "before": 8, "after": 14, "limit": 12 },
+        { "type": "search-files", "terms": ["AFError", "validate", "response"], "scope": "test", "paths": ["Tests"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["AFError", "validate"], "fromStep": 3, "before": 6, "after": 10, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["Source/Core/AFError.swift", "Source/Features/ResponseSerialization.swift"],
+      "symbols": ["AFError", "serialize", "validate"],
+      "requiredFiles": ["Source/Core/AFError.swift"],
+      "requiredSymbols": ["AFError"]
+    }
+  }
+]

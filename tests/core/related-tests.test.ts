@@ -1219,4 +1219,62 @@ fn mentions_cache_without_calling_source() {
     });
     expect(result.matches[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
   });
+
+  test("resolves SwiftPM testable imports and XCTest method calls to source files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-swift-"));
+    await mkdir(path.join(root, "Sources", "App"), { recursive: true });
+    await mkdir(path.join(root, "Tests", "AppTests"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "App", "CheckoutViewModel.swift"),
+      `import Foundation
+
+struct CheckoutViewModel {
+    func submit(cart: Cart) async throws -> Receipt {
+        try await ReceiptLoader().load(cart)
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "Tests", "AppTests", "CheckoutViewModelTests.swift"),
+      `import XCTest
+@testable import App
+
+final class CheckoutViewModelTests: XCTestCase {
+    func testSubmitLoadsReceipt() async throws {
+        let model = CheckoutViewModel()
+        let receipt = try await model.submit(cart: .fixture)
+        XCTAssertEqual(receipt.id, "fixture")
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "Tests", "AppTests", "NoiseTests.swift"),
+      `import XCTest
+
+final class NoiseTests: XCTestCase {
+    func testMentionsCheckoutWords() {
+        XCTAssertTrue("checkout submit receipt".isEmpty == false)
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "Sources/App/CheckoutViewModel.swift",
+      symbol: "CheckoutViewModel.submit",
+      terms: ["submit", "receipt"],
+      limit: 2
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "Tests/AppTests/CheckoutViewModelTests.swift",
+      firstLine: 2,
+      symbols: expect.arrayContaining(["CheckoutViewModelTests.testSubmitLoadsReceipt"])
+    });
+    expect(result.matches[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
+  });
 });

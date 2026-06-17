@@ -1,4 +1,4 @@
-export type Language = "python" | "go" | "rust" | "cython" | "typescript" | "javascript" | "json";
+export type Language = "python" | "go" | "rust" | "cython" | "typescript" | "javascript" | "json" | "swift";
 
 export type FileRole = "source" | "test" | "docs" | "example" | "fixture" | "tool" | "benchmark";
 
@@ -10,7 +10,7 @@ export interface SourceFile {
   text: string;
 }
 
-export type SymbolKind = "module" | "class" | "function" | "method";
+export type SymbolKind = "module" | "class" | "function" | "method" | "typealias";
 
 export interface CodeSymbol {
   id?: number;
@@ -36,7 +36,8 @@ export type EdgeKind =
   | "file_contains_symbol"
   | "symbol_contains_symbol"
   | "symbol_imports_module"
-  | "symbol_calls_name";
+  | "symbol_calls_name"
+  | "symbol_conforms_to";
 
 export interface CodeEdge {
   sourceSymbolName: string;
@@ -454,6 +455,8 @@ export interface NavigationSuiteEntry {
   target: string;
   indexPath?: string;
   mode?: QueryMode;
+  repoUrl?: string;
+  ref?: string;
 }
 
 export interface NavigationSuiteRepoResult extends NavigationSuiteEntry {

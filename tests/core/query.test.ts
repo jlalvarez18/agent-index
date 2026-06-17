@@ -827,6 +827,313 @@ class Path:
     expect(result.matches[0].why).toContain("method owner/source match");
   });
 
+  test("hybrid mode exposes Swift protocol conformers through graph neighbors", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-swift-conformance-"));
+    await mkdir(path.join(root, "Sources", "Checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "Checkout", "PaymentAuthorizing.swift"),
+      `protocol PaymentAuthorizing {
+    func authorize(_ request: PaymentRequest) async throws -> Receipt
+}
+`
+    );
+    await writeFile(
+      path.join(root, "Sources", "Checkout", "CheckoutViewModel.swift"),
+      `import SwiftUI
+
+struct CheckoutViewModel: PaymentAuthorizing, ObservableObject {
+    func authorize(_ request: PaymentRequest) async throws -> Receipt {
+        try await Gateway().authorize(request)
+    }
+}
+
+extension CheckoutViewModel: Sendable {
+    func retry(_ request: PaymentRequest) async throws -> Receipt {
+        try await authorize(request)
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["PaymentAuthorizing", "authorize", "protocol"],
+        symbolKinds: ["class"],
+        roles: ["source"],
+        pathHints: ["Sources/Checkout"],
+        expand: ["children"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const protocolMatch = result.matches.find((match) => match.symbol === "PaymentAuthorizing");
+
+    expect(protocolMatch).toMatchObject({
+      symbol: "PaymentAuthorizing",
+      kind: "class",
+      file: "Sources/Checkout/PaymentAuthorizing.swift"
+    });
+    expect(protocolMatch?.neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "conformed_to_by",
+          symbol: "CheckoutViewModel",
+          file: "Sources/Checkout/CheckoutViewModel.swift"
+        })
+      ])
+    );
+
+    const requirementResult = await queryAgentIndex(
+      {
+        terms: ["PaymentAuthorizing", "authorize", "protocol", "implementation"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["Sources/Checkout"],
+        expand: ["callers"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const requirementMatch = requirementResult.matches.find((match) => match.symbol === "PaymentAuthorizing.authorize");
+
+    expect(requirementMatch).toMatchObject({
+      symbol: "PaymentAuthorizing.authorize",
+      kind: "method",
+      file: "Sources/Checkout/PaymentAuthorizing.swift"
+    });
+    expect(requirementMatch?.neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "conformed_to_by",
+          symbol: "CheckoutViewModel.authorize",
+          file: "Sources/Checkout/CheckoutViewModel.swift"
+        })
+      ])
+    );
+  });
+
+  test("hybrid mode finds Swift Package.swift target declarations for build-tooling tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-swift-package-"));
+    await writeFile(
+      path.join(root, "Package.swift"),
+      `// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "CheckoutTools",
+    products: [
+        .executable(name: "checkout-cli", targets: ["CheckoutCLI"])
+    ],
+    targets: [
+        .executableTarget(name: "CheckoutCLI", dependencies: ["ArgumentParser"]),
+        .testTarget(name: "CheckoutCLITests", dependencies: ["CheckoutCLI"])
+    ]
+)
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["Package", "executableTarget", "testTarget", "CheckoutCLI"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["Package.swift"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "package",
+      kind: "function",
+      file: "Package.swift"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: "symbol_contains_symbol", symbol: "package.executableTarget.CheckoutCLI" }),
+        expect.objectContaining({ relation: "symbol_contains_symbol", symbol: "package.testTarget.CheckoutCLITests" })
+      ])
+    );
+
+    const testTargetResult = await queryAgentIndex(
+      {
+        terms: ["CheckoutCLITests", "testTarget", "CheckoutCLI", "dependencies"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["Package.swift"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(testTargetResult.matches[0]).toMatchObject({
+      symbol: "package.testTarget.CheckoutCLITests",
+      kind: "method",
+      file: "Package.swift"
+    });
+    expect(testTargetResult.matches[0].neighbors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ relation: "symbol_calls_name", symbol: "CheckoutCLI" })])
+    );
+  });
+
+  test("hybrid mode finds methods inside constrained Swift extensions", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-swift-constrained-extension-"));
+    await mkdir(path.join(root, "Sources", "NIOCore"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "NIOCore", "EventLoopFuture.swift"),
+      `struct EventLoopFuture<Value> {}
+
+extension EventLoopFuture where Value == Void {
+    func cascadeFailure(to promise: EventLoopPromise<Void>) {
+        promise.fail(ChannelError.ioOnClosedChannel)
+    }
+}
+
+extension EventLoopFuture: Sendable {
+    func hop(to eventLoop: EventLoop) -> EventLoopFuture<Value> {
+        flatMapThrowing { value in value }
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["EventLoopFuture", "Value", "Void", "cascade", "failure", "promise"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["Sources/NIOCore"],
+        expand: ["parents", "callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "EventLoopFuture.extension.Value_Void.cascadeFailure",
+      kind: "method",
+      file: "Sources/NIOCore/EventLoopFuture.swift"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "symbol_calls_name",
+          symbol: "fail"
+        })
+      ])
+    );
+  });
+
+  test("hybrid mode traces SwiftUI view body to view model actions", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-swiftui-view-model-"));
+    await mkdir(path.join(root, "Sources", "Checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "Checkout", "CheckoutView.swift"),
+      `import SwiftUI
+
+@MainActor
+final class CheckoutViewModel: ObservableObject {
+    func submit() async throws {
+        try await service.authorize()
+    }
+}
+
+struct CheckoutView: View {
+    @StateObject private var viewModel = CheckoutViewModel()
+
+    var body: some View {
+        Button("Pay") {
+            Task {
+                try? await viewModel.submit()
+            }
+        }
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["SwiftUI", "CheckoutView", "body", "model", "submit", "Pay", "Button"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["Sources/Checkout"],
+        expand: ["callees", "parents"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "CheckoutView.body",
+      kind: "method",
+      file: "Sources/Checkout/CheckoutView.swift"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "symbol_calls_name",
+          symbol: "submit"
+        })
+      ])
+    );
+    expect(result.matches.map((match) => match.symbol)).toContain("CheckoutView.viewModel");
+  });
+
+  test("hybrid mode finds Swift error enum cases in Result and throws flows", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-swift-error-flow-"));
+    await mkdir(path.join(root, "Sources", "Checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "Checkout", "CheckoutService.swift"),
+      `enum CheckoutError: Error {
+    case paymentFailed(Error)
+    case invalidCart, cancelled
+}
+
+struct CheckoutService {
+    func submit(cart: Cart) async -> Result<Receipt, CheckoutError> {
+        do {
+            let receipt = try await gateway.authorize(cart)
+            return .success(receipt)
+        } catch {
+            return .failure(mapError(error))
+        }
+    }
+
+    func mapError(_ error: Error) -> CheckoutError {
+        CheckoutError.paymentFailed(error)
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["CheckoutError", "payment", "failed", "Result", "throws", "failure", "mapError"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["Sources/Checkout"],
+        expand: ["callers", "parents"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "CheckoutError.paymentFailed",
+      kind: "method",
+      file: "Sources/Checkout/CheckoutService.swift"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "called_by_name",
+          symbol: "CheckoutService.mapError"
+        })
+      ])
+    );
+  });
+
   test("hybrid mode prefers exact class names over broader class-name substrings", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-exact-class-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

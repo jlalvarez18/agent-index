@@ -1,0 +1,45 @@
+[
+  {
+    "id": "swift-argument-parser-cli-build-tooling",
+    "task": "Trace Swift ArgumentParser command execution from ParsableCommand through command configuration and async command run paths.",
+    "kind": "config-build",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["ParsableCommand", "AsyncParsableCommand", "CommandConfiguration", "run", "main"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["Sources/ArgumentParser"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["ParsableCommand", "CommandConfiguration", "AsyncParsableCommand"],
+          "roles": ["source"],
+          "pathHints": ["Sources/ArgumentParser"]
+        },
+        "limit": 4,
+        "testLimit": 5
+      }
+    ],
+    "rgQueries": [["ParsableCommand", "CommandConfiguration", "run"], ["AsyncParsableCommand", "main", "test"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["ParsableCommand", "CommandConfiguration", "run"], "paths": ["Sources/ArgumentParser"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["ParsableCommand", "CommandConfiguration", "run"], "fromStep": 1, "before": 8, "after": 12, "limit": 12 },
+        { "type": "search-files", "terms": ["ParsableCommand", "CommandConfiguration"], "scope": "test", "paths": ["Tests"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["ParsableCommand", "CommandConfiguration"], "fromStep": 3, "before": 6, "after": 10, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["Sources/ArgumentParser/Parsable Types/ParsableCommand.swift"],
+      "symbols": ["ParsableCommand", "AsyncParsableCommand", "CommandConfiguration"],
+      "requiredFiles": ["Sources/ArgumentParser/Parsable Types/ParsableCommand.swift"],
+      "requiredSymbols": ["ParsableCommand"]
+    }
+  }
+]

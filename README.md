@@ -294,12 +294,24 @@ New navigation fixtures should use `agentIndexSteps` to model realistic workflow
 To run several real repos as one benchmark suite, use a manifest:
 
 ```bash
+npm run nav:prepare -- \
+  --repo-root /path/to/local/repos \
+  --repo swift-argument-parser \
+  --repo swift-collections \
+  --repo swift-nio \
+  --repo swift-composable-architecture \
+  --repo alamofire \
+  --repo swift-package-manager \
+  --repo swift
+
 npm run nav:suite -- \
   --repo-root /path/to/local/repos \
   --index-root /tmp/agent-index-nav-suite \
   --artifacts-dir /tmp/agent-index-nav-artifacts \
   --reindex
 ```
+
+`nav:prepare` clones missing repositories declared with `repoUrl` in the suite manifest and skips existing directories. The Swift entries in `benchmarks/navigation/suite.json` cover ArgumentParser, Collections, NIO, The Composable Architecture, Alamofire, SwiftPM, and the Swift compiler checkout.
 
 To fail CI when a new run regresses completion, wins, or context-token budget, compare artifact summaries:
 
@@ -387,7 +399,7 @@ The test suite covers scanner filtering, Python extraction, SQLite indexing, que
 
 ## Current Limits
 
-- Python only.
+- Python, TypeScript/JavaScript, Go, and Swift have first-class navigation coverage; Rust/Cython/JSON extraction remains intentionally lightweight.
 - Full reindex only.
 - No embeddings.
 - No MCP server.

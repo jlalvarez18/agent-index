@@ -48,6 +48,7 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("src/client/api.test.ts")).toBe("test");
     expect(classifyFileRole("src/client/checkout.spec.tsx")).toBe("test");
     expect(classifyFileRole("pkg/server/handler_test.go")).toBe("test");
+    expect(classifyFileRole("Tests/AppTests/CheckoutViewModelTests.swift")).toBe("test");
     expect(classifyFileRole("_tests/test_service.py")).toBe("test");
     expect(classifyFileRole("pkg/type_tests/cases.py")).toBe("test");
     expect(classifyFileRole("testing/test_service.py")).toBe("test");
@@ -65,7 +66,7 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
   });
 
-  test("can scan mixed Python, Go, Rust, Cython template, TypeScript, and JSON source files for indexing", async () => {
+  test("can scan mixed Python, Go, Rust, Cython template, TypeScript, JSON, and Swift source files for indexing", async () => {
     const root = await fixtureDir();
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "cmd", "server"), { recursive: true });
@@ -75,6 +76,8 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, "src", "views"), { recursive: true });
     await mkdir(path.join(root, "src", "compiler"), { recursive: true });
     await mkdir(path.join(root, "src", "client"), { recursive: true });
+    await mkdir(path.join(root, "Sources", "App"), { recursive: true });
+    await mkdir(path.join(root, "Tests", "AppTests"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
     await writeFile(path.join(root, "cmd", "server", "main.go"), "package main\nfunc main() {}\n");
     await writeFile(path.join(root, "internal", "config", "loader_test.go"), "package config\nfunc TestLoad(t *testing.T) {}\n");
@@ -84,6 +87,8 @@ describe("scanPythonFiles", () => {
     await writeFile(path.join(root, "src", "client", "api.mts"), "export function createClient() { return {} }\n");
     await writeFile(path.join(root, "src", "client", "api.test.ts"), "test('createClient', () => createClient())\n");
     await writeFile(path.join(root, "src", "views", "DashboardScreen.tsx"), "export function DashboardScreen() { return null }\n");
+    await writeFile(path.join(root, "Sources", "App", "CheckoutViewModel.swift"), "struct CheckoutViewModel {}\n");
+    await writeFile(path.join(root, "Tests", "AppTests", "CheckoutViewModelTests.swift"), "final class CheckoutViewModelTests {}\n");
     await writeFile(path.join(root, "benchmark.json"), "[]\n");
     await writeFile(path.join(root, "misses-benchmark.json"), "[]\n");
     await writeFile(path.join(root, "graphify-results.json"), "[]\n");
@@ -96,13 +101,16 @@ describe("scanPythonFiles", () => {
       { relativePath: "internal/config/loader_test.go", language: "go" },
       { relativePath: "pkg/service.py", language: "python" },
       { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" },
+      { relativePath: "Sources/App/CheckoutViewModel.swift", language: "swift" },
       { relativePath: "src/client/api.mts", language: "typescript" },
       { relativePath: "src/client/api.test.ts", language: "typescript" },
       { relativePath: "src/compiler/diagnosticMessages.json", language: "json" },
-      { relativePath: "src/views/DashboardScreen.tsx", language: "typescript" }
+      { relativePath: "src/views/DashboardScreen.tsx", language: "typescript" },
+      { relativePath: "Tests/AppTests/CheckoutViewModelTests.swift", language: "swift" }
     ]);
     expect(files.find((file) => file.relativePath === "src/client/api.test.ts")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "internal/config/loader_test.go")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "Tests/AppTests/CheckoutViewModelTests.swift")?.role).toBe("test");
   });
 
   test("can skip tests and tools for source-only benchmark indexing", async () => {

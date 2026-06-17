@@ -1,9 +1,12 @@
+import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { indexTarget } from "../../src/core/indexer.js";
+import { validateNavigationEvalCases } from "../../src/core/navigation-eval.js";
 import { runNavigationSuite } from "../../src/core/navigation-suite.js";
+import type { NavigationEvalCase } from "../../src/core/schema.js";
 
 async function fixtureSuite() {
   const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-suite-repo-"));
@@ -205,7 +208,7 @@ async function fixtureSuiteWithoutIndex() {
 describe("runNavigationSuite", () => {
   test("navigation manifest includes broad TypeScript and JavaScript benchmark coverage", async () => {
     const manifestPath = path.resolve("benchmarks/navigation/suite.json");
-    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Array<{ name: string; evalPath: string }>;
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Array<{ name: string; evalPath: string; repoUrl?: string }>;
     const tsJsRepos = new Set(["unit-node-sdk", "react", "next.js", "axios", "vite", "typescript", "redux-toolkit", "tanstack-query"]);
     const entries = manifest.filter((entry) => tsJsRepos.has(entry.name));
     const cases = (
@@ -255,6 +258,111 @@ describe("runNavigationSuite", () => {
         "go-exact-string-audit"
       ])
     );
+  });
+
+  test("navigation manifest includes broad Swift benchmark coverage", async () => {
+    const manifestPath = path.resolve("benchmarks/navigation/suite.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Array<{ name: string; evalPath: string }>;
+    const swiftRepos = new Set([
+      "swift-argument-parser",
+      "swift-collections",
+      "swift-nio",
+      "swift-composable-architecture",
+      "alamofire",
+      "swift-package-manager",
+      "swift"
+    ]);
+    const entries = manifest.filter((entry) => swiftRepos.has(entry.name));
+    const cases = (
+      await Promise.all(
+        entries.map(async (entry) => JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as Array<{ kind?: string; id: string }>)
+      )
+    ).flat();
+
+    expect(entries.map((entry) => entry.name)).toEqual([
+      "swift-argument-parser",
+      "swift-collections",
+      "swift-nio",
+      "swift-composable-architecture",
+      "alamofire",
+      "swift-package-manager",
+      "swift"
+    ]);
+    expect(entries.map((entry) => entry.repoUrl)).toEqual([
+      "https://github.com/apple/swift-argument-parser.git",
+      "https://github.com/apple/swift-collections.git",
+      "https://github.com/apple/swift-nio.git",
+      "https://github.com/pointfreeco/swift-composable-architecture.git",
+      "https://github.com/Alamofire/Alamofire.git",
+      "https://github.com/swiftlang/swift-package-manager.git",
+      "https://github.com/swiftlang/swift.git"
+    ]);
+    expect(new Set(cases.map((navigationCase) => navigationCase.kind))).toEqual(
+      new Set(["bugfix", "test-discovery", "component-navigation", "config-build", "exact-string-audit", "maintenance"])
+    );
+    expect(cases.map((navigationCase) => navigationCase.id)).toEqual(
+      expect.arrayContaining([
+        "swift-argument-parser-cli-build-tooling",
+        "swift-collections-source-test-discovery",
+        "swift-nio-protocol-extension-error-flow",
+        "swift-composable-architecture-view-model-flow",
+        "alamofire-bugfix-result-error-flow",
+        "swift-package-manager-module-boundary",
+        "swift-exact-string-audit"
+      ])
+    );
+  });
+
+  test("Swift navigation benchmark cases pass fairness validation", async () => {
+    const manifestPath = path.resolve("benchmarks/navigation/suite.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Array<{ name: string; evalPath: string }>;
+    const swiftRepos = new Set([
+      "swift-argument-parser",
+      "swift-collections",
+      "swift-nio",
+      "swift-composable-architecture",
+      "alamofire",
+      "swift-package-manager",
+      "swift"
+    ]);
+    const entries = manifest.filter((entry) => swiftRepos.has(entry.name));
+    const cases = (
+      await Promise.all(
+        entries.map(async (entry) => JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as NavigationEvalCase[])
+      )
+    ).flat();
+
+    expect(() => validateNavigationEvalCases(cases, "Swift navigation benchmarks")).not.toThrow();
+    expect(cases.find((navigationCase) => navigationCase.id === "swift-exact-string-audit")?.expected.requiredFiles).toEqual([
+      "test/Concurrency/concurrent_value_checking.swift"
+    ]);
+  });
+
+  test("navigation repo preparation script dry-runs clone commands from manifest metadata", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-prepare-"));
+    const suitePath = path.join(root, "suite.json");
+    const repoRoot = path.join(root, "repos");
+    await writeFile(
+      suitePath,
+      JSON.stringify([
+        {
+          name: "swift-argument-parser",
+          evalPath: "swift-argument-parser-cli-build-tooling.json",
+          target: "swift-argument-parser",
+          repoUrl: "https://github.com/apple/swift-argument-parser.git",
+          mode: "hybrid"
+        }
+      ])
+    );
+
+    const output = execFileSync(
+      process.execPath,
+      ["scripts/prepare-navigation-repos.mjs", suitePath, "--repo-root", repoRoot, "--repo", "swift-argument-parser", "--dry-run"],
+      { cwd: path.resolve("."), encoding: "utf8" }
+    );
+
+    expect(output).toContain("clone swift-argument-parser: https://github.com/apple/swift-argument-parser.git");
+    expect(output).toContain(`[dry-run] git clone --depth 1 https://github.com/apple/swift-argument-parser.git ${path.join(repoRoot, "swift-argument-parser")}`);
   });
 
   test("aggregates multi-repository navigation metrics from a manifest", async () => {

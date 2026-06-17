@@ -1,0 +1,29 @@
+[
+  {
+    "id": "swift-exact-string-audit",
+    "task": "Audit exact Swift concurrency diagnostic expectations where rg should be a strong baseline.",
+    "kind": "exact-string-audit",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["reference to captured var", "concurrently-executing code", "expected-warning", "Concurrency"],
+          "roles": ["source", "test"],
+          "pathHints": ["test/Concurrency"]
+        }
+      }
+    ],
+    "rgQueries": [["reference to captured var", "concurrently-executing code"], ["expected-warning", "captured var", "Concurrency"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["reference to captured var", "concurrently-executing code"], "paths": ["test/Concurrency"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["reference to captured var", "concurrently-executing code"], "fromStep": 1, "before": 4, "after": 6, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["test/Concurrency/concurrent_value_checking.swift"],
+      "requiredFiles": ["test/Concurrency/concurrent_value_checking.swift"]
+    }
+  }
+]

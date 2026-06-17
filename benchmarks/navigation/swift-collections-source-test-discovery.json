@@ -1,0 +1,41 @@
+[
+  {
+    "id": "swift-collections-source-test-discovery",
+    "task": "Navigate from Deque source behavior to the XCTest coverage for mutation, storage, and collection conformance.",
+    "kind": "test-discovery",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["Deque", "append", "Collection", "RangeReplaceableCollection", "storage"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["Sources/DequeModule"]
+        }
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 3,
+        "terms": ["Deque", "append", "Collection", "storage"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["Deque", "append", "Collection", "storage"], ["Deque", "append", "XCTest", "Tests"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Deque", "append", "Collection"], "paths": ["Sources/DequeModule"], "globs": ["*.swift"], "limit": 30 },
+        { "type": "read-snippets", "terms": ["Deque", "append", "Collection"], "fromStep": 1, "before": 8, "after": 12, "limit": 8 },
+        { "type": "search-files", "terms": ["Deque", "append", "XCTest"], "scope": "test", "paths": ["Tests/DequeTests"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["Deque", "append"], "fromStep": 3, "before": 6, "after": 10, "limit": 12 }
+      ]
+    },
+    "expected": {
+      "files": ["Sources/DequeModule/Deque/Deque.swift", "Tests/DequeTests/DequeTests.swift"],
+      "symbols": ["Deque", "test_append"],
+      "requiredFiles": ["Sources/DequeModule/Deque/Deque.swift"],
+      "requiredSymbols": ["Deque"]
+    }
+  }
+]

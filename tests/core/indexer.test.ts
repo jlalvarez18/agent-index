@@ -173,6 +173,60 @@ impl ComputedFields {
     );
   });
 
+  test("resolves Swift protocol conformances and requirement implementations across files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-swift-protocols-"));
+    await mkdir(path.join(root, "Sources", "Checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "Checkout", "PaymentAuthorizing.swift"),
+      `protocol PaymentAuthorizing {
+    func authorize(_ request: PaymentRequest) async throws -> Receipt
+}
+`
+    );
+    await writeFile(
+      path.join(root, "Sources", "Checkout", "CheckoutViewModel.swift"),
+      `struct CheckoutViewModel: PaymentAuthorizing {
+    func authorize(_ request: PaymentRequest) async throws -> Receipt {
+        try await gateway.authorize(request)
+    }
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, target.qualified_name as target, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        left join symbols target on target.id = e.target_symbol_id
+        where e.kind = 'symbol_conforms_to'
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "CheckoutViewModel",
+          target: "PaymentAuthorizing",
+          target_name: "PaymentAuthorizing",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "CheckoutViewModel.authorize",
+          target: "PaymentAuthorizing.authorize",
+          target_name: "PaymentAuthorizing.authorize",
+          kind: "symbol_conforms_to"
+        }
+      ])
+    );
+  });
+
   test("indexes TypeScript, TSX, and JavaScript family files alongside Python files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-typescript-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

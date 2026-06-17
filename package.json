@@ -23,6 +23,7 @@
     "postbuild": "node scripts/make-cli-executable.mjs",
     "test": "vitest run",
     "agent-index": "tsx src/cli.ts",
+    "nav:prepare": "node scripts/prepare-navigation-repos.mjs benchmarks/navigation/suite.json",
     "nav:suite": "node dist/cli.js nav-suite benchmarks/navigation/suite.json --repos",
     "nav:compare": "node dist/cli.js nav-compare --require-agent-dominance",
     "nav:compare:strict": "node dist/cli.js nav-compare --require-agent-dominance --max-agent-latency-increase-percent 25"

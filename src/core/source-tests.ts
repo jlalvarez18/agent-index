@@ -1,4 +1,4 @@
-import type { AgentQuery, SourceTestBundle, SourceTestsResult } from "./schema.js";
+import type { AgentQuery, FileClusterMatch, SourceTestBundle, SourceTestsResult } from "./schema.js";
 import { findFileClusters } from "./file-clusters.js";
 import { findRelatedTestsBatch } from "./related-tests.js";
 
@@ -25,7 +25,7 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
     indexPath: options.indexPath,
     sources: sourceResult.clusters.slice(0, testFanoutLimit).map((source) => ({
       sourceFile: source.file,
-      symbol: source.symbols[0]?.name
+      symbol: relatedTestSourceSymbol(source, agentQuery.terms)
     })),
     terms: agentQuery.terms,
     limit: testLimit
@@ -47,6 +47,47 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
     query: sourceResult.query,
     bundles: bundles.sort((a, b) => b.score - a.score || a.source.file.localeCompare(b.source.file))
   };
+}
+
+function relatedTestSourceSymbol(source: FileClusterMatch, terms: string[]): string | undefined {
+  if (source.symbols.length === 0) {
+    return undefined;
+  }
+  return [...source.symbols]
+    .map((symbol, index) => ({
+      symbol,
+      index,
+      score: relatedTestSourceSymbolScore(symbol.name, symbol.kind, terms)
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)[0]?.symbol.name;
+}
+
+function relatedTestSourceSymbolScore(symbolName: string, kind: FileClusterMatch["symbols"][number]["kind"], terms: string[]): number {
+  const normalizedSymbol = normalize(symbolName);
+  const compactSymbol = normalizedSymbol.replace(/\s+/gu, "");
+  const leaf = normalize(symbolName.includes(".") ? symbolName.slice(symbolName.lastIndexOf(".") + 1) : symbolName);
+  let score = kind === "method" || kind === "function" ? 6 : 0;
+  for (const term of terms.flatMap((value) => normalize(value).split(/\s+/u)).filter((value) => value.length >= 3)) {
+    const compactTerm = term.replace(/\s+/gu, "");
+    if (leaf === term || leaf === compactTerm) {
+      score += 24;
+    } else if (leaf.includes(term) || leaf.includes(compactTerm)) {
+      score += 16;
+    } else if (normalizedSymbol.includes(term) || compactSymbol.includes(compactTerm)) {
+      score += 8;
+    }
+  }
+  return score;
+}
+
+function normalize(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .replace(/[_/.-]+/gu, " ")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
 }
 
 function sourceCandidateQuery(agentQuery: AgentQuery): AgentQuery {

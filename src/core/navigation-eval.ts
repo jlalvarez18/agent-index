@@ -1,3 +1,4 @@
+import Database from "better-sqlite3";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -224,7 +225,7 @@ async function runAgentStep(
       foundFiles: matchingAgentFiles(response.matches, navigationCase),
       foundSymbols: matchingAgentSymbols(response.matches, navigationCase),
       outputFiles: uniqueValues(response.matches.map((match) => match.file)),
-      outputSymbols: compactOutputValues(response.matches.map((match) => match.symbol))
+      outputSymbols: compactOutputValues(queryOutputSymbols(response.matches))
     };
   }
 
@@ -236,6 +237,7 @@ async function runAgentStep(
     });
     const context = formatCompactClusters(result.clusters);
     const useful = usefulFileCluster(result.clusters, navigationCase);
+    const outputSymbols = clusterOutputSymbols(result.clusters, options);
     return {
       type: "file-clusters",
       command: formatFileClustersCommand(step.query),
@@ -246,9 +248,9 @@ async function runAgentStep(
       usefulFile: useful?.file ?? null,
       usefulSymbol: useful?.symbol ?? null,
       foundFiles: matchingClusterFiles(result.clusters, navigationCase),
-      foundSymbols: matchingClusterSymbols(result.clusters, navigationCase),
+      foundSymbols: matchingSymbols(outputSymbols, navigationCase),
       outputFiles: uniqueValues(result.clusters.map((cluster) => cluster.file)),
-      outputSymbols: compactOutputValues(result.clusters.flatMap((cluster) => cluster.symbols.map((symbol) => symbol.name)))
+      outputSymbols: compactOutputValues(outputSymbols)
     };
   }
 
@@ -765,7 +767,14 @@ function matchingAgentFiles(matches: QueryMatch[], navigationCase: NavigationEva
 
 function matchingAgentSymbols(matches: QueryMatch[], navigationCase: NavigationEvalCase): string[] {
   const expectedSymbols = navigationCase.expected.symbols ?? [];
-  return uniqueValues(matches.map((match) => expectedSymbolMatch(match.symbol, expectedSymbols)).filter((symbol): symbol is string => Boolean(symbol)));
+  return uniqueValues(queryOutputSymbols(matches).map((symbol) => expectedSymbolMatch(symbol, expectedSymbols)).filter((symbol): symbol is string => Boolean(symbol)));
+}
+
+function queryOutputSymbols(matches: QueryMatch[]): string[] {
+  return matches.flatMap((match) => [
+    match.symbol,
+    ...match.neighbors.map((neighbor) => neighbor.symbol)
+  ]);
 }
 
 function usefulFileCluster(
@@ -790,12 +799,49 @@ function matchingClusterFiles(clusters: FileClusterMatch[], navigationCase: Navi
 }
 
 function matchingClusterSymbols(clusters: FileClusterMatch[], navigationCase: NavigationEvalCase): string[] {
+  return matchingSymbols(clusters.flatMap((cluster) => cluster.symbols.map((symbol) => symbol.name)), navigationCase);
+}
+
+function matchingSymbols(symbols: string[], navigationCase: NavigationEvalCase): string[] {
   const expectedSymbols = navigationCase.expected.symbols ?? [];
-  return uniqueValues(
-    clusters
-      .flatMap((cluster) => cluster.symbols.map((symbol) => expectedSymbolMatch(symbol.name, expectedSymbols)))
-      .filter((symbol): symbol is string => Boolean(symbol))
-  );
+  return uniqueValues(symbols.map((symbol) => expectedSymbolMatch(symbol, expectedSymbols)).filter((symbol): symbol is string => Boolean(symbol)));
+}
+
+function clusterOutputSymbols(clusters: FileClusterMatch[], options: NavigationEvalOptions): string[] {
+  return uniqueValues([
+    ...clusters.flatMap((cluster) => cluster.symbols.map((symbol) => symbol.name)),
+    ...topLevelSymbolsForFiles(options, clusters.map((cluster) => cluster.file))
+  ]);
+}
+
+function topLevelSymbolsForFiles(options: NavigationEvalOptions, files: string[]): string[] {
+  const selectedFiles = uniqueValues(files);
+  if (selectedFiles.length === 0) {
+    return [];
+  }
+  const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const params = Object.fromEntries(selectedFiles.map((file, index) => [`file${index}`, file]));
+    const fileList = selectedFiles.map((_, index) => `@file${index}`).join(", ");
+    const rows = db
+      .prepare(
+        `
+        select s.qualified_name as symbol
+        from symbols s
+        join files f on f.id = s.file_id
+        left join symbols parent on parent.id = s.parent_symbol_id
+        where f.path in (${fileList})
+          and (s.parent_symbol_id is null or parent.kind = 'module')
+          and s.kind in ('class', 'function', 'method', 'typealias')
+        order by f.path, s.start_line
+        `
+      )
+      .all(params) as Array<{ symbol: string }>;
+    return rows.map((row) => row.symbol);
+  } finally {
+    db.close();
+  }
 }
 
 function usefulRelatedTest(

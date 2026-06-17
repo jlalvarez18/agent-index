@@ -980,8 +980,12 @@ function moduleNamesForSource(file: string): string[] {
   const withoutExtension = file.replace(/\.[^.]+$/u, "");
   const withoutInit = withoutExtension.endsWith("/__init__") ? withoutExtension.slice(0, -"/__init__".length) : withoutExtension;
   const pathVariants = [withoutInit];
+  const segments = withoutInit.split("/");
   if (file.endsWith(".go") && withoutInit.includes("/")) {
     pathVariants.push(withoutInit.slice(0, withoutInit.lastIndexOf("/")));
+  }
+  if (file.endsWith(".swift")) {
+    pathVariants.push(...swiftSourceModuleVariants(segments));
   }
   if (withoutInit.endsWith("/index")) {
     pathVariants.push(withoutInit.slice(0, -"/index".length));
@@ -992,6 +996,17 @@ function moduleNamesForSource(file: string): string[] {
     }
   }
   return uniqueValues(pathVariants.map((variant) => normalizeDottedName(variant.replace(/\//gu, "."))));
+}
+
+function swiftSourceModuleVariants(segments: string[]): string[] {
+  const sourceIndex = segments.findIndex((segment) => segment === "Sources" || segment === "Source");
+  if (sourceIndex === -1 || sourceIndex + 1 >= segments.length) {
+    return [];
+  }
+
+  const moduleSegments = segments.slice(sourceIndex + 1);
+  const moduleName = moduleSegments[0];
+  return uniqueValues([moduleSegments.join("/"), moduleName].filter(Boolean));
 }
 
 function importModuleVariants(importerFile: string, importedModule: string): string[] {

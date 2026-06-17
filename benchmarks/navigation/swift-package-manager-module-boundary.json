@@ -1,0 +1,42 @@
+[
+  {
+    "id": "swift-package-manager-module-boundary",
+    "task": "Navigate SwiftPM package/module boundary behavior from manifest loading through build plan product and target resolution.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["PackageGraph", "Manifest", "BuildPlan", "Product", "Target", "module"],
+          "symbolKinds": ["class", "method", "function", "typealias"],
+          "roles": ["source", "test"],
+          "pathHints": ["Sources/PackageGraph", "Sources/Build"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["PackageGraph", "Manifest", "BuildPlan", "Product", "Target"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["PackageGraph", "Manifest", "BuildPlan", "Product", "Target"], ["PackageGraph", "BuildPlan", "Product", "Target", "Tests"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["PackageGraph", "Manifest", "Product", "Target"], "paths": ["Sources"], "globs": ["*.swift"], "limit": 60 },
+        { "type": "read-snippets", "terms": ["PackageGraph", "Manifest", "BuildPlan", "Product", "Target"], "fromStep": 1, "before": 8, "after": 14, "limit": 14 },
+        { "type": "search-files", "terms": ["PackageGraph", "BuildPlan", "Product", "Target"], "scope": "test", "paths": ["Tests"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["PackageGraph", "BuildPlan"], "fromStep": 3, "before": 6, "after": 10, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["Sources/PackageGraph/ModulesGraph.swift", "Sources/Build/BuildPlan/BuildPlan.swift"],
+      "symbols": ["PackageGraph", "BuildPlan"],
+      "requiredFiles": ["Sources/PackageGraph/ModulesGraph.swift"],
+      "requiredSymbols": ["PackageGraph"]
+    }
+  }
+]

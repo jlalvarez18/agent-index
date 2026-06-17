@@ -82,7 +82,8 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     ".pxi",
     ".pyx.tp",
     ".pxd.tp",
-    ".pxi.tp"
+    ".pxi.tp",
+    ".swift"
   ]);
 }
 
@@ -160,6 +161,9 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".json") {
     return "json";
   }
+  if (suffix === ".swift") {
+    return "swift";
+  }
   if (suffix === ".pyx" || suffix === ".pxd" || suffix === ".pxi" || suffix === ".pyx.tp" || suffix === ".pxd.tp" || suffix === ".pxi.tp") {
     return "cython";
   }
@@ -171,7 +175,8 @@ export function classifyFileRole(relativePath: string): FileRole {
   if (
     segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t")) ||
     isJavaScriptTestFile(relativePath) ||
-    isGoTestFile(relativePath)
+    isGoTestFile(relativePath) ||
+    isSwiftTestFile(relativePath)
   ) {
     return "test";
   }
@@ -204,4 +209,8 @@ function isJavaScriptTestFile(relativePath: string): boolean {
 
 function isGoTestFile(relativePath: string): boolean {
   return GO_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
+}
+
+function isSwiftTestFile(relativePath: string): boolean {
+  return path.posix.basename(relativePath).endsWith("Tests.swift");
 }

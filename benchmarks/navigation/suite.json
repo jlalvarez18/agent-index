@@ -160,5 +160,54 @@
     "evalPath": "go-exact-string-audit.json",
     "target": "go",
     "mode": "hybrid"
+  },
+  {
+    "name": "swift-argument-parser",
+    "evalPath": "swift-argument-parser-cli-build-tooling.json",
+    "target": "swift-argument-parser",
+    "repoUrl": "https://github.com/apple/swift-argument-parser.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "swift-collections",
+    "evalPath": "swift-collections-source-test-discovery.json",
+    "target": "swift-collections",
+    "repoUrl": "https://github.com/apple/swift-collections.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "swift-nio",
+    "evalPath": "swift-nio-protocol-extension-error-flow.json",
+    "target": "swift-nio",
+    "repoUrl": "https://github.com/apple/swift-nio.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "swift-composable-architecture",
+    "evalPath": "swift-composable-architecture-view-model-flow.json",
+    "target": "swift-composable-architecture",
+    "repoUrl": "https://github.com/pointfreeco/swift-composable-architecture.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "alamofire",
+    "evalPath": "alamofire-bugfix-result-error-flow.json",
+    "target": "Alamofire",
+    "repoUrl": "https://github.com/Alamofire/Alamofire.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "swift-package-manager",
+    "evalPath": "swift-package-manager-module-boundary.json",
+    "target": "swift-package-manager",
+    "repoUrl": "https://github.com/swiftlang/swift-package-manager.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "swift",
+    "evalPath": "swift-exact-string-audit.json",
+    "target": "swift",
+    "repoUrl": "https://github.com/swiftlang/swift.git",
+    "mode": "hybrid"
   }
 ]

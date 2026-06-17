@@ -174,4 +174,56 @@ test("createClient forwards options", () => {
     });
     expect(result.bundles[0].tests[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
   });
+
+  test("links SwiftPM source files to XCTest files through testable imports and async method calls", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-swift-"));
+    await mkdir(path.join(root, "Sources", "Checkout"), { recursive: true });
+    await mkdir(path.join(root, "Tests", "CheckoutTests"), { recursive: true });
+    await writeFile(
+      path.join(root, "Sources", "Checkout", "PaymentAuthorizer.swift"),
+      `import Foundation
+
+protocol PaymentAuthorizing {
+    func authorize(_ request: PaymentRequest) async throws -> Receipt
+}
+
+struct PaymentAuthorizer: PaymentAuthorizing {
+    func authorize(_ request: PaymentRequest) async throws -> Receipt {
+        try await Gateway().authorize(request)
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "Tests", "CheckoutTests", "PaymentAuthorizerTests.swift"),
+      `import XCTest
+@testable import Checkout
+
+final class PaymentAuthorizerTests: XCTestCase {
+    func testAuthorizeReturnsReceipt() async throws {
+        let receipt = try await PaymentAuthorizer().authorize(.fixture)
+        XCTAssertEqual(receipt.id, "fixture")
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findSourceTests(
+      {
+        terms: ["PaymentAuthorizer", "authorize", "receipt"],
+        roles: ["source", "test"],
+        pathHints: ["Sources/Checkout"]
+      },
+      { target: root, limit: 2, testLimit: 1, testFanoutLimit: 1 }
+    );
+
+    expect(result.bundles[0].source.file).toBe("Sources/Checkout/PaymentAuthorizer.swift");
+    expect(result.bundles.map((bundle) => bundle.source.file)).not.toContain("Tests/CheckoutTests/PaymentAuthorizerTests.swift");
+    expect(result.bundles[0].tests[0]).toMatchObject({
+      file: "Tests/CheckoutTests/PaymentAuthorizerTests.swift",
+      symbols: expect.arrayContaining(["PaymentAuthorizerTests.testAuthorizeReturnsReceipt"])
+    });
+    expect(result.bundles[0].tests[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
+  });
 });

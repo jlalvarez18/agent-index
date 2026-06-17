@@ -71,7 +71,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--index <path>", "alias for --index-path")
     .option("--db <path>", "alias for --index-path")
     .option("--term <term>", "structured query term; repeat or comma-separate", collectOption, [])
-    .option("--kind <kind>", "symbol kind: function, method, class, or module; repeat or comma-separate", collectOption, [])
+    .option("--kind <kind>", "symbol kind: function, method, class, module, or typealias; repeat or comma-separate", collectOption, [])
     .option("--path <hint>", "path hint; repeat or comma-separate", collectOption, [])
     .option("--path-filter", "treat --path values as hard file-path filters instead of ranking hints")
     .option("--role <role>", "file role: source, test, docs, example, fixture, tool, or benchmark; repeat or comma-separate", collectOption, [])
@@ -150,7 +150,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--agent-query <json>", "structured agent query JSON")
     .option("--index-path <path>", "SQLite index path")
     .option("--term <term>", "structured query term; repeat or comma-separate", collectOption, [])
-    .option("--kind <kind>", "symbol kind: function, method, class, or module; repeat or comma-separate", collectOption, [])
+    .option("--kind <kind>", "symbol kind: function, method, class, module, or typealias; repeat or comma-separate", collectOption, [])
     .option("--path <hint>", "path hint; repeat or comma-separate", collectOption, [])
     .option("--path-filter", "treat --path values as hard file-path filters instead of ranking hints")
     .option("--role <role>", "file role: source, test, docs, example, fixture, tool, or benchmark; repeat or comma-separate", collectOption, [])
@@ -195,7 +195,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--agent-query <json>", "structured agent query JSON")
     .option("--index-path <path>", "SQLite index path")
     .option("--term <term>", "structured query term; repeat or comma-separate", collectOption, [])
-    .option("--kind <kind>", "symbol kind: function, method, class, or module; repeat or comma-separate", collectOption, [])
+    .option("--kind <kind>", "symbol kind: function, method, class, module, or typealias; repeat or comma-separate", collectOption, [])
     .option("--path <hint>", "path hint; repeat or comma-separate", collectOption, [])
     .option("--path-filter", "treat --path values as hard file-path filters instead of ranking hints")
     .option("--role <role>", "file role: source, test, docs, example, fixture, tool, or benchmark; repeat or comma-separate", collectOption, [])
@@ -1104,7 +1104,7 @@ function uniqueValues(values: string[]): string[] {
 }
 
 function parseSymbolKinds(values: string[]): SymbolKind[] {
-  const allowed: SymbolKind[] = ["function", "method", "class", "module"];
+  const allowed: SymbolKind[] = ["function", "method", "class", "module", "typealias"];
   return values.map((value) => {
     if (!allowed.includes(value as SymbolKind)) {
       throw new Error(`Invalid --kind value: ${value}. Expected one of: ${allowed.join(", ")}.`);

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "swift-nio-protocol-extension-error-flow",
+    "task": "Trace SwiftNIO EventLoop protocol and extension paths that schedule futures and propagate Result/Error failures.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["EventLoop", "EventLoopFuture", "EventLoopPromise", "Result", "Error", "extension"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["Sources/NIOCore"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["EventLoop", "EventLoopFuture", "Result", "Error"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["EventLoop", "EventLoopFuture", "Result", "Error"], ["EventLoop", "EventLoopFuture", "extension", "test"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["EventLoop", "EventLoopFuture", "Result"], "paths": ["Sources/NIOCore"], "globs": ["*.swift"], "limit": 50 },
+        { "type": "read-snippets", "terms": ["EventLoop", "EventLoopFuture", "Result", "Error"], "fromStep": 1, "before": 8, "after": 14, "limit": 12 },
+        { "type": "search-files", "terms": ["EventLoop", "EventLoopFuture", "Error"], "scope": "test", "paths": ["Tests/NIOCoreTests"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["EventLoop", "EventLoopFuture"], "fromStep": 3, "before": 6, "after": 10, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["Sources/NIOCore/EventLoop.swift"],
+      "symbols": ["EventLoop", "EventLoopFuture", "EventLoopPromise"],
+      "requiredFiles": ["Sources/NIOCore/EventLoop.swift"],
+      "requiredSymbols": ["EventLoop"]
+    }
+  }
+]

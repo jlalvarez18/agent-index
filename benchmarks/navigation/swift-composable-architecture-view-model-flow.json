@@ -1,0 +1,42 @@
+[
+  {
+    "id": "swift-composable-architecture-view-model-flow",
+    "task": "Trace a SwiftUI feature flow in the Composable Architecture from Store/ViewStore usage through reducer state and action handling.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Store", "ViewStore", "Reducer", "State", "Action", "SwiftUI"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["Sources/ComposableArchitecture"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["Store", "Reducer", "State", "Action", "TestStore"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["Store", "ViewStore", "Reducer", "State", "Action"], ["TestStore", "Reducer", "State", "Action"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Store", "ViewStore", "Reducer"], "paths": ["Sources/ComposableArchitecture"], "globs": ["*.swift"], "limit": 50 },
+        { "type": "read-snippets", "terms": ["Store", "ViewStore", "Reducer", "State", "Action"], "fromStep": 1, "before": 8, "after": 14, "limit": 14 },
+        { "type": "search-files", "terms": ["TestStore", "Reducer", "State", "Action"], "scope": "test", "paths": ["Tests"], "globs": ["*.swift"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["TestStore", "Reducer"], "fromStep": 3, "before": 6, "after": 10, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["Sources/ComposableArchitecture/Store.swift", "Sources/ComposableArchitecture/Reducer.swift"],
+      "symbols": ["Store", "Reducer", "ViewStore"],
+      "requiredFiles": ["Sources/ComposableArchitecture/Store.swift"],
+      "requiredSymbols": ["Store"]
+    }
+  }
+]

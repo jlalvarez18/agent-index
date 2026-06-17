@@ -338,6 +338,64 @@ describe("runNavigationSuite", () => {
     ]);
   });
 
+  test("navigation manifest includes broad Kotlin benchmark coverage", async () => {
+    const manifestPath = path.resolve("benchmarks/navigation/suite.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Array<{ name: string; evalPath: string; repoUrl?: string }>;
+    const kotlinRepos = new Set([
+      "nowinandroid",
+      "ktor",
+      "kotlinx.coroutines",
+      "kotlinpoet",
+      "koin",
+      "kotlin",
+      "kotlin-maven-plugin",
+      "gradle-version-catalog"
+    ]);
+    const entries = manifest.filter((entry) => kotlinRepos.has(entry.name));
+    const cases = (
+      await Promise.all(
+        entries.map(async (entry) => JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as NavigationEvalCase[])
+      )
+    ).flat();
+
+    expect(entries.map((entry) => entry.name)).toEqual([
+      "nowinandroid",
+      "ktor",
+      "kotlinx.coroutines",
+      "kotlinpoet",
+      "koin",
+      "kotlin",
+      "kotlin-maven-plugin",
+      "gradle-version-catalog"
+    ]);
+    expect(entries.map((entry) => entry.repoUrl)).toEqual([
+      "https://github.com/android/nowinandroid.git",
+      "https://github.com/ktorio/ktor.git",
+      "https://github.com/Kotlin/kotlinx.coroutines.git",
+      "https://github.com/square/kotlinpoet.git",
+      "https://github.com/InsertKoinIO/koin.git",
+      "https://github.com/JetBrains/kotlin.git",
+      "https://github.com/JetBrains/kotlin.git",
+      "https://github.com/android/nowinandroid.git"
+    ]);
+    expect(new Set(cases.map((navigationCase) => navigationCase.kind))).toEqual(
+      new Set(["test-discovery", "sdk-tracing", "component-navigation", "feature", "config-build"])
+    );
+    expect(cases.map((navigationCase) => navigationCase.id)).toEqual(
+      expect.arrayContaining([
+        "nowinandroid-viewmodel-test-flow",
+        "ktor-routing-coroutine-service",
+        "kotlinx-coroutines-flow-path",
+        "kotlinpoet-extension-api",
+        "koin-annotation-di-navigation",
+        "kotlin-multiplatform-module-boundary",
+        "kotlin-maven-plugin-build-tooling",
+        "gradle-version-catalog-kotlin-wiring"
+      ])
+    );
+    expect(() => validateNavigationEvalCases(cases, "Kotlin navigation benchmarks")).not.toThrow();
+  });
+
   test("navigation repo preparation script dry-runs clone commands from manifest metadata", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-prepare-"));
     const suitePath = path.join(root, "suite.json");

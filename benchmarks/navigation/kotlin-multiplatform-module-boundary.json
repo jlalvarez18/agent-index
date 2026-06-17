@@ -1,0 +1,42 @@
+[
+  {
+    "id": "kotlin-multiplatform-module-boundary",
+    "task": "Trace Kotlin multiplatform ownership from the stdlib Gradle plugin declaration through commonMain and jvmMain source-set wiring.",
+    "kind": "config-build",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["kotlin", "multiplatform", "sourceSets", "commonMain", "jvmMain", "stdlib", "plugin"],
+          "symbolKinds": ["method"],
+          "roles": ["source"],
+          "pathHints": ["libraries/stdlib/build.gradle.kts"],
+          "pathMode": "filter"
+        },
+        "limit": 12
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["stdlib", "commonMain", "jvmMain", "jvmTest"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["kotlin", "multiplatform", "sourceSets", "commonMain"], ["stdlib", "jvmMain", "commonMain"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["kotlin", "multiplatform", "sourceSets", "commonMain"], "globs": ["*.gradle.kts"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["sourceSets", "commonMain", "jvmMain", "androidMain"], "fromStep": 1, "before": 8, "after": 16, "limit": 12 },
+        { "type": "search-files", "terms": ["stdlib", "jvmMain", "commonMain"], "paths": ["libraries/stdlib"], "globs": ["*.gradle.kts"], "limit": 60 }
+      ]
+    },
+    "expected": {
+      "files": ["libraries/stdlib/build.gradle.kts"],
+      "symbols": ["gradle.plugin.kotlin_multiplatform", "gradle.sourceSet.commonMain", "gradle.sourceSet.jvmMain"],
+      "requiredFiles": ["libraries/stdlib/build.gradle.kts"],
+      "requiredSymbols": ["gradle.plugin.kotlin_multiplatform"]
+    }
+  }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "ktor-routing-coroutine-service",
+    "task": "Trace a Ktor server request from routing DSL registration through suspend handler execution and response serialization.",
+    "kind": "sdk-tracing",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Route", "Routing", "RoutingNode", "ApplicationCall", "respond"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["ktor-server", "server-core"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["routing", "ApplicationCall", "respond", "testApplication"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["Route", "routing", "ApplicationCall", "respond"], ["testApplication", "routing", "respond"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Route", "RoutingNode", "ApplicationCall", "respond"], "paths": ["ktor-server/ktor-server-core"], "globs": ["*.kt"], "limit": 60 },
+        { "type": "read-snippets", "terms": ["routing", "suspend", "respond"], "fromStep": 1, "before": 8, "after": 14, "limit": 14 },
+        { "type": "search-files", "terms": ["testApplication", "routing", "respond"], "scope": "test", "paths": ["ktor-server"], "globs": ["*.kt"], "limit": 40 }
+      ]
+    },
+    "expected": {
+      "files": [
+        "ktor-server/ktor-server-core/common/src/io/ktor/server/routing/RoutingNode.kt",
+        "ktor-server/ktor-server-core/common/src/io/ktor/server/routing/RoutingRoot.kt"
+      ],
+      "symbols": ["RoutingNode", "Route", "executeResult"],
+      "requiredFiles": ["ktor-server/ktor-server-core/common/src/io/ktor/server/routing/RoutingNode.kt"],
+      "requiredSymbols": ["RoutingNode"]
+    }
+  }
+]

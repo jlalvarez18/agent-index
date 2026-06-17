@@ -1,0 +1,35 @@
+[
+  {
+    "id": "kotlinpoet-extension-api",
+    "task": "Find which KotlinPoet extension/builder function owns a generated API surface and where that extension is tested.",
+    "kind": "feature",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["FunSpec", "TypeSpec", "builder", "extension", "addFunction"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["kotlinpoet/src/jvmMain"]
+        },
+        "limit": 8,
+        "testLimit": 4
+      }
+    ],
+    "rgQueries": [["FunSpec", "TypeSpec", "builder", "addFunction"], ["FunSpecTest", "TypeSpecTest", "addFunction"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["FunSpec", "TypeSpec", "builder", "addFunction"], "paths": ["kotlinpoet/src/jvmMain"], "globs": ["*.kt"], "limit": 50 },
+        { "type": "read-snippets", "terms": ["builder", "addFunction", "extension"], "fromStep": 1, "before": 8, "after": 14, "limit": 12 },
+        { "type": "search-files", "terms": ["FunSpec", "TypeSpec", "addFunction"], "scope": "test", "paths": ["kotlinpoet/src/jvmTest"], "globs": ["*.kt"], "limit": 30 }
+      ]
+    },
+    "expected": {
+      "files": ["kotlinpoet/src/jvmMain/kotlin/com/squareup/kotlinpoet/TypeSpec.kt", "kotlinpoet/src/jvmMain/kotlin/com/squareup/kotlinpoet/FunSpec.kt"],
+      "symbols": ["TypeSpec", "FunSpec"],
+      "requiredFiles": ["kotlinpoet/src/jvmMain/kotlin/com/squareup/kotlinpoet/TypeSpec.kt"],
+      "requiredSymbols": ["TypeSpec"]
+    }
+  }
+]

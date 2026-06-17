@@ -1,0 +1,41 @@
+[
+  {
+    "id": "kotlinx-coroutines-flow-path",
+    "task": "Trace coroutine Flow operator execution from collection through map/transform emission and find the related tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Flow", "collect", "emit", "map", "transform"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["kotlinx-coroutines-core/common/src/flow"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["Flow", "collect", "emit", "map", "transform"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["Flow", "collect", "emit", "map", "transform"], ["FlowTest", "collect", "emit", "map"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Flow", "collect", "emit", "transform"], "paths": ["kotlinx-coroutines-core/common/src/flow"], "globs": ["*.kt"], "limit": 60 },
+        { "type": "read-snippets", "terms": ["collect", "emit", "map", "transform"], "fromStep": 1, "before": 8, "after": 16, "limit": 14 },
+        { "type": "search-files", "terms": ["Flow", "map", "transform"], "scope": "test", "paths": ["kotlinx-coroutines-core/common/test"], "globs": ["*.kt"], "limit": 40 }
+      ]
+    },
+    "expected": {
+      "files": ["kotlinx-coroutines-core/common/src/flow/operators/Transform.kt"],
+      "symbols": ["map", "transform"],
+      "requiredFiles": ["kotlinx-coroutines-core/common/src/flow/operators/Transform.kt"],
+      "requiredSymbols": ["map"]
+    }
+  }
+]

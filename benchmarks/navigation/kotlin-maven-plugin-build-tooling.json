@@ -1,0 +1,41 @@
+[
+  {
+    "id": "kotlin-maven-plugin-build-tooling",
+    "task": "Navigate Kotlin Maven plugin build-tooling ownership from pom.xml coordinates to the Maven plugin project and plugin declaration.",
+    "kind": "config-build",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["kotlin-maven-plugin", "maven.project", "artifactId", "pom"],
+          "symbolKinds": ["method"],
+          "roles": ["source", "tool"],
+          "pathHints": ["libraries/tools/kotlin-maven-plugin/pom.xml"],
+          "expand": ["callees", "callers"]
+        }
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["Maven", "kotlin-maven-plugin", "pom", "artifactId"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["kotlin-maven-plugin", "compile", "mojo"], ["pom.xml", "kotlin-maven-plugin", "artifactId"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["kotlin-maven-plugin", "artifactId"], "globs": ["pom.xml"], "limit": 30 },
+        { "type": "search-files", "terms": ["compile", "mojo", "Kotlin"], "paths": ["libraries/tools/kotlin-maven-plugin"], "globs": ["*.kt"], "limit": 50 },
+        { "type": "read-snippets", "terms": ["compile", "mojo", "artifact"], "fromStep": 2, "before": 8, "after": 16, "limit": 12 }
+      ]
+    },
+    "expected": {
+      "files": ["libraries/tools/kotlin-maven-plugin/pom.xml"],
+      "symbols": ["maven.project.kotlin_maven_plugin", "maven.plugin.org_jetbrains_kotlin_kotlin_maven_plugin"],
+      "requiredFiles": ["libraries/tools/kotlin-maven-plugin/pom.xml"],
+      "requiredSymbols": ["maven.project.kotlin_maven_plugin"]
+    }
+  }
+]

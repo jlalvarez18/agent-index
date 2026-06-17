@@ -1,0 +1,45 @@
+[
+  {
+    "id": "gradle-version-catalog-kotlin-wiring",
+    "task": "Navigate Kotlin/Android dependency ownership from Gradle version catalog aliases through build.gradle.kts source-set dependency wiring.",
+    "kind": "config-build",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["version", "catalog", "libs", "plugins", "kotlinx", "coroutines", "implementation", "core"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["libs.versions.toml", "build.gradle.kts"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["implementation", "libs", "kotlinx", "coroutines", "core"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"],
+          "pathHints": ["build.gradle.kts"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["libs.versions.toml", "kotlinx-coroutines-core", "version.ref"], ["implementation", "libs.kotlinx.coroutines.core", "build.gradle.kts"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["kotlinx-coroutines-core", "version.ref"], "globs": ["libs.versions.toml"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["libraries", "plugins", "coroutines"], "fromStep": 1, "before": 6, "after": 10, "limit": 8 },
+        { "type": "search-files", "terms": ["implementation", "libs.kotlinx.coroutines.core"], "globs": ["*.gradle.kts"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["sourceSets", "dependencies", "api", "implementation"], "fromStep": 3, "before": 8, "after": 16, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["gradle/libs.versions.toml", "core/common/build.gradle.kts"],
+      "symbols": ["gradle.catalog.library.kotlinx_coroutines_core", "gradle.implementation.libs_kotlinx_coroutines_core"],
+      "requiredFiles": ["gradle/libs.versions.toml", "core/common/build.gradle.kts"],
+      "requiredSymbols": ["gradle.catalog.library.kotlinx_coroutines_core", "gradle.implementation.libs_kotlinx_coroutines_core"]
+    }
+  }
+]

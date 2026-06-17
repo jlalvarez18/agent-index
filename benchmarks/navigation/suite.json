@@ -209,5 +209,61 @@
     "target": "swift",
     "repoUrl": "https://github.com/swiftlang/swift.git",
     "mode": "hybrid"
+  },
+  {
+    "name": "nowinandroid",
+    "evalPath": "nowinandroid-viewmodel-test-flow.json",
+    "target": "nowinandroid",
+    "repoUrl": "https://github.com/android/nowinandroid.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "ktor",
+    "evalPath": "ktor-routing-coroutine-service.json",
+    "target": "ktor",
+    "repoUrl": "https://github.com/ktorio/ktor.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "kotlinx.coroutines",
+    "evalPath": "kotlinx-coroutines-flow-path.json",
+    "target": "kotlinx.coroutines",
+    "repoUrl": "https://github.com/Kotlin/kotlinx.coroutines.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "kotlinpoet",
+    "evalPath": "kotlinpoet-extension-api.json",
+    "target": "kotlinpoet",
+    "repoUrl": "https://github.com/square/kotlinpoet.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "koin",
+    "evalPath": "koin-annotation-di-navigation.json",
+    "target": "koin",
+    "repoUrl": "https://github.com/InsertKoinIO/koin.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "kotlin",
+    "evalPath": "kotlin-multiplatform-module-boundary.json",
+    "target": "kotlin",
+    "repoUrl": "https://github.com/JetBrains/kotlin.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "kotlin-maven-plugin",
+    "evalPath": "kotlin-maven-plugin-build-tooling.json",
+    "target": "kotlin",
+    "repoUrl": "https://github.com/JetBrains/kotlin.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "gradle-version-catalog",
+    "evalPath": "gradle-version-catalog-kotlin-wiring.json",
+    "target": "nowinandroid",
+    "repoUrl": "https://github.com/android/nowinandroid.git",
+    "mode": "hybrid"
   }
 ]

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "nowinandroid-viewmodel-test-flow",
+    "task": "Find where an Android feature ViewModel is tested and trace its coroutine Flow state path from repository collection into UI state.",
+    "kind": "test-discovery",
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["ForYouViewModel", "onboardingUiState", "StateFlow", "collect", "repository"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source", "test"],
+          "pathHints": ["feature/foryou/impl"]
+        },
+        "limit": 6,
+        "testLimit": 4
+      },
+      {
+        "type": "query",
+        "query": {
+          "terms": ["ForYouViewModel", "onboardingUiState", "StateFlow", "viewModelScope", "collect"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["feature/foryou/impl"],
+          "expand": ["callees", "children"]
+        }
+      }
+    ],
+    "rgQueries": [["ForYouViewModel", "onboardingUiState", "StateFlow", "repository"], ["ForYouViewModelTest", "runTest", "collect", "onboardingUiState"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["ForYouViewModel", "onboardingUiState", "StateFlow"], "paths": ["feature/foryou/impl"], "globs": ["*.kt"], "limit": 60 },
+        { "type": "read-snippets", "terms": ["viewModelScope", "collect", "repository"], "fromStep": 1, "before": 8, "after": 16, "limit": 14 },
+        { "type": "search-files", "terms": ["ForYouViewModelTest", "runTest", "onboardingUiState"], "scope": "test", "paths": ["feature/foryou/impl"], "globs": ["*.kt"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["ForYouViewModel", "collect", "runTest"], "fromStep": 3, "before": 6, "after": 12, "limit": 10 }
+      ]
+    },
+    "expected": {
+      "files": ["feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouViewModel.kt"],
+      "symbols": ["ForYouViewModel"],
+      "requiredFiles": ["feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouViewModel.kt"],
+      "requiredSymbols": ["ForYouViewModel"]
+    }
+  }
+]

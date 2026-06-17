@@ -1,0 +1,41 @@
+[
+  {
+    "id": "koin-annotation-di-navigation",
+    "task": "Navigate Kotlin DI annotations from module declarations to injected components and their tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Koin", "Module", "Single", "Factory", "annotation"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["projects/core", "koin-annotations", "koin-core"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["Koin", "Module", "Single", "Factory", "Inject"],
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["Koin", "Module", "Single", "Factory", "Inject"], ["KoinTest", "Module", "Single", "Factory"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["Koin", "Module", "Single", "Factory"], "paths": ["projects/core/koin-annotations", "projects/core/koin-core"], "globs": ["*.kt"], "limit": 60 },
+        { "type": "read-snippets", "terms": ["@Single", "@Factory", "@Inject", "module"], "fromStep": 1, "before": 8, "after": 14, "limit": 14 },
+        { "type": "search-files", "terms": ["Koin", "Module", "Single", "Factory"], "scope": "test", "paths": ["projects/core"], "globs": ["*.kt"], "limit": 40 }
+      ]
+    },
+    "expected": {
+      "files": ["projects/core/koin-annotations/src/commonMain/kotlin/org/koin/core/annotation/CoreAnnotations.kt"],
+      "symbols": ["Single", "Factory"],
+      "requiredFiles": ["projects/core/koin-annotations/src/commonMain/kotlin/org/koin/core/annotation/CoreAnnotations.kt"],
+      "requiredSymbols": ["Single"]
+    }
+  }
+]

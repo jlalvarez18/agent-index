@@ -226,4 +226,64 @@ final class PaymentAuthorizerTests: XCTestCase {
     });
     expect(result.bundles[0].tests[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
   });
+
+  test("links Android Kotlin ViewModels to coroutine tests through imports and method calls", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-kotlin-"));
+    await mkdir(path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "app", "src", "test", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout", "CheckoutViewModel.kt"),
+      `package com.acme.checkout
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.Flow
+
+class CheckoutViewModel(
+    private val repository: PaymentRepository
+) : ViewModel() {
+    fun refresh(userId: UserId) {
+        viewModelScope.launch {
+            repository.observePayments(userId).collect { emitAnalytics(it) }
+        }
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "src", "test", "kotlin", "com", "acme", "checkout", "CheckoutViewModelTest.kt"),
+      `package com.acme.checkout
+
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import com.acme.checkout.CheckoutViewModel
+
+class CheckoutViewModelTest {
+    @Test
+    fun refreshCollectsPayments() = runTest {
+        val viewModel = CheckoutViewModel(FakePaymentRepository())
+        viewModel.refresh(UserId("fixture"))
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findSourceTests(
+      {
+        terms: ["CheckoutViewModel", "refresh", "collect", "payments"],
+        roles: ["source", "test"],
+        pathHints: ["app/src/main/kotlin"]
+      },
+      { target: root, limit: 2, testLimit: 1, testFanoutLimit: 1 }
+    );
+
+    expect(result.bundles[0].source.file).toBe("app/src/main/kotlin/com/acme/checkout/CheckoutViewModel.kt");
+    expect(result.bundles.map((bundle) => bundle.source.file)).not.toContain("app/src/test/kotlin/com/acme/checkout/CheckoutViewModelTest.kt");
+    expect(result.bundles[0].tests[0]).toMatchObject({
+      file: "app/src/test/kotlin/com/acme/checkout/CheckoutViewModelTest.kt",
+      symbols: expect.arrayContaining(["com.acme.checkout.CheckoutViewModelTest.refreshCollectsPayments"])
+    });
+    expect(result.bundles[0].tests[0].why).toEqual(expect.arrayContaining(["test imports source module", "test calls source symbol"]));
+  });
 });

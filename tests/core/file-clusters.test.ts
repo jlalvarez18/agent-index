@@ -194,6 +194,145 @@ describe("findFileClusters", () => {
     expect(queryPlan.fallback?.kind).toBe("fts");
   });
 
+  test("boosts Kotlin ViewModel Flow and Gradle ownership clusters for navigation tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-kotlin-"));
+    await mkdir(path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "core", "src", "main", "kotlin", "com", "acme", "model"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout", "CheckoutViewModel.kt"),
+      `package com.acme.checkout
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.StateFlow
+
+class CheckoutViewModel : ViewModel() {
+    fun refresh() {
+        viewModelScope.launch {
+            payments.collect { emitAnalytics(it) }
+        }
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "build.gradle.kts"),
+      `plugins {
+    id("com.android.application")
+    kotlin("android")
+}
+
+dependencies {
+    implementation(project(":core:model"))
+}
+`
+    );
+    await writeFile(
+      path.join(root, "core", "src", "main", "kotlin", "com", "acme", "model", "PaymentState.kt"),
+      `package com.acme.model
+
+data class PaymentState(val label: String)
+`
+    );
+    await indexTarget(root);
+
+    const flowResult = findFileClusters(
+      {
+        terms: ["CheckoutViewModel", "StateFlow", "viewModelScope", "collect", "launch"],
+        symbolKinds: ["class", "method", "function"],
+        roles: ["source"],
+        pathHints: ["app/src/main/kotlin"]
+      },
+      { target: root, limit: 3 }
+    );
+    expect(flowResult.clusters[0]).toMatchObject({
+      file: "app/src/main/kotlin/com/acme/checkout/CheckoutViewModel.kt",
+      language: "kotlin"
+    });
+    expect(flowResult.clusters[0].why).toContain("Kotlin navigation signal match");
+
+    const gradleResult = findFileClusters(
+      {
+        terms: ["Gradle", "implementation", "project", "core", "model", "module", "wiring"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["build.gradle.kts"]
+      },
+      { target: root, limit: 3 }
+    );
+    expect(gradleResult.clusters[0]).toMatchObject({
+      file: "app/build.gradle.kts",
+      language: "kotlin"
+    });
+    expect(gradleResult.clusters[0].why).toContain("Kotlin navigation signal match");
+  });
+
+  test("boosts Maven pom.xml ownership clusters for Kotlin JVM dependency tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-maven-"));
+    await writeFile(
+      path.join(root, "pom.xml"),
+      `<project>
+  <groupId>com.acme</groupId>
+  <artifactId>checkout-parent</artifactId>
+  <dependencies>
+    <dependency>
+      <groupId>org.jetbrains.kotlinx</groupId>
+      <artifactId>kotlinx-coroutines-core</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["Maven", "dependency", "kotlinx", "coroutines", "artifact"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["pom.xml"]
+      },
+      { target: root, limit: 3 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "pom.xml",
+      language: "xml"
+    });
+    expect(result.clusters[0].why).toContain("build tool ownership match");
+  });
+
+  test("boosts Gradle version catalog clusters for Kotlin alias ownership tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-catalog-"));
+    await mkdir(path.join(root, "gradle"), { recursive: true });
+    await writeFile(
+      path.join(root, "gradle", "libs.versions.toml"),
+      `[versions]
+coroutines = "1.8.1"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["version", "catalog", "kotlinx", "coroutines", "library", "alias"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["libs.versions.toml"]
+      },
+      { target: root, limit: 3 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "gradle/libs.versions.toml",
+      language: "toml"
+    });
+    expect(result.clusters[0].why).toContain("build tool ownership match");
+  });
+
   test("prefers files with broader task-term coverage over repeated partial noise", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-coverage-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

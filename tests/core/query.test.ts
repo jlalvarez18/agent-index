@@ -976,6 +976,416 @@ let package = Package(
     );
   });
 
+  test("hybrid mode exposes Kotlin interface implementers and coroutine Flow methods through graph neighbors", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-kotlin-conformance-"));
+    await mkdir(path.join(root, "core", "src", "main", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "core", "src", "main", "kotlin", "com", "acme", "checkout", "PaymentRepository.kt"),
+      `package com.acme.checkout
+
+import kotlinx.coroutines.flow.Flow
+
+interface PaymentRepository {
+    fun observePayments(): Flow<PaymentState>
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout", "CheckoutViewModel.kt"),
+      `package com.acme.checkout
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.map
+
+class CheckoutViewModel(
+    private val repository: PaymentRepository
+) : ViewModel(), PaymentRepository {
+    override fun observePayments() = repository.observePayments()
+        .map { state -> state.withUiCopy() }
+
+    fun refresh() {
+        viewModelScope.launch {
+            observePayments().collect { emitAnalytics(it) }
+        }
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const interfaceResult = await queryAgentIndex(
+      {
+        terms: ["PaymentRepository", "observePayments", "interface"],
+        symbolKinds: ["class"],
+        roles: ["source"],
+        pathHints: ["checkout"],
+        expand: ["children"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const interfaceMatch = interfaceResult.matches.find((match) => match.symbol === "com.acme.checkout.PaymentRepository");
+
+    expect(interfaceMatch).toMatchObject({
+      symbol: "com.acme.checkout.PaymentRepository",
+      kind: "class",
+      file: "core/src/main/kotlin/com/acme/checkout/PaymentRepository.kt"
+    });
+    expect(interfaceMatch?.neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "conformed_to_by",
+          symbol: "com.acme.checkout.CheckoutViewModel",
+          file: "app/src/main/kotlin/com/acme/checkout/CheckoutViewModel.kt"
+        })
+      ])
+    );
+
+    const flowResult = await queryAgentIndex(
+      {
+        terms: ["CheckoutViewModel", "refresh", "Flow", "collect", "launch"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["app/src/main"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(flowResult.matches[0]).toMatchObject({
+      symbol: "com.acme.checkout.CheckoutViewModel.refresh",
+      kind: "method",
+      file: "app/src/main/kotlin/com/acme/checkout/CheckoutViewModel.kt"
+    });
+    expect(flowResult.matches[0].why).toContain("Kotlin navigation signal match");
+    expect(flowResult.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "collect" }),
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "launch" })
+      ])
+    );
+  });
+
+  test("hybrid mode finds Kotlin Gradle DSL module wiring", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-kotlin-gradle-"));
+    await mkdir(path.join(root, "app"), { recursive: true });
+    await writeFile(
+      path.join(root, "settings.gradle.kts"),
+      `pluginManagement {
+    repositories { google(); mavenCentral() }
+}
+
+include(":app", ":core:model")
+`
+    );
+    await writeFile(
+      path.join(root, "app", "build.gradle.kts"),
+      `plugins {
+    id("com.android.application")
+    kotlin("android")
+}
+
+android {
+    namespace = "com.acme.checkout"
+}
+
+dependencies {
+    implementation(project(":core:model"))
+    testImplementation("junit:junit:4.13.2")
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["implementation", "project", "core", "model", "android"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["build.gradle.kts"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "gradle.implementation.core_model",
+      kind: "method",
+      file: "app/build.gradle.kts"
+    });
+    expect(result.matches[0].why).toContain("Kotlin navigation signal match");
+    expect(result.matches[0].why).toContain("build tool ownership match");
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ relation: "symbol_calls_name", symbol: ":core:model" })])
+    );
+  });
+
+  test("hybrid mode finds Maven pom.xml module and dependency ownership for Kotlin JVM projects", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-maven-kotlin-"));
+    await writeFile(
+      path.join(root, "pom.xml"),
+      `<project>
+  <groupId>com.acme</groupId>
+  <artifactId>checkout-parent</artifactId>
+  <modules>
+    <module>checkout-core</module>
+    <module>checkout-app</module>
+  </modules>
+  <dependencies>
+    <dependency>
+      <groupId>org.jetbrains.kotlinx</groupId>
+      <artifactId>kotlinx-coroutines-core</artifactId>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+`
+    );
+    await indexTarget(root);
+
+    const dependencyResult = await queryAgentIndex(
+      {
+        terms: ["Maven", "dependency", "kotlinx", "coroutines", "artifact"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["pom.xml"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    expect(dependencyResult.matches[0]).toMatchObject({
+      symbol: "maven.dependency.org_jetbrains_kotlinx_kotlinx_coroutines_core",
+      kind: "method",
+      file: "pom.xml"
+    });
+    expect(dependencyResult.matches[0].why).toContain("build tool ownership match");
+    expect(dependencyResult.matches[0].neighbors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ relation: "symbol_calls_name", symbol: "kotlinx-coroutines-core" })])
+    );
+
+    const moduleResult = await queryAgentIndex(
+      {
+        terms: ["Maven", "module", "checkout", "core"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["pom.xml"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    expect(moduleResult.matches[0]).toMatchObject({
+      symbol: "maven.module.checkout_core",
+      file: "pom.xml"
+    });
+    expect(moduleResult.matches[0].why).toContain("build tool ownership match");
+  });
+
+  test("exact Maven pom.xml path hints outrank nearby Gradle build-symbol noise", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-maven-path-hint-"));
+    await mkdir(path.join(root, "libraries", "tools", "kotlin-maven-plugin"), { recursive: true });
+    await mkdir(path.join(root, "repo", "gradle-build-conventions", "gradle-plugins-common", "src", "main", "kotlin"), { recursive: true });
+    await writeFile(
+      path.join(root, "libraries", "tools", "kotlin-maven-plugin", "pom.xml"),
+      `<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.jetbrains.kotlin</groupId>
+  <artifactId>kotlin-maven-plugin</artifactId>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+`
+    );
+    await writeFile(
+      path.join(root, "repo", "gradle-build-conventions", "gradle-plugins-common", "src", "main", "kotlin", "gradle-plugin-common-configuration.gradle.kts"),
+      `plugins {
+    kotlin("jvm")
+    id("com.gradle.plugin-publish")
+}
+
+dependencies {
+    implementation(kotlin("stdlib"))
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["kotlin-maven-plugin", "maven.project", "artifactId", "pom"],
+        symbolKinds: ["method"],
+        roles: ["source", "tool"],
+        pathHints: ["libraries/tools/kotlin-maven-plugin/pom.xml"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "maven.project.kotlin_maven_plugin",
+      file: "libraries/tools/kotlin-maven-plugin/pom.xml"
+    });
+    expect(result.matches[0].why).toContain("path hint match");
+  });
+
+  test("hybrid mode finds Gradle version catalog aliases and Kotlin source-set ownership", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-gradle-catalog-"));
+    await mkdir(path.join(root, "gradle"), { recursive: true });
+    await mkdir(path.join(root, "shared"), { recursive: true });
+    await writeFile(
+      path.join(root, "gradle", "libs.versions.toml"),
+      `[versions]
+coroutines = "1.8.1"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version = "2.0.0" }
+`
+    );
+    await writeFile(
+      path.join(root, "shared", "build.gradle.kts"),
+      `plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+}
+
+kotlin {
+    sourceSets {
+        val commonMain by getting {
+            dependencies {
+                api(libs.kotlinx.coroutines.core)
+            }
+        }
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const catalogResult = await queryAgentIndex(
+      {
+        terms: ["version", "catalog", "kotlinx", "coroutines", "library", "alias"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["libs.versions.toml"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    expect(catalogResult.matches[0]).toMatchObject({
+      symbol: "gradle.catalog.library.kotlinx_coroutines_core",
+      kind: "method",
+      file: "gradle/libs.versions.toml"
+    });
+    expect(catalogResult.matches[0].why).toContain("build tool ownership match");
+
+    const sourceSetResult = await queryAgentIndex(
+      {
+        terms: ["commonMain", "sourceSet", "api", "coroutines", "dependency"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["build.gradle.kts"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    expect(sourceSetResult.matches[0]).toMatchObject({
+      symbol: "gradle.sourceSet.commonMain",
+      kind: "method",
+      file: "shared/build.gradle.kts"
+    });
+    expect(sourceSetResult.matches[0].why).toContain("build tool ownership match");
+  });
+
+  test("hybrid mode ranks Kotlin extension functions and DI annotation targets for agent navigation", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-kotlin-extension-di-"));
+    await mkdir(path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout", "PaymentExtensions.kt"),
+      `package com.acme.checkout
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+fun Flow<PaymentState>.withUiCopy(): Flow<PaymentState> {
+    return map { state -> state.copy(label = state.label.uppercase()) }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "src", "main", "kotlin", "com", "acme", "checkout", "CheckoutModule.kt"),
+      `package com.acme.checkout
+
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Inject
+
+@Module
+@InstallIn(SingletonComponent::class)
+interface CheckoutModule {
+    @Binds
+    fun bindPaymentRepository(repository: RealPaymentRepository): PaymentRepository
+}
+
+class RealPaymentRepository @Inject constructor(): PaymentRepository
+`
+    );
+    await indexTarget(root);
+
+    const extensionResult = await queryAgentIndex(
+      {
+        terms: ["which", "extension", "Flow", "withUiCopy", "map"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["checkout"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    expect(extensionResult.matches[0]).toMatchObject({
+      symbol: "com.acme.checkout.Flow.withUiCopy",
+      kind: "function",
+      file: "app/src/main/kotlin/com/acme/checkout/PaymentExtensions.kt"
+    });
+    expect(extensionResult.matches[0].why).toContain("Kotlin navigation signal match");
+    expect(extensionResult.matches[0].neighbors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ relation: "symbol_calls_name", symbol: "map" })])
+    );
+
+    const diResult = await queryAgentIndex(
+      {
+        terms: ["DI", "Hilt", "Module", "Binds", "Inject", "PaymentRepository"],
+        symbolKinds: ["class", "method"],
+        roles: ["source"],
+        pathHints: ["checkout"],
+        expand: ["children", "callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    expect(diResult.matches[0]).toMatchObject({
+      symbol: "com.acme.checkout.CheckoutModule.bindPaymentRepository",
+      kind: "method",
+      file: "app/src/main/kotlin/com/acme/checkout/CheckoutModule.kt"
+    });
+    expect(diResult.matches[0].why).toContain("Kotlin navigation signal match");
+  });
+
   test("hybrid mode finds methods inside constrained Swift extensions", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-swift-constrained-extension-"));
     await mkdir(path.join(root, "Sources", "NIOCore"), { recursive: true });

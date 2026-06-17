@@ -281,11 +281,19 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       if (fileNameBoost > 0) {
         cluster.why.add("file name matches task terms");
       }
+      const kotlinBoost = kotlinClusterBoost(cluster, queryTerms);
+      if (kotlinBoost > 0) {
+        cluster.why.add("Kotlin navigation signal match");
+      }
+      const buildToolBoost = buildToolClusterBoost(cluster, queryTerms);
+      if (buildToolBoost > 0) {
+        cluster.why.add("build tool ownership match");
+      }
       return {
         file: cluster.file,
         role: cluster.role,
         language: cluster.language,
-        score: Number((cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost).toFixed(2)),
+        score: Number((cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost + kotlinBoost + buildToolBoost).toFixed(2)),
         matchedChunks: cluster.matchedChunks,
         contextChars: cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0),
         contextTokens: approximateTokens(cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0)),
@@ -378,6 +386,72 @@ function fileNameTermBoost(file: string, queryTerms: string[]): number {
   const basename = normalize(path.posix.basename(file).replace(/\.[^.]+$/u, ""));
   const matches = queryTerms.filter((term) => basename.includes(term)).length;
   return Math.min(matches * 6, 12);
+}
+
+function kotlinClusterBoost(cluster: MutableCluster, queryTerms: string[]): number {
+  if (cluster.language !== "kotlin") {
+    return 0;
+  }
+  const querySet = new Set(queryTerms);
+  const file = normalize(cluster.file);
+  const symbolText = normalize(cluster.symbols.map((symbol) => symbol.name).join(" "));
+  const evidence = normalize(cluster.evidence ?? "");
+  const haystack = `${file} ${symbolText} ${evidence}`;
+  let score = 0;
+
+  if (["flow", "stateflow", "sharedflow", "suspend", "coroutine", "collect", "emit", "map", "transform", "launch"].some((term) => querySet.has(term))) {
+    const evidenceTerms = ["flow", "stateflow", "sharedflow", "suspend", "collect", "emit", "map", "transform", "launch", "viewmodelscope"].filter((term) =>
+      haystack.includes(term)
+    );
+    score += Math.min(evidenceTerms.length * 4, 18);
+  }
+
+  if (
+    ["gradle", "plugin", "dependency", "dependencies", "target", "module", "implementation", "api", "project", "sourceset", "sourcesets", "wires", "wiring"].some((term) =>
+      querySet.has(term)
+    ) &&
+    file.endsWith("gradle kts")
+  ) {
+    score += 18;
+  }
+
+  if (["di", "inject", "hilt", "koin", "single", "factory"].some((term) => querySet.has(term))) {
+    const evidenceTerms = ["inject", "hiltviewmodel", "module", "single", "factory", "provides", "binds", "koin"].filter((term) => haystack.includes(term));
+    score += Math.min(evidenceTerms.length * 4, 18);
+  }
+
+  if ((querySet.has("extension") || querySet.has("receiver")) && cluster.symbols.some((symbol) => symbol.kind === "function" && symbol.name.includes("."))) {
+    score += 12;
+  }
+
+  if ((querySet.has("viewmodel") || querySet.has("ui") || querySet.has("state")) && file.includes("viewmodel")) {
+    score += 10;
+  }
+
+  return Math.min(score, 28);
+}
+
+function buildToolClusterBoost(cluster: MutableCluster, queryTerms: string[]): number {
+  const file = normalize(cluster.file);
+  if (!file.endsWith("gradle kts") && !file.endsWith("pom xml") && !file.endsWith("libs versions toml")) {
+    return 0;
+  }
+
+  const querySet = new Set(queryTerms);
+  if (
+    !["gradle", "maven", "pom", "plugin", "dependency", "dependencies", "target", "module", "implementation", "api", "project", "artifact", "artifactid", "groupid", "catalog", "alias", "library", "libraries", "version", "versions", "coordinate", "coordinates", "wires", "wiring"].some((term) =>
+      querySet.has(term)
+    )
+  ) {
+    return 0;
+  }
+
+  const symbolText = normalize(cluster.symbols.map((symbol) => symbol.name).join(" "));
+  const evidence = normalize(cluster.evidence ?? "");
+  const evidenceTerms = ["dependency", "implementation", "api", "plugin", "module", "project", "artifactid", "groupid", "version", "library", "catalog"].filter(
+    (term) => symbolText.includes(term) || evidence.includes(term) || file.includes(term)
+  );
+  return Math.min(12 + evidenceTerms.length * 4, 28);
 }
 
 function clusterSqlFilter(agentQuery: AgentQuery): { sql: string; params: Record<string, unknown> } {

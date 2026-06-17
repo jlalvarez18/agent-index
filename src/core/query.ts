@@ -81,7 +81,9 @@ async function queryWithText(
   try {
     const ftsRows = searchCandidates(db, question, agentQuery);
     const candidateRows =
-      mode === "fts" ? ftsRows : mergeCandidateRows([...searchIntentCandidates(db, scoringQuestion, agentQuery), ...ftsRows]);
+      mode === "fts"
+        ? ftsRows
+        : mergeCandidateRows([...searchPathHintCandidates(db, agentQuery), ...searchIntentCandidates(db, scoringQuestion, agentQuery), ...ftsRows]);
     const rows = applyAgentQueryFilters(candidateRows, agentQuery);
     const matches = rankRows(db, rows, scoringQuestion, mode, options.limit ?? 5, options.debug ?? false, agentQuery);
     return { query: question, mode, matches };
@@ -227,6 +229,53 @@ function ftsCandidateLimit(agentQuery: AgentQuery | undefined): number {
     return 100;
   }
   return 25;
+}
+
+function searchPathHintCandidates(db: Database.Database, agentQuery: AgentQuery | undefined): CandidateRow[] {
+  const exactPathHints = (agentQuery?.pathHints ?? [])
+    .map((hint) => hint.trim().replace(/\\/gu, "/").replace(/^\.\//u, ""))
+    .filter((hint) => /\/.+\.[A-Za-z0-9]+$/u.test(hint));
+  if (exactPathHints.length === 0) {
+    return [];
+  }
+
+  const filter = candidateSqlFilter(agentQuery);
+  const pathClauses = exactPathHints.map((hint, index) => {
+    const key = `exactPathHint${index}`;
+    return { key, hint };
+  });
+  const params: Record<string, unknown> = { ...filter.params };
+  for (const clause of pathClauses) {
+    params[clause.key] = clause.hint.toLowerCase();
+  }
+
+  return db
+    .prepare(
+      `
+      select
+        c.id as chunk_id,
+        c.text as chunk_text,
+        c.start_line as chunk_start_line,
+        c.end_line as chunk_end_line,
+        s.id as symbol_id,
+        s.name as symbol_name,
+        s.qualified_name as qualified_name,
+        s.kind as kind,
+        s.start_line as symbol_start_line,
+        s.end_line as symbol_end_line,
+        f.path as file_path,
+        f.role as file_role,
+        0 as rank
+      from chunks c
+      join symbols s on s.id = c.symbol_id
+      join files f on f.id = c.file_id
+      where (${pathClauses.map((clause) => `lower(f.path) = @${clause.key} or lower(f.path) like '%/' || @${clause.key}`).join(" or ")})
+        ${filter.sql}
+      order by f.path, s.start_line
+      limit 30
+      `
+    )
+    .all(params) as CandidateRow[];
 }
 
 function searchIntentCandidates(db: Database.Database, question: string, agentQuery?: AgentQuery): CandidateRow[] {
@@ -651,6 +700,18 @@ function toMatch(
   score += swiftUIViewBody.score;
   if (swiftUIViewBody.score > 0) {
     addWhy(why, swiftUIViewBody.reason);
+  }
+
+  const kotlinNavigation = kotlinNavigationAdjustment(row, question);
+  score += kotlinNavigation.score;
+  if (kotlinNavigation.score > 0) {
+    addWhy(why, kotlinNavigation.reason);
+  }
+
+  const buildToolNavigation = buildToolNavigationAdjustment(row, question);
+  score += buildToolNavigation.score;
+  if (buildToolNavigation.score > 0) {
+    addWhy(why, buildToolNavigation.reason);
   }
 
   const testApi = testApiEvidenceAdjustment(row, question);
@@ -1265,18 +1326,21 @@ function exactFileContextAdjustment(row: CandidateRow, question: string): { scor
 }
 
 function pathHintAdjustment(row: CandidateRow, agentQuery: AgentQuery | undefined): { score: number; reason: string } {
-  const pathHints = agentQuery?.pathHints?.map(normalizedPathHint).filter(Boolean) ?? [];
+  const pathHints = agentQuery?.pathHints?.map((hint) => ({ raw: hint, normalized: normalizedPathHint(hint) })).filter((hint) => hint.normalized) ?? [];
   if (pathHints.length === 0) {
     return { score: 0, reason: "path hint match" };
   }
 
   const normalizedFile = normalize(row.file_path);
-  const matchedHints = pathHints.filter((hint) => pathHintMatchesFile(normalizedFile, hint));
-  if (matchedHints.length === 0) {
+  let score = 0;
+  for (const hint of pathHints) {
+    score += pathHintMatchScore(normalizedFile, hint.raw, hint.normalized);
+  }
+  if (score === 0) {
     return { score: 0, reason: "path hint match" };
   }
 
-  return { score: Math.min(2 * matchedHints.length, 6), reason: "path hint match" };
+  return { score: Math.min(score, 30), reason: "path hint match" };
 }
 
 function normalizedPathHint(hint: string): string {
@@ -1284,23 +1348,35 @@ function normalizedPathHint(hint: string): string {
 }
 
 function pathHintMatchesFile(normalizedFile: string, normalizedHint: string): boolean {
+  return pathHintMatchScore(normalizedFile, normalizedHint, normalizedHint) > 0;
+}
+
+function pathHintMatchScore(normalizedFile: string, rawHint: string, normalizedHint: string): number {
   if (!normalizedHint) {
-    return false;
+    return 0;
+  }
+
+  const hasPathSeparator = /[\\/]/u.test(rawHint);
+  const hasFileExtension = /\.[A-Za-z0-9]+$/u.test(rawHint);
+  if (hasPathSeparator && hasFileExtension && (normalizedFile === normalizedHint || normalizedFile.endsWith(` ${normalizedHint}`))) {
+    return 28;
   }
 
   if (normalizedFile.includes(normalizedHint)) {
-    return true;
+    return hasPathSeparator ? 14 : 2;
   }
 
   const hintTokens = normalizedHint.split(/\s+/).filter((token) => token.length >= 2 && token !== "py");
   if (hintTokens.length === 0) {
-    return false;
+    return 0;
   }
 
   const fileTokens = new Set(normalizedFile.split(/\s+/).filter(Boolean));
   return hintTokens.every((hintToken) =>
     [...fileTokens].some((fileToken) => fileToken === hintToken || tokensLooselyMatch(fileToken, hintToken))
-  );
+  )
+    ? 2
+    : 0;
 }
 
 function swiftUIViewBodyAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
@@ -1317,6 +1393,126 @@ function swiftUIViewBodyAdjustment(row: CandidateRow, question: string): { score
   }
 
   return { score: 14, reason: "SwiftUI view body flow match" };
+}
+
+function kotlinNavigationAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  if (!row.file_path.endsWith(".kt") && !row.file_path.endsWith(".kts")) {
+    return { score: 0, reason: "Kotlin navigation signal match" };
+  }
+
+  const tokens = new Set(rankedQueryTokens(question));
+  const chunk = normalize(row.chunk_text);
+  const symbol = normalize(row.qualified_name);
+  const file = normalize(row.file_path);
+  let score = 0;
+
+  const flowTerms = ["flow", "stateflow", "sharedflow", "suspend", "coroutine", "collect", "emit", "map", "transform", "launch"];
+  if (flowTerms.some((term) => tokens.has(term))) {
+    const flowEvidence = ["flow", "stateflow", "sharedflow", "suspend", "collect", "emit", "map", "transform", "launch", "viewmodelscope"].filter(
+      (term) => chunk.includes(term) || symbol.includes(term)
+    );
+    if (flowEvidence.length > 0 && (row.kind === "function" || row.kind === "method")) {
+      score += Math.min(10 + flowEvidence.length * 3, 24);
+    }
+  }
+
+  const asksForGradle =
+    tokens.has("gradle") ||
+    tokens.has("plugin") ||
+    tokens.has("dependency") ||
+    tokens.has("dependencies") ||
+    tokens.has("target") ||
+    tokens.has("module") ||
+    tokens.has("implementation") ||
+    tokens.has("api") ||
+    tokens.has("project") ||
+    tokens.has("sourceset") ||
+    tokens.has("sourcesets") ||
+    tokens.has("wires") ||
+    tokens.has("wiring");
+  if (asksForGradle && row.file_path.endsWith(".gradle.kts")) {
+    score += 12;
+    if (symbol.startsWith("gradle ")) score += 10;
+    if (["implementation", "api", "testimplementation", "androidtestimplementation", "plugin", "include", "namespace"].some((term) => symbol.includes(term))) {
+      score += 8;
+    }
+  }
+
+  const asksForDi =
+    tokens.has("di") ||
+    tokens.has("inject") ||
+    tokens.has("injected") ||
+    tokens.has("hilt") ||
+    tokens.has("koin") ||
+    tokens.has("module") ||
+    tokens.has("single") ||
+    tokens.has("factory");
+  if (asksForDi) {
+    const diEvidence = ["inject", "hiltviewmodel", "module", "single", "factory", "provides", "binds", "koin"].filter(
+      (term) => chunk.includes(term) || symbol.includes(term)
+    );
+    if (diEvidence.length > 0) {
+      score += Math.min(8 + diEvidence.length * 4, 24);
+    }
+  }
+
+  if ((tokens.has("extension") || tokens.has("receiver")) && row.kind === "function" && symbol.split(/\s+/).length >= 2) {
+    score += 12;
+    if (chunk.includes("fun ") && row.qualified_name.includes(".")) {
+      score += 8;
+    }
+  }
+
+  if ((tokens.has("viewmodel") || tokens.has("ui") || tokens.has("state")) && file.includes("viewmodel")) {
+    score += 8;
+  }
+
+  return score > 0 ? { score: Math.min(score, 36), reason: "Kotlin navigation signal match" } : { score: 0, reason: "Kotlin navigation signal match" };
+}
+
+function buildToolNavigationAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {
+  const isBuildFile = row.file_path.endsWith(".gradle.kts") || row.file_path.endsWith("pom.xml") || row.file_path.endsWith("libs.versions.toml");
+  if (!isBuildFile) {
+    return { score: 0, reason: "build tool ownership match" };
+  }
+
+  const tokens = new Set(rankedQueryTokens(question));
+  const asksForBuildTool =
+    tokens.has("gradle") ||
+    tokens.has("maven") ||
+    tokens.has("pom") ||
+    tokens.has("plugin") ||
+    tokens.has("dependency") ||
+    tokens.has("dependencies") ||
+    tokens.has("target") ||
+    tokens.has("module") ||
+    tokens.has("implementation") ||
+    tokens.has("api") ||
+    tokens.has("project") ||
+    tokens.has("artifact") ||
+    tokens.has("artifactid") ||
+    tokens.has("groupid") ||
+    tokens.has("catalog") ||
+    tokens.has("alias") ||
+    tokens.has("library") ||
+    tokens.has("libraries") ||
+    tokens.has("version") ||
+    tokens.has("versions") ||
+    tokens.has("coordinate") ||
+    tokens.has("coordinates") ||
+    tokens.has("wires") ||
+    tokens.has("wiring");
+  if (!asksForBuildTool) {
+    return { score: 0, reason: "build tool ownership match" };
+  }
+
+  const symbol = normalize(row.qualified_name);
+  const chunk = normalize(row.chunk_text);
+  let score = 10;
+  if (symbol.startsWith("gradle ") || symbol.startsWith("maven ")) score += 10;
+  if (["dependency", "implementation", "api", "plugin", "module", "project", "catalog", "library", "version", "sourceset"].some((term) => symbol.includes(term))) score += 8;
+  if (["dependency", "artifactid", "groupid", "plugin", "module", "project", "version", "version ref"].some((term) => chunk.includes(term))) score += 6;
+  return { score: Math.min(score, 30), reason: "build tool ownership match" };
 }
 
 function testApiEvidenceAdjustment(row: CandidateRow, question: string): { score: number; reason: string } {

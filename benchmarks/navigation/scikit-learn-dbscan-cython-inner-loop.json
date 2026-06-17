@@ -1,0 +1,91 @@
+[
+  {
+    "id": "sklearn-dbscan-cython-inner-loop-mixed-language",
+    "task": "Investigate how DBSCAN expands clusters from core samples into neighborhood labels and where weighted/core-sample behavior is tested, without naming the Cython inner-loop function. Find the public estimator flow, the low-level Cython backend loop, and the related DBSCAN tests.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["dbscan", "core", "samples", "neighborhoods", "labels", "stack", "depth", "first", "cython", "backend"],
+          "symbolKinds": ["class", "method", "function"],
+          "roles": ["source"],
+          "pathHints": ["cluster"]
+        },
+        "limit": 5
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "terms": ["dbscan", "core", "samples", "neighborhoods", "labels", "sample_weight", "weighted"],
+        "limit": 2
+      }
+    ],
+    "rgQueries": [
+      ["dbscan", "core", "samples", "neighborhoods", "labels", "stack", "depth", "first", "cython", "backend"],
+      ["dbscan", "core", "samples", "neighborhoods", "labels", "sample_weight", "weighted", "test"]
+    ],
+    "searchTerms": {
+      "seed": ["dbscan", "core", "samples", "neighborhoods", "labels", "stack", "depth", "first", "cython", "backend"],
+      "forbiddenExact": ["dbscan_inner"]
+    },
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["dbscan", "core", "samples", "neighborhoods", "labels", "stack", "depth", "first"],
+          "scope": "source",
+          "paths": ["sklearn/cluster"],
+          "globs": ["*.py", "*.pyx"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["dbscan", "core", "samples", "neighborhoods", "labels", "stack", "depth", "first"],
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["dbscan", "core", "samples", "labels", "sample_weight", "weighted"],
+          "scope": "test",
+          "paths": ["sklearn/cluster"],
+          "globs": ["test_*.py"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["dbscan", "core", "samples", "labels", "sample_weight", "weighted"],
+          "before": 8,
+          "after": 8,
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "sklearn/cluster/_dbscan.py",
+        "sklearn/cluster/_dbscan_inner.pyx",
+        "sklearn/cluster/tests/test_dbscan.py"
+      ],
+      "symbols": [
+        "dbscan",
+        "DBSCAN.fit",
+        "dbscan_inner",
+        "test_weighted_dbscan",
+        "test_dbscan_core_samples_toy"
+      ],
+      "requiredFiles": [
+        "sklearn/cluster/_dbscan.py",
+        "sklearn/cluster/_dbscan_inner.pyx",
+        "sklearn/cluster/tests/test_dbscan.py"
+      ],
+      "requiredSymbols": ["dbscan_inner"]
+    }
+  }
+]

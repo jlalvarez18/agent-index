@@ -1,0 +1,48 @@
+[
+  {
+    "id": "junit5-test-engine-java-discovery",
+    "task": "Trace JUnit Platform test engine discovery and execution interfaces to concrete Jupiter engine code and tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["TestEngine", "JupiterTestEngine", "discover", "execute", "EngineDiscoveryRequest"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["junit-platform-engine", "junit-jupiter-engine"]
+        },
+        "limit": 10
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 4,
+        "terms": ["JupiterTestEngine", "discover", "execute", "TestDescriptor"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [["TestEngine", "JupiterTestEngine", "discover", "execute"], ["JupiterTestEngineTests", "EngineDiscoveryRequest"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["interface TestEngine", "discover", "execute"], "paths": ["junit-platform-engine/src/main/java", "junit-jupiter-engine/src/main/java"], "globs": ["*.java"], "limit": 50 },
+        { "type": "read-snippets", "terms": ["JupiterTestEngine", "EngineDiscoveryRequest"], "fromStep": 1, "before": 8, "after": 14, "limit": 12 },
+        { "type": "search-files", "terms": ["JupiterTestEngineTests", "discover", "execute"], "scope": "test", "paths": ["jupiter-tests/src/test/java"], "globs": ["*.java"], "limit": 40 }
+      ]
+    },
+    "expected": {
+      "files": [
+        "junit-platform-engine/src/main/java/org/junit/platform/engine/TestEngine.java",
+        "junit-jupiter-engine/src/main/java/org/junit/jupiter/engine/JupiterTestEngine.java",
+        "jupiter-tests/src/test/java/org/junit/jupiter/engine/JupiterTestEngineTests.java"
+      ],
+      "symbols": ["org.junit.platform.engine.TestEngine", "org.junit.jupiter.engine.JupiterTestEngine"],
+      "requiredFiles": [
+        "junit-platform-engine/src/main/java/org/junit/platform/engine/TestEngine.java",
+        "junit-jupiter-engine/src/main/java/org/junit/jupiter/engine/JupiterTestEngine.java"
+      ],
+      "requiredSymbols": ["org.junit.platform.engine.TestEngine", "org.junit.jupiter.engine.JupiterTestEngine"]
+    }
+  }
+]

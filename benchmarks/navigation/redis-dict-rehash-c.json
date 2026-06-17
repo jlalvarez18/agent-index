@@ -1,0 +1,49 @@
+[
+  {
+    "id": "redis-dict-rehash-c",
+    "task": "Navigate Redis dictionary resizing from public hash-table APIs into incremental rehash implementation and the header contract.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["dict", "rehash", "resize", "expand", "hash", "table"],
+          "symbolKinds": ["function", "class", "typealias"],
+          "roles": ["source"],
+          "pathHints": ["src"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "query",
+        "query": {
+          "terms": ["dictRehash", "dictExpand", "incremental", "rehashidx"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["src/dict.c"],
+          "expand": ["imports", "callers", "callees"],
+          "limit": 8
+        }
+      }
+    ],
+    "rgQueries": [
+      ["dict", "rehash", "resize", "expand", "hash", "table"],
+      ["dictRehash", "dictExpand", "rehashidx"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["rehash", "expand", "rehashidx"], "paths": ["src"], "globs": ["*.c", "*.h"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["rehash", "expand", "rehashidx"], "fromStep": 1, "before": 8, "after": 12, "limit": 10 },
+        { "type": "search-files", "terms": ["dictRehash", "dictExpand"], "paths": ["src"], "globs": ["*.h"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["dictRehash", "dictExpand"], "fromStep": 3, "before": 4, "after": 8, "limit": 5 }
+      ]
+    },
+    "expected": {
+      "files": ["src/dict.c", "src/dict.h"],
+      "symbols": ["dictRehash", "dictExpand"],
+      "requiredFiles": ["src/dict.c"],
+      "requiredSymbols": ["dictRehash"]
+    }
+  }
+]

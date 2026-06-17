@@ -1,0 +1,49 @@
+[
+  {
+    "id": "sqlite-btree-cursor-c",
+    "task": "Find SQLite B-tree cursor movement and insertion paths from public btree APIs into implementation details.",
+    "kind": "maintenance",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["btree", "cursor", "moveto", "insert", "page", "cell"],
+          "symbolKinds": ["function", "class", "typealias"],
+          "roles": ["source"],
+          "pathHints": ["src"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "query",
+        "query": {
+          "terms": ["sqlite3BtreeIndexMoveto", "sqlite3BtreeTableMoveto", "sqlite3BtreeInsert", "cursor", "cell"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["src/btree.c"],
+          "expand": ["imports", "callers", "callees"],
+          "limit": 8
+        }
+      }
+    ],
+    "rgQueries": [
+      ["btree", "cursor", "moveto", "insert", "page", "cell"],
+      ["sqlite3BtreeIndexMoveto", "sqlite3BtreeTableMoveto", "sqlite3BtreeInsert", "cursor"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["cursor", "moveto", "insert"], "paths": ["src"], "globs": ["*.c", "*.h"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["cursor", "moveto", "insert"], "fromStep": 1, "before": 8, "after": 12, "limit": 10 },
+        { "type": "search-files", "terms": ["sqlite3BtreeIndexMoveto", "sqlite3BtreeTableMoveto", "sqlite3BtreeInsert"], "paths": ["src"], "globs": ["*.c", "*.h"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["sqlite3BtreeIndexMoveto", "sqlite3BtreeTableMoveto", "sqlite3BtreeInsert"], "fromStep": 3, "before": 6, "after": 10, "limit": 6 }
+      ]
+    },
+    "expected": {
+      "files": ["src/btree.c", "src/btree.h"],
+      "symbols": ["sqlite3BtreeIndexMoveto", "sqlite3BtreeTableMoveto", "sqlite3BtreeInsert"],
+      "requiredFiles": ["src/btree.c"],
+      "requiredSymbols": ["sqlite3BtreeIndexMoveto"]
+    }
+  }
+]

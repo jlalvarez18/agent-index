@@ -1,0 +1,49 @@
+[
+  {
+    "id": "curl-http-request-c",
+    "task": "Navigate curl's HTTP request setup and completion flow from protocol entrypoints to request header/body handling.",
+    "kind": "bugfix",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["http", "request", "headers", "body", "done", "connection"],
+          "symbolKinds": ["function", "class", "typealias"],
+          "roles": ["source"],
+          "pathHints": ["lib"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "query",
+        "query": {
+          "terms": ["Curl_http", "Curl_http_done", "request", "headers"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["lib/http.c", "lib/http.h"],
+          "expand": ["imports", "callers", "callees"],
+          "limit": 8
+        }
+      }
+    ],
+    "rgQueries": [
+      ["http", "request", "headers", "body", "done", "connection"],
+      ["Curl_http", "Curl_http_done", "headers"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["http", "request", "headers"], "paths": ["lib"], "globs": ["*.c", "*.h"], "limit": 40 },
+        { "type": "read-snippets", "terms": ["http", "request", "headers"], "fromStep": 1, "before": 8, "after": 12, "limit": 10 },
+        { "type": "search-files", "terms": ["Curl_http", "Curl_http_done"], "paths": ["lib"], "globs": ["*.c", "*.h"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["Curl_http", "Curl_http_done"], "fromStep": 3, "before": 6, "after": 10, "limit": 6 }
+      ]
+    },
+    "expected": {
+      "files": ["lib/http.c", "lib/http.h"],
+      "symbols": ["Curl_http", "Curl_http_done"],
+      "requiredFiles": ["lib/http.c"],
+      "requiredSymbols": ["Curl_http"]
+    }
+  }
+]

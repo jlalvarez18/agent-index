@@ -1,0 +1,68 @@
+[
+  {
+    "id": "firebase-firestore-remote-store-cpp-watch",
+    "task": "Trace how Firestore RemoteStore starts a watch listen and sends watch requests for target data.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["RemoteStore", "Listen", "TargetData", "ShouldStartWatchStream", "SendWatchRequest"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["Firestore/core/src/remote"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["RemoteStore", "watch_stream", "listen_targets", "SendWatchRequest", "WatchQuery"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["Firestore/core/src/remote/remote_store"]
+        },
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["RemoteStore", "Listen", "TargetData", "ShouldStartWatchStream", "SendWatchRequest"],
+      ["watch_stream", "listen_targets", "WatchQuery"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["RemoteStore", "Listen", "TargetData"],
+          "paths": ["Firestore/core/src/remote"],
+          "globs": ["*.cc", "*.h"],
+          "limit": 40
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["ShouldStartWatchStream", "SendWatchRequest", "WatchQuery"],
+          "fromStep": 1,
+          "before": 8,
+          "after": 12,
+          "limit": 8
+        }
+      ]
+    },
+    "expected": {
+      "files": ["Firestore/core/src/remote/remote_store.cc", "Firestore/core/src/remote/remote_store.h"],
+      "symbols": [
+        "firebase::firestore::remote::RemoteStore",
+        "firebase::firestore::remote::RemoteStore.Listen",
+        "firebase::firestore::remote::RemoteStore.SendWatchRequest",
+        "firebase::firestore::remote::RemoteStore.ShouldStartWatchStream"
+      ],
+      "requiredFiles": ["Firestore/core/src/remote/remote_store.cc"],
+      "requiredSymbols": [
+        "firebase::firestore::remote::RemoteStore.Listen",
+        "firebase::firestore::remote::RemoteStore.SendWatchRequest",
+        "firebase::firestore::remote::RemoteStore.ShouldStartWatchStream"
+      ]
+    }
+  }
+]

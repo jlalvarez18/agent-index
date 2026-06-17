@@ -315,6 +315,83 @@ dependencies {
     );
   });
 
+  test("indexes Java source files and resolves interface implementations across files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-java-"));
+    await mkdir(path.join(root, "core", "src", "main", "java", "com", "acme", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "app", "src", "main", "java", "com", "acme", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "core", "src", "main", "java", "com", "acme", "checkout", "PaymentRepository.java"),
+      `package com.acme.checkout;
+
+public interface PaymentRepository {
+    PaymentState findById(String id);
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "src", "main", "java", "com", "acme", "checkout", "CheckoutService.java"),
+      `package com.acme.checkout;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class CheckoutService implements PaymentRepository {
+    @Override
+    public PaymentState findById(String id) {
+        return repository.findById(id);
+    }
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("app/src/main/java/com/acme/checkout/CheckoutService.java");
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, target.qualified_name as target, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        left join symbols target on target.id = e.target_symbol_id
+        where e.kind = 'symbol_conforms_to'
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "app/src/main/java/com/acme/checkout/CheckoutService.java", language: "java" },
+      { path: "core/src/main/java/com/acme/checkout/PaymentRepository.java", language: "java" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "com.acme.checkout.CheckoutService", kind: "class" },
+        { qualified_name: "com.acme.checkout.CheckoutService.findById", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "com.acme.checkout.CheckoutService",
+          target: "com.acme.checkout.PaymentRepository",
+          target_name: "PaymentRepository",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "com.acme.checkout.CheckoutService.findById",
+          target: "com.acme.checkout.PaymentRepository.findById",
+          target_name: "com.acme.checkout.PaymentRepository.findById",
+          kind: "symbol_conforms_to"
+        }
+      ])
+    );
+  });
+
   test("indexes Maven pom.xml ownership symbols for Kotlin JVM projects", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-maven-"));
     await writeFile(

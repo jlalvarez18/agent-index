@@ -1,10 +1,11 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   autonomousConditions,
   loadAutonomousTaskManifest,
+  prepareAutonomousRunPacket,
   validateAutonomousTaskManifest
 } from "../../src/core/autonomous-comparison.js";
 import type { AutonomousTaskManifest } from "../../src/core/schema.js";
@@ -115,5 +116,48 @@ describe("autonomous comparison manifest", () => {
     expect(() => validateAutonomousTaskManifest(badOptional, "fixture.json")).toThrow(/commit must be a string/i);
     expect(() => validateAutonomousTaskManifest(badOptional, "fixture.json")).toThrow(/testCommand must be a string/i);
     expect(() => validateAutonomousTaskManifest(badOptional, "fixture.json")).toThrow(/notes must be a string/i);
+  });
+
+  test("writes a run packet without leaking expected evidence", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-packet-"));
+    const manifest = validManifest();
+    const packet = await prepareAutonomousRunPacket(manifest.tasks[0], "agent-index", {
+      artifactsDir: root,
+      timeLimitMinutes: 30
+    });
+
+    expect(packet.taskId).toBe("click-color-default-behavior");
+    expect(packet.condition).toBe("agent-index");
+    expect(packet.runDir).toContain("click-color-default-behavior/agent-index");
+    expect(packet.promptPath).toBe(path.join(packet.runDir, "prompt.md"));
+    expect(packet.reviewTemplatePath).toBe(path.join(packet.runDir, "review-template.json"));
+
+    const prompt = await readFile(path.join(packet.runDir, "prompt.md"), "utf8");
+    expect(prompt).toContain("agent-index is available");
+    expect(prompt).toContain("30 minute wall-clock cap");
+    expect(prompt).not.toContain("src/click/globals.py");
+    expect(prompt).not.toContain("resolve_color_default");
+
+    const review = await readFile(path.join(packet.runDir, "review-template.json"), "utf8");
+    expect(JSON.parse(review)).toMatchObject({
+      taskId: "click-color-default-behavior",
+      condition: "agent-index",
+      success: "fail",
+      specialToolHelped: "ignored",
+      indexing: {}
+    });
+  });
+
+  test("no-special-tool prompt does not mention Graphify or agent-index availability", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-no-tool-"));
+    const manifest = validManifest();
+    const packet = await prepareAutonomousRunPacket(manifest.tasks[0], "no-special-tool", {
+      artifactsDir: root,
+      timeLimitMinutes: 30
+    });
+    const prompt = await readFile(path.join(packet.runDir, "prompt.md"), "utf8");
+    expect(prompt).toContain("No special code-navigation tool is available");
+    expect(prompt).not.toContain("Graphify is available");
+    expect(prompt).not.toContain("agent-index is available");
   });
 });

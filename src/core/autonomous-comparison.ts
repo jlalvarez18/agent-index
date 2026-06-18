@@ -1,6 +1,8 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type {
   AutonomousCondition,
+  AutonomousReviewRecord,
   AutonomousTaskKind,
   AutonomousTaskDefinition,
   AutonomousTaskManifest
@@ -20,6 +22,76 @@ export async function loadAutonomousTaskManifest(manifestPath: string): Promise<
     JSON.parse(await readFile(manifestPath, "utf8")),
     manifestPath
   );
+}
+
+export interface PrepareAutonomousRunOptions {
+  artifactsDir: string;
+  timeLimitMinutes?: number;
+}
+
+export interface AutonomousRunPacket {
+  taskId: string;
+  condition: AutonomousCondition;
+  runDir: string;
+  promptPath: string;
+  reviewTemplatePath: string;
+}
+
+export async function prepareAutonomousRunPacket(
+  task: AutonomousTaskDefinition,
+  condition: AutonomousCondition,
+  options: PrepareAutonomousRunOptions
+): Promise<AutonomousRunPacket> {
+  const runDir = path.join(options.artifactsDir, task.id, condition);
+  await mkdir(runDir, { recursive: true });
+
+  const promptPath = path.join(runDir, "prompt.md");
+  const reviewTemplatePath = path.join(runDir, "review-template.json");
+  await writeFile(promptPath, renderAutonomousPrompt(task, condition, options.timeLimitMinutes ?? 30));
+  await writeFile(reviewTemplatePath, `${JSON.stringify(reviewTemplate(task.id, condition), null, 2)}\n`);
+
+  return {
+    taskId: task.id,
+    condition,
+    runDir,
+    promptPath,
+    reviewTemplatePath
+  };
+}
+
+export function renderAutonomousPrompt(
+  task: AutonomousTaskDefinition,
+  condition: AutonomousCondition,
+  timeLimitMinutes = 30
+): string {
+  return [
+    `# Autonomous Trial: ${task.id}`,
+    "",
+    `Repository: ${task.repo}`,
+    `Task kind: ${task.kind}`,
+    `Time limit: ${timeLimitMinutes} minute wall-clock cap`,
+    "",
+    "## Task",
+    "",
+    task.prompt,
+    "",
+    "## Success Criteria",
+    "",
+    ...task.successCriteria.map((criterion) => `- ${criterion}`),
+    "",
+    "## Tool Condition",
+    "",
+    conditionInstructions(condition),
+    "",
+    "## Run Rules",
+    "",
+    "- Work autonomously until the task is complete, blocked, or the time limit is reached.",
+    "- Use normal shell, file-reading, editing, and test commands as needed.",
+    "- Do not use internet access, credentials, or services outside the repository.",
+    "- For explanation-only tasks, cite the relevant files and line numbers.",
+    "- At the end, report what changed or what you found, and list tests run.",
+    ""
+  ].join("\n");
 }
 
 export function validateAutonomousTaskManifest(
@@ -123,6 +195,41 @@ function leakedEvidence(task: AutonomousTaskDefinition): string[] {
     ...(task.expectedEvidence?.symbols ?? [])
   ].filter((value) => value.length > 0);
   return evidence.filter((value) => prompt.includes(value.toLowerCase()));
+}
+
+function conditionInstructions(condition: AutonomousCondition): string {
+  if (condition === "graphify") {
+    return [
+      "Graphify is available for codebase navigation.",
+      "Use Graphify when it seems useful, but you may also use ordinary shell tools."
+    ].join("\n");
+  }
+  if (condition === "agent-index") {
+    return [
+      "agent-index is available for codebase navigation.",
+      "Use agent-index when it seems useful, but you may also use ordinary shell tools."
+    ].join("\n");
+  }
+  return [
+    "No special code-navigation tool is available.",
+    "Use ordinary shell tools, file reads, edits, and tests."
+  ].join("\n");
+}
+
+function reviewTemplate(taskId: string, condition: AutonomousCondition): AutonomousReviewRecord {
+  return {
+    taskId,
+    condition,
+    success: "fail",
+    quality: 1,
+    firstUsefulFile: null,
+    firstUsefulTool: null,
+    specialToolHelped: "ignored",
+    tests: "not-run",
+    failureMode: null,
+    indexing: {},
+    notes: ""
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -286,6 +286,39 @@ describe("runCli", () => {
     ).rejects.toThrow("Invalid --time-limit-minutes value: abc. Expected a positive integer.");
   });
 
+  test("summarizes autonomous review artifacts", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-cli-summary-"));
+    const artifactsDir = path.join(root, "artifacts");
+    const reviewDir = path.join(artifactsDir, "task-a", "agent-index");
+    const output: string[] = [];
+
+    await mkdir(reviewDir, { recursive: true });
+    await writeFile(
+      path.join(reviewDir, "review.json"),
+      JSON.stringify({
+        taskId: "task-a",
+        condition: "agent-index",
+        success: "pass",
+        quality: 5,
+        firstUsefulFile: null,
+        firstUsefulTool: "agent-index",
+        specialToolHelped: "yes",
+        tests: "passed",
+        failureMode: null,
+        wallTimeMinutes: 12,
+        filesOpened: 4,
+        contextTokens: 900,
+        notes: "good"
+      })
+    );
+
+    await runCli(["autonomous-summary", artifactsDir], { write: (line) => output.push(line) });
+
+    expect(output.join("\n")).toContain("Runs: 1");
+    expect(output.join("\n")).toContain("agent-index");
+    expect(output.join("\n")).toContain("pass=1");
+  });
+
   test("supports file-cluster summaries for low-token repository mapping", async () => {
     const { root } = await fixtureProject();
     const output: string[] = [];

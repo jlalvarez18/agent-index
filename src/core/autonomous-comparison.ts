@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   AutonomousCondition,
@@ -24,6 +24,14 @@ export async function loadAutonomousTaskManifest(manifestPath: string): Promise<
     JSON.parse(await readFile(manifestPath, "utf8")),
     manifestPath
   );
+}
+
+export async function loadAutonomousReviews(artifactsDir: string): Promise<AutonomousReviewRecord[]> {
+  const reviewPaths = await findReviewFiles(artifactsDir);
+  const reviews = await Promise.all(
+    reviewPaths.map(async (reviewPath) => JSON.parse(await readFile(reviewPath, "utf8")) as AutonomousReviewRecord)
+  );
+  return reviews;
 }
 
 export interface PrepareAutonomousRunOptions {
@@ -201,6 +209,23 @@ function upperMedian(values: Array<number | undefined>): number | null {
 
 function roundToFour(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+async function findReviewFiles(root: string): Promise<string[]> {
+  const entries = await readdir(root, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        return findReviewFiles(entryPath);
+      }
+      if (entry.isFile() && entry.name === "review.json") {
+        return [entryPath];
+      }
+      return [];
+    })
+  );
+  return nested.flat().sort();
 }
 
 function validateTask(

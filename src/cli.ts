@@ -5,8 +5,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { runAgentEval } from "./core/agent-eval.js";
 import {
   autonomousConditions,
+  loadAutonomousReviews,
   loadAutonomousTaskManifest,
-  prepareAutonomousRunPacket
+  prepareAutonomousRunPacket,
+  summarizeAutonomousReviews
 } from "./core/autonomous-comparison.js";
 import { runBenchmark } from "./core/benchmark.js";
 import { findFileClusters } from "./core/file-clusters.js";
@@ -23,6 +25,7 @@ import type {
   AgentEvalResult,
   AgentQuery,
   AutonomousCondition,
+  AutonomousSummaryResult,
   BenchmarkQueryStyle,
   FileClusterResult,
   FileRole,
@@ -348,6 +351,16 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
         io.write(`Review template: ${packet.reviewTemplatePath}`);
       }
     );
+
+  program
+    .command("autonomous-summary")
+    .argument("<artifacts-dir>", "artifact root containing nested autonomous review.json files")
+    .option("--json", "write full autonomous summary as JSON")
+    .action(async (artifactsDir: string, options: { json?: boolean }) => {
+      const reviews = await loadAutonomousReviews(artifactsDir);
+      const summary = summarizeAutonomousReviews(reviews);
+      io.write(options.json ? JSON.stringify(summary, null, 2) : formatAutonomousSummary(summary));
+    });
 
   program
     .command("nav-eval")
@@ -721,6 +734,28 @@ function formatAutonomousList(manifest: { name: string; tasks: Array<{ id: strin
     "",
     ...manifest.tasks.map((task) => `${task.id}\t${task.repo}\t${task.kind}`)
   ].join("\n");
+}
+
+function formatAutonomousSummary(summary: AutonomousSummaryResult): string {
+  return [
+    `Runs: ${summary.runs}`,
+    ...summary.byCondition.map((row) =>
+      [
+        `${row.condition}:`,
+        `runs=${row.runs}`,
+        `pass=${row.pass}`,
+        `partial=${row.partial}`,
+        `fail=${row.fail}`,
+        `avgQuality=${formatSummaryNumber(row.avgQuality)}`,
+        `specialToolUsed=${Math.round(row.specialToolUsedRate * row.runs)}`,
+        `specialToolHelped=${Math.round(row.specialToolHelpedRate * row.runs)}`
+      ].join(" ")
+    )
+  ].join("\n");
+}
+
+function formatSummaryNumber(value: number): string {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(2);
 }
 
 function formatNavigationEval(result: NavigationEvalResult, includeCases = false): string {

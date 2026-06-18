@@ -579,6 +579,94 @@ export interface NavigationSuiteResult {
   repoResults: NavigationSuiteRepoResult[];
 }
 
+export type AutonomousCondition = "graphify" | "agent-index" | "no-special-tool";
+
+export type AutonomousTaskKind =
+  | "bugfix"
+  | "feature"
+  | "code-explanation"
+  | "test-discovery"
+  | "incremental-follow-up";
+
+export interface AutonomousExpectedEvidence {
+  files: string[];
+  symbols?: string[];
+}
+
+export interface AutonomousTaskDefinition {
+  id: string;
+  repo: string;
+  commit?: string;
+  kind: AutonomousTaskKind;
+  prompt: string;
+  successCriteria: string[];
+  expectedEvidence: AutonomousExpectedEvidence;
+  testCommand?: string;
+  notes?: string;
+}
+
+export interface AutonomousTaskManifest {
+  version: 1;
+  name: string;
+  tasks: AutonomousTaskDefinition[];
+}
+
+export interface AutonomousIndexMetrics {
+  fullIndexWallTimeSeconds?: number;
+  incrementalIndexWallTimeSeconds?: number;
+  indexArtifactBytes?: number;
+  indexedFiles?: number;
+  indexedSymbols?: number;
+  indexedNodes?: number;
+  notes?: string;
+}
+
+export interface AutonomousReviewRecord {
+  taskId: string;
+  condition: AutonomousCondition;
+  success: "pass" | "partial" | "fail";
+  quality: 1 | 2 | 3 | 4 | 5;
+  firstUsefulFile: string | null;
+  firstUsefulTool: "graphify" | "agent-index" | "rg" | "file-read" | "other" | null;
+  specialToolHelped: "yes" | "no" | "ignored" | "misleading";
+  tests: "passed" | "failed" | "not-run" | "not-applicable";
+  failureMode:
+    | "wrong-file"
+    | "over-read"
+    | "bad-edit"
+    | "test-gap"
+    | "timeout"
+    | "tool-ignored"
+    | "tool-misled"
+    | "other"
+    | null;
+  indexing?: AutonomousIndexMetrics;
+  wallTimeMinutes?: number;
+  filesOpened?: number;
+  contextTokens?: number;
+  notes: string;
+}
+
+export interface AutonomousSummaryCondition {
+  condition: AutonomousCondition;
+  runs: number;
+  pass: number;
+  partial: number;
+  fail: number;
+  avgQuality: number;
+  specialToolUsedRate: number;
+  specialToolHelpedRate: number;
+  medianWallTimeMinutes: number | null;
+  medianFilesOpened: number | null;
+  medianContextTokens: number | null;
+}
+
+export interface AutonomousSummaryResult {
+  runs: number;
+  byCondition: AutonomousSummaryCondition[];
+  failureModes: Record<string, number>;
+}
+
 export interface RelatedTestMatch {
   file: string;
   score: number;

@@ -350,6 +350,27 @@
     "mode": "hybrid"
   },
   {
+    "name": "laravel-framework-php",
+    "evalPath": "laravel-controller-dispatcher-php-routing.json",
+    "target": "laravel-framework",
+    "repoUrl": "https://github.com/laravel/framework.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "symfony-console-php",
+    "evalPath": "symfony-console-command-php-lifecycle.json",
+    "target": "symfony-console",
+    "repoUrl": "https://github.com/symfony/console.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "symfony-dependency-injection-php-config",
+    "evalPath": "symfony-dependency-injection-service-config-php-yaml-xml.json",
+    "target": "symfony-dependency-injection",
+    "repoUrl": "https://github.com/symfony/dependency-injection.git",
+    "mode": "hybrid"
+  },
+  {
     "name": "redis-c",
     "evalPath": "redis-dict-rehash-c.json",
     "target": "redis",

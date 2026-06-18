@@ -1,0 +1,89 @@
+[
+  {
+    "id": "laravel-controller-dispatcher-php-routing",
+    "task": "Trace how Laravel dispatches controller actions that may define callAction, resolves controller method parameters, gathers controller middleware, and locate the related routing tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["ControllerDispatcher", "callAction", "controller", "parameters", "middleware"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["src/Illuminate/Routing"]
+        },
+        "limit": 5
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "Illuminate\\Routing\\ControllerDispatcher::dispatch",
+        "terms": ["callAction", "parameters", "controller"],
+        "limit": 5
+      }
+    ],
+    "rgQueries": [
+      ["ControllerDispatcher", "callAction", "controller", "parameters", "middleware"],
+      ["callAction", "parameters", "controller", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["ControllerDispatcher", "callAction", "controller", "parameters", "middleware"],
+          "scope": "source",
+          "paths": ["src/Illuminate/Routing"],
+          "globs": ["*.php"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["callAction", "resolveParameters", "getMiddleware"],
+          "before": 8,
+          "after": 12,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["ControllerDispatcher", "callAction", "parameters", "controller"],
+          "scope": "test",
+          "paths": ["tests/Routing", "tests/Integration/Routing"],
+          "globs": ["*Test.php"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["callAction", "parameters", "controller"],
+          "before": 10,
+          "after": 14,
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "src/Illuminate/Routing/ControllerDispatcher.php",
+        "tests/Routing/RoutingRouteTest.php"
+      ],
+      "symbols": [
+        "Illuminate\\Routing\\ControllerDispatcher",
+        "Illuminate\\Routing\\ControllerDispatcher::dispatch",
+        "Illuminate\\Routing\\ControllerDispatcher::resolveParameters",
+        "Illuminate\\Routing\\ControllerDispatcher::getMiddleware",
+        "Illuminate\\Tests\\Routing\\RoutingRouteTest::testControllerCallActionMethodParameters"
+      ],
+      "requiredFiles": [
+        "src/Illuminate/Routing/ControllerDispatcher.php",
+        "tests/Routing/RoutingRouteTest.php"
+      ],
+      "requiredSymbols": [
+        "Illuminate\\Routing\\ControllerDispatcher::dispatch",
+        "Illuminate\\Routing\\ControllerDispatcher::resolveParameters"
+      ]
+    }
+  }
+]

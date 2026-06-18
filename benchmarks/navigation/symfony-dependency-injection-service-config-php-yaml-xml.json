@@ -1,0 +1,109 @@
+[
+  {
+    "id": "symfony-dependency-injection-service-config-php-yaml-xml",
+    "task": "Trace how Symfony DependencyInjection represents the services9 tagged_iterator service wiring in YAML and XML fixtures, and locate the PHP loader and dumper tests that cover tagged iterator config.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["tagged_iterator", "tagged_iterator_foo", "foo"],
+          "symbolKinds": ["method"],
+          "roles": ["source"],
+          "pathHints": ["Tests/Fixtures/yaml/services9.yml"],
+          "pathMode": "filter"
+        },
+        "limit": 3
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["tagged_iterator", "tagged_iterator_foo", "foo"],
+          "symbolKinds": ["method"],
+          "roles": ["source"],
+          "pathHints": ["Tests/Fixtures/xml/services9.xml"],
+          "pathMode": "filter"
+        },
+        "limit": 3
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["tagged_iterator", "TaggedIteratorArgument", "services9"],
+          "symbolKinds": ["method"],
+          "roles": ["test"],
+          "pathHints": ["Tests/Loader", "Tests/Dumper"]
+        },
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["tagged_iterator", "tagged_iterator_foo", "foo", "services9"],
+      ["TaggedIteratorArgument", "tagged_iterator", "services9", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["tagged_iterator", "tagged_iterator_foo", "foo"],
+          "scope": "source",
+          "paths": ["Tests/Fixtures/yaml", "Tests/Fixtures/xml"],
+          "globs": ["services*.yml", "services*.yaml", "services*.xml"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["tagged_iterator", "tagged_iterator_foo", "foo"],
+          "before": 8,
+          "after": 12,
+          "limit": 5
+        },
+        {
+          "type": "search-files",
+          "terms": ["TaggedIteratorArgument", "services9", "tagged_iterator"],
+          "scope": "test",
+          "paths": ["Tests/Loader", "Tests/Dumper"],
+          "globs": ["*Test.php"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["TaggedIteratorArgument", "services9", "tagged_iterator"],
+          "before": 10,
+          "after": 14,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "Tests/Fixtures/yaml/services9.yml",
+        "Tests/Fixtures/xml/services9.xml",
+        "Tests/Loader/YamlFileLoaderTest.php",
+        "Tests/Dumper/YamlDumperTest.php",
+        "Tests/Dumper/XmlDumperTest.php"
+      ],
+      "symbols": [
+        "Tests/Fixtures/yaml/services9.yml::service.tagged_iterator",
+        "Tests/Fixtures/yaml/services9.yml::service.tagged_iterator_foo",
+        "Tests/Fixtures/xml/services9.xml::service.tagged_iterator",
+        "Tests/Fixtures/xml/services9.xml::service.tagged_iterator_foo",
+        "Symfony\\Component\\DependencyInjection\\Tests\\Loader\\YamlFileLoaderTest::testParsesIteratorArgument",
+        "Symfony\\Component\\DependencyInjection\\Tests\\Dumper\\YamlDumperTest::testTaggedArguments",
+        "Symfony\\Component\\DependencyInjection\\Tests\\Dumper\\XmlDumperTest::testTaggedArguments"
+      ],
+      "requiredFiles": [
+        "Tests/Fixtures/yaml/services9.yml",
+        "Tests/Fixtures/xml/services9.xml",
+        "Tests/Loader/YamlFileLoaderTest.php"
+      ],
+      "requiredSymbols": [
+        "Tests/Fixtures/yaml/services9.yml::service.tagged_iterator",
+        "Tests/Fixtures/xml/services9.xml::service.tagged_iterator"
+      ]
+    }
+  }
+]

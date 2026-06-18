@@ -1,0 +1,91 @@
+[
+  {
+    "id": "symfony-console-command-php-lifecycle",
+    "task": "Trace how Symfony Console runs a command, merges application definitions, builds command synopsis text, and locate the command lifecycle tests.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Command", "run", "execute", "mergeApplicationDefinition", "getSynopsis"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["Command"]
+        },
+        "limit": 5
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "symbol": "Symfony\\Component\\Console\\Command\\Command::run",
+        "terms": ["mergeApplicationDefinition", "getSynopsis", "execute", "command"],
+        "limit": 5
+      }
+    ],
+    "rgQueries": [
+      ["Command", "run", "execute", "mergeApplicationDefinition", "getSynopsis"],
+      ["mergeApplicationDefinition", "getSynopsis", "execute", "command", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["class Command", "run", "execute", "mergeApplicationDefinition", "getSynopsis"],
+          "scope": "source",
+          "paths": ["Command"],
+          "globs": ["*.php"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["run", "execute", "mergeApplicationDefinition", "getSynopsis"],
+          "before": 8,
+          "after": 14,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["Command", "mergeApplicationDefinition", "getSynopsis", "execute"],
+          "scope": "test",
+          "paths": ["Tests/Command"],
+          "globs": ["*Test.php"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["mergeApplicationDefinition", "getSynopsis", "run", "execute"],
+          "before": 10,
+          "after": 14,
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "Command/Command.php",
+        "Tests/Command/CommandTest.php"
+      ],
+      "symbols": [
+        "Symfony\\Component\\Console\\Command\\Command",
+        "Symfony\\Component\\Console\\Command\\Command::run",
+        "Symfony\\Component\\Console\\Command\\Command::mergeApplicationDefinition",
+        "Symfony\\Component\\Console\\Command\\Command::getSynopsis",
+        "Symfony\\Component\\Console\\Tests\\Command\\CommandTest::testMergeApplicationDefinition",
+        "Symfony\\Component\\Console\\Tests\\Command\\CommandTest::testGetSynopsis"
+      ],
+      "requiredFiles": [
+        "Command/Command.php",
+        "Tests/Command/CommandTest.php"
+      ],
+      "requiredSymbols": [
+        "Symfony\\Component\\Console\\Command\\Command::run",
+        "Symfony\\Component\\Console\\Command\\Command::mergeApplicationDefinition",
+        "Symfony\\Component\\Console\\Command\\Command::getSynopsis"
+      ]
+    }
+  }
+]

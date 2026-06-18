@@ -309,7 +309,7 @@ export function classifyFileRole(relativePath: string): FileRole {
   if (segments.some((segment, index) => isSupportRoleSegment(segments, index, FIXTURE_DIRS))) {
     return "fixture";
   }
-  if (segments[0] === "bin") {
+  if (segments[0] === "bin" && path.posix.basename(relativePath) !== "console") {
     return "tool";
   }
   if (segments.some((segment, index) => isSupportRoleSegment(segments, index, TOOL_DIRS))) {

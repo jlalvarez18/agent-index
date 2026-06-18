@@ -387,6 +387,8 @@ npm run agent-index -- agent-eval ./benchmarks/urllib3-python.json \
 
 This reports exact `agent-index` Hit@K metrics beside Graphify expected-symbol and expected-file mention rates. It does not replace Graphify's token-reduction benchmark; it answers the narrower agent-navigation question.
 
+- [Autonomous comparison pilot](docs/autonomous-comparison.md) describes the raw agent-work trial comparing Graphify, agent-index, and no-special-tool conditions.
+
 ## Development
 
 ```bash

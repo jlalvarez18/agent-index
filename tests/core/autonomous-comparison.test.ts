@@ -111,6 +111,12 @@ describe("autonomous comparison manifest", () => {
     expect(manifest.tasks[0].id).toBe("click-color-default-behavior");
   });
 
+  test("pilot manifest is valid and has ten tasks", async () => {
+    const manifest = await loadAutonomousTaskManifest("benchmarks/autonomous/graphify-agent-index-pilot.json");
+    expect(manifest.name).toBe("graphify-agent-index-pilot");
+    expect(manifest.tasks).toHaveLength(10);
+  });
+
   test("rejects missing or non-string prompts without throwing TypeError", () => {
     const missingPrompt = validManifest() as unknown as { tasks: Array<Record<string, unknown>> };
     delete missingPrompt.tasks[0].prompt;

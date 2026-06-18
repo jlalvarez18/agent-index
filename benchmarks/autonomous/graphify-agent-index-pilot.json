@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "name": "graphify-agent-index-pilot",
+  "tasks": [
+    {
+      "id": "click-color-default-behavior",
+      "repo": "click",
+      "kind": "bugfix",
+      "prompt": "Find and fix where Click decides default color behavior from environment state. The fix should honor the standard environment signal for disabling color output while preserving explicit color enablement.",
+      "successCriteria": [
+        "The environment signal disables color by default.",
+        "Explicit color enablement still wins over the environment default.",
+        "Relevant color/default tests pass."
+      ],
+      "expectedEvidence": {
+        "files": ["src/click/globals.py", "tests/test_globals.py"],
+        "symbols": ["resolve_color_default"]
+      },
+      "testCommand": "pytest tests/test_globals.py"
+    },
+    {
+      "id": "httpx-redirect-history",
+      "repo": "httpx",
+      "kind": "bugfix",
+      "prompt": "Investigate redirect handling and make sure response history is preserved correctly across redirects. Update or identify the relevant tests.",
+      "successCriteria": [
+        "Redirect response history is preserved in the expected order.",
+        "The behavior is covered by the relevant client redirect tests.",
+        "Relevant redirect tests pass."
+      ],
+      "expectedEvidence": {
+        "files": ["httpx/_client.py", "tests/client/test_redirects.py"],
+        "symbols": ["Client.send", "AsyncClient.send"]
+      },
+      "testCommand": "pytest tests/client/test_redirects.py"
+    },
+    {
+      "id": "pydantic-computed-fields-serialization",
+      "repo": "pydantic",
+      "kind": "code-explanation",
+      "prompt": "Explain how computed fields flow through model serialization and where exclusion behavior is implemented. No code change is required.",
+      "successCriteria": [
+        "The explanation names the source area for model serialization.",
+        "The explanation names the computed-field metadata area.",
+        "The explanation cites relevant tests or test locations."
+      ],
+      "expectedEvidence": {
+        "files": ["pydantic/main.py", "pydantic/fields.py", "tests/test_computed_fields.py"],
+        "symbols": ["computed_field"]
+      }
+    },
+    {
+      "id": "tanstack-query-infinite-query-flow",
+      "repo": "query",
+      "kind": "feature",
+      "prompt": "Trace the infinite query feature from the React hook into core query behavior, especially how page parameters flow through fetches and tests. Make the smallest enhancement or documentation-quality explanation needed to clarify that path.",
+      "successCriteria": [
+        "The React hook and core behavior areas are both identified.",
+        "The page parameter flow is explained or improved.",
+        "Relevant infinite-query tests are identified or run."
+      ],
+      "expectedEvidence": {
+        "files": [
+          "packages/react-query/src/useInfiniteQuery.ts",
+          "packages/query-core/src/infiniteQueryBehavior.ts",
+          "packages/react-query/src/__tests__/useInfiniteQuery.test.tsx"
+        ],
+        "symbols": ["useInfiniteQuery", "infiniteQueryBehavior"]
+      },
+      "testCommand": "pnpm test useInfiniteQuery"
+    },
+    {
+      "id": "rich-print-json-file-output",
+      "repo": "rich",
+      "kind": "feature",
+      "prompt": "Add or verify support for sending JSON pretty-print output to a caller-provided file-like destination instead of always writing to the default console.",
+      "successCriteria": [
+        "The public JSON printing entrypoint supports file-like output.",
+        "The console output path remains compatible.",
+        "Relevant JSON output tests pass."
+      ],
+      "expectedEvidence": {
+        "files": ["rich/__init__.py", "rich/console.py", "tests/test_json.py"],
+        "symbols": ["print_json", "Console.print_json"]
+      },
+      "testCommand": "pytest tests/test_json.py"
+    },
+    {
+      "id": "sqlalchemy-rowcount-preservation",
+      "repo": "sqlalchemy",
+      "kind": "bugfix",
+      "prompt": "Investigate how rowcount is preserved for executed statements and fix or explain the path that controls preservation behavior.",
+      "successCriteria": [
+        "The execution/result area controlling rowcount preservation is identified.",
+        "The behavior is fixed or explained with relevant source citations.",
+        "Relevant engine or SQL tests are identified or run."
+      ],
+      "expectedEvidence": {
+        "files": ["lib/sqlalchemy/engine/cursor.py", "test/sql/test_resultset.py"],
+        "symbols": ["CursorResult"]
+      },
+      "testCommand": "pytest test/sql/test_resultset.py"
+    },
+    {
+      "id": "fastapi-response-serialization",
+      "repo": "fastapi",
+      "kind": "code-explanation",
+      "prompt": "Explain the response serialization path for endpoint return values, including where field validation or serialization is applied. No code change is required.",
+      "successCriteria": [
+        "The route handling area is identified.",
+        "The serialization helper area is identified.",
+        "The answer cites relevant tests or examples."
+      ],
+      "expectedEvidence": {
+        "files": ["fastapi/routing.py", "tests/test_serialize_response.py"],
+        "symbols": ["serialize_response"]
+      }
+    },
+    {
+      "id": "vite-env-prefix-behavior",
+      "repo": "vite",
+      "kind": "bugfix",
+      "prompt": "Investigate environment variable prefix handling and ensure only intended variables are exposed through configuration. Update or identify relevant tests.",
+      "successCriteria": [
+        "The environment-loading area is identified.",
+        "Prefix filtering behavior is correct.",
+        "Relevant config or env tests pass."
+      ],
+      "expectedEvidence": {
+        "files": ["packages/vite/src/node/env.ts", "packages/vite/src/node/config.ts"],
+        "symbols": ["loadEnv"]
+      },
+      "testCommand": "pnpm test env"
+    },
+    {
+      "id": "redux-toolkit-create-slice-bugfix",
+      "repo": "redux-toolkit",
+      "kind": "bugfix",
+      "prompt": "Investigate slice creation behavior around generated reducers and actions, then fix or explain the smallest path responsible for the issue.",
+      "successCriteria": [
+        "The slice creation implementation area is identified.",
+        "Generated reducer/action behavior is fixed or explained.",
+        "Relevant slice creation tests are identified or run."
+      ],
+      "expectedEvidence": {
+        "files": ["packages/toolkit/src/createSlice.ts", "packages/toolkit/src/tests/createSlice.test.ts"],
+        "symbols": ["createSlice"]
+      },
+      "testCommand": "pnpm test createSlice"
+    },
+    {
+      "id": "graphify-query-path-explanation",
+      "repo": "graphify",
+      "kind": "code-explanation",
+      "prompt": "Explain how a codebase question becomes selected graph context in Graphify, from query text through seed selection and traversal. No code change is required.",
+      "successCriteria": [
+        "The query entrypoint or serving area is identified.",
+        "Seed selection is explained.",
+        "Graph traversal or context selection is explained."
+      ],
+      "expectedEvidence": {
+        "files": ["graphify/serve.py", "graphify/query.py"],
+        "symbols": ["_pick_seeds"]
+      }
+    }
+  ]
+}

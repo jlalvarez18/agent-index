@@ -56,6 +56,20 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("app/src/test/java/com/acme/CheckoutViewModelTest.kt")).toBe("test");
     expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutScreenTest.kt")).toBe("test");
     expect(classifyFileRole("app/src/test/java/com/acme/CheckoutServiceTest.java")).toBe("test");
+    expect(classifyFileRole("app/Http/Controllers/CheckoutController.php")).toBe("source");
+    expect(classifyFileRole("src/Service/CheckoutService.php")).toBe("source");
+    expect(classifyFileRole("config/services.php")).toBe("source");
+    expect(classifyFileRole("config/services.yaml")).toBe("source");
+    expect(classifyFileRole("database/migrations/2024_01_01_000000_create_orders_table.php")).toBe("source");
+    expect(classifyFileRole("routes/web.php")).toBe("source");
+    expect(classifyFileRole("public/index.php")).toBe("source");
+    expect(classifyFileRole("bin/console")).toBe("source");
+    expect(classifyFileRole("scripts/import_orders.php")).toBe("tool");
+    expect(classifyFileRole("vendor/acme/package/src/CheckoutService.php")).toBe("source");
+    expect(classifyFileRole("tests/Feature/CheckoutControllerTest.php")).toBe("test");
+    expect(classifyFileRole("test/CheckoutServiceTest.php")).toBe("test");
+    expect(classifyFileRole("spec/CheckoutServiceSpec.php")).toBe("test");
+    expect(classifyFileRole("app/TestsShouldNotWin/CheckoutService.php")).toBe("source");
     expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutInstrumentedTest.java")).toBe("test");
     expect(classifyFileRole("app/controllers/admin/users_controller.rb")).toBe("source");
     expect(classifyFileRole("lib/tasks/reindex.rb")).toBe("source");
@@ -103,7 +117,7 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("asv_benchmarks/benchmarks/bench_model.py")).toBe("benchmark");
   });
 
-  test("can scan mixed Python, C++, Java, Go, Rust, Cython template, TypeScript, JSON, Swift, and Ruby source files for indexing", async () => {
+  test("can scan mixed Python, C++, Java, PHP, YAML, Go, Rust, Cython template, TypeScript, JSON, Swift, and Ruby source files for indexing", async () => {
     const root = await fixtureDir();
     await mkdir(path.join(root, "pkg"), { recursive: true });
     await mkdir(path.join(root, "cmd", "server"), { recursive: true });
@@ -124,10 +138,12 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, "app", "src", "main", "java", "com", "acme"), { recursive: true });
     await mkdir(path.join(root, "app", "src", "test", "java", "com", "acme"), { recursive: true });
     await mkdir(path.join(root, "app", "controllers", "admin"), { recursive: true });
+    await mkdir(path.join(root, "app", "Http", "Controllers"), { recursive: true });
     await mkdir(path.join(root, "spec", "models"), { recursive: true });
     await mkdir(path.join(root, "features"), { recursive: true });
     await mkdir(path.join(root, "config"), { recursive: true });
     await mkdir(path.join(root, "bin"), { recursive: true });
+    await mkdir(path.join(root, "php-tests", "Feature"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
     await writeFile(path.join(root, "CMakeLists.txt"), "add_library(checkout_core source/common/router/checkout_service.cc)\n");
     await writeFile(path.join(root, "BUILD.bazel"), "cc_library(name = \"checkout_core\")\n");
@@ -164,12 +180,15 @@ describe("scanPythonFiles", () => {
     await writeFile(path.join(root, "app", "src", "main", "java", "com", "acme", "CheckoutService.java"), "class CheckoutService {}\n");
     await writeFile(path.join(root, "app", "src", "test", "java", "com", "acme", "CheckoutServiceTest.java"), "class CheckoutServiceTest {}\n");
     await writeFile(path.join(root, "app", "controllers", "admin", "users_controller.rb"), "class Admin::UsersController < ApplicationController\nend\n");
+    await writeFile(path.join(root, "app", "Http", "Controllers", "CheckoutController.php"), "<?php\nclass CheckoutController {}\n");
     await writeFile(path.join(root, "spec", "models", "user_spec.rb"), "RSpec.describe User do\nend\n");
     await writeFile(path.join(root, "features", "sign_in.feature"), "Feature: User sign in\n  Scenario: Successful sign in\n");
     await writeFile(path.join(root, "config", "routes.rb"), "Rails.application.routes.draw do\nend\n");
+    await writeFile(path.join(root, "config", "services.yaml"), "services:\n  App\\\\Service\\\\CheckoutService: ~\n");
     await writeFile(path.join(root, "Gemfile"), "gem \"rails\"\n");
     await writeFile(path.join(root, "Rakefile"), "task :default\n");
     await writeFile(path.join(root, "bin", "rails"), "#!/usr/bin/env ruby\n");
+    await writeFile(path.join(root, "php-tests", "Feature", "CheckoutControllerTest.php"), "<?php\nclass CheckoutControllerTest {}\n");
     await writeFile(path.join(root, "pom.xml"), "<project><artifactId>checkout-parent</artifactId></project>\n");
     await mkdir(path.join(root, "gradle"), { recursive: true });
     await writeFile(path.join(root, "gradle", "libs.versions.toml"), "[libraries]\ncoroutines = \"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1\"\n");
@@ -182,6 +201,7 @@ describe("scanPythonFiles", () => {
     expect(files.map((file) => ({ relativePath: file.relativePath, language: file.language }))).toEqual([
       { relativePath: "app/build.gradle.kts", language: "kotlin" },
       { relativePath: "app/controllers/admin/users_controller.rb", language: "ruby" },
+      { relativePath: "app/Http/Controllers/CheckoutController.php", language: "php" },
       { relativePath: "app/src/main/java/com/acme/CheckoutService.java", language: "java" },
       { relativePath: "app/src/main/java/com/acme/CheckoutViewModel.kt", language: "kotlin" },
       { relativePath: "app/src/test/java/com/acme/CheckoutServiceTest.java", language: "java" },
@@ -191,6 +211,7 @@ describe("scanPythonFiles", () => {
       { relativePath: "CMakeLists.txt", language: "cpp" },
       { relativePath: "cmd/server/main.go", language: "go" },
       { relativePath: "config/routes.rb", language: "ruby" },
+      { relativePath: "config/services.yaml", language: "yaml" },
       { relativePath: "core/src/serializer.rs", language: "rust" },
       { relativePath: "crates/runtime/src/bin/server.rs", language: "rust" },
       { relativePath: "crates/runtime/src/lib.rs", language: "rust" },
@@ -204,6 +225,7 @@ describe("scanPythonFiles", () => {
       { relativePath: "internal/config/loader_test.go", language: "go" },
       { relativePath: "Makefile", language: "c" },
       { relativePath: "meson.build", language: "cpp" },
+      { relativePath: "php-tests/Feature/CheckoutControllerTest.php", language: "php" },
       { relativePath: "pkg/service.py", language: "python" },
       { relativePath: "pom.xml", language: "xml" },
       { relativePath: "Rakefile", language: "ruby" },
@@ -233,12 +255,15 @@ describe("scanPythonFiles", () => {
     expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutViewModelTest.kt")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutServiceTest.java")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "app/controllers/admin/users_controller.rb")?.role).toBe("source");
+    expect(files.find((file) => file.relativePath === "app/Http/Controllers/CheckoutController.php")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "config/routes.rb")?.role).toBe("source");
+    expect(files.find((file) => file.relativePath === "config/services.yaml")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "Gemfile")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "Rakefile")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "bin/rails")?.role).toBe("tool");
     expect(files.find((file) => file.relativePath === "spec/models/user_spec.rb")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "features/sign_in.feature")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "php-tests/Feature/CheckoutControllerTest.php")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "source/common/router/checkout_service_test.cc")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "crates/runtime/src/bin/server.rs")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "crates/runtime/tests/runtime_tests.rs")?.role).toBe("test");

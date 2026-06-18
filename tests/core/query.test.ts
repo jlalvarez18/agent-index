@@ -436,6 +436,299 @@ target_link_libraries(envoy_router PUBLIC envoy_http)
     });
   });
 
+  test("hybrid mode surfaces Laravel-style PHP controller methods", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-php-"));
+    await mkdir(path.join(root, "app", "Http", "Controllers"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "Http", "Controllers", "CheckoutController.php"),
+      `<?php
+
+namespace App\\Http\\Controllers;
+
+use App\\Services\\CheckoutService;
+
+final class CheckoutController
+{
+    public function show(string $id): JsonResponse
+    {
+        $order = $this->checkoutService->findOrderWithLineItems($id);
+        return response()->json($order);
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["CheckoutController", "show", "findOrderWithLineItems", "json"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["app/Http/Controllers"],
+        expand: ["parents", "callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "App\\Http\\Controllers\\CheckoutController::show",
+      kind: "method",
+      file: "app/Http/Controllers/CheckoutController.php"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "incoming_symbol_contains_symbol",
+          symbol: "App\\Http\\Controllers\\CheckoutController"
+        }),
+        expect.objectContaining({
+          relation: "symbol_calls_name",
+          symbol: "findOrderWithLineItems"
+        })
+      ])
+    );
+  });
+
+  test("hybrid mode surfaces Laravel route wiring symbols for controller actions and middleware", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-php-routes-"));
+    await mkdir(path.join(root, "routes"), { recursive: true });
+    await mkdir(path.join(root, "app", "Http", "Controllers"), { recursive: true });
+    await writeFile(
+      path.join(root, "routes", "web.php"),
+      `<?php
+
+use App\\Http\\Controllers\\OrderController;
+use Illuminate\\Support\\Facades\\Route;
+
+Route::middleware('auth')
+    ->prefix('orders')
+    ->group(function () {
+        Route::get('/{order}', [OrderController::class, 'show'])
+            ->name('orders.show')
+            ->middleware('can:view,order');
+    });
+`
+    );
+    await writeFile(
+      path.join(root, "app", "Http", "Controllers", "OrderController.php"),
+      `<?php
+
+namespace App\\Http\\Controllers;
+
+final class OrderController
+{
+    public function show(string $order): View
+    {
+        return view('orders.show');
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["orders.show", "OrderController", "show", "middleware", "can:view"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["routes"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "routes/web.php::route.get.orders.show",
+      kind: "method",
+      file: "routes/web.php"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "OrderController::show" }),
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "can:view,order" })
+      ])
+    );
+  });
+
+  test("hybrid mode surfaces Laravel service provider container bindings", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-php-provider-"));
+    await mkdir(path.join(root, "app", "Providers"), { recursive: true });
+    await mkdir(path.join(root, "app", "Contracts"), { recursive: true });
+    await mkdir(path.join(root, "app", "Services"), { recursive: true });
+    await mkdir(path.join(root, "app", "Http", "Middleware"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "Providers", "PaymentServiceProvider.php"),
+      `<?php
+
+namespace App\\Providers;
+
+use App\\Contracts\\PaymentGateway;
+use App\\Http\\Middleware\\EnsureTenant;
+use App\\Services\\StripePaymentGateway;
+use Illuminate\\Support\\ServiceProvider;
+
+final class PaymentServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->bind(PaymentGateway::class, StripePaymentGateway::class);
+        $this->app->singleton('tenant.middleware', fn ($app) => new EnsureTenant($app->make(PaymentGateway::class)));
+    }
+
+    public function boot(): void
+    {
+        $this->app['router']->aliasMiddleware('tenant', EnsureTenant::class);
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "Contracts", "PaymentGateway.php"),
+      `<?php
+namespace App\\Contracts;
+interface PaymentGateway {}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "Services", "StripePaymentGateway.php"),
+      `<?php
+namespace App\\Services;
+final class StripePaymentGateway implements PaymentGateway {}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "Http", "Middleware", "EnsureTenant.php"),
+      `<?php
+namespace App\\Http\\Middleware;
+final class EnsureTenant {}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["PaymentGateway", "StripePaymentGateway", "bind", "container"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["app/Providers"],
+        expand: ["callees", "parents"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "App\\Providers\\PaymentServiceProvider::binding.PaymentGateway",
+      kind: "method",
+      file: "app/Providers/PaymentServiceProvider.php"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "PaymentGateway" }),
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "StripePaymentGateway" }),
+        expect.objectContaining({
+          relation: "incoming_symbol_contains_symbol",
+          symbol: "App\\Providers\\PaymentServiceProvider"
+        })
+      ])
+    );
+  });
+
+  test("hybrid mode surfaces Symfony YAML service wiring symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-yaml-services-"));
+    await mkdir(path.join(root, "config"), { recursive: true });
+    await mkdir(path.join(root, "src", "Command"), { recursive: true });
+    await writeFile(
+      path.join(root, "config", "services.yaml"),
+      `services:
+  App\\Command\\ImportOrdersCommand:
+    arguments:
+      $gateway: '@App\\Contracts\\PaymentGateway'
+    tags:
+      - { name: 'console.command', command: 'app:import-orders' }
+`
+    );
+    await writeFile(
+      path.join(root, "src", "Command", "ImportOrdersCommand.php"),
+      `<?php
+namespace App\\Command;
+final class ImportOrdersCommand {}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["ImportOrdersCommand", "PaymentGateway", "console.command", "app:import-orders"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["config/services.yaml"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "config/services.yaml::service.ImportOrdersCommand",
+      kind: "method",
+      file: "config/services.yaml"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "App\\Contracts\\PaymentGateway" }),
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "app:import-orders" })
+      ])
+    );
+  });
+
+  test("hybrid mode surfaces Symfony XML service wiring symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-xml-services-"));
+    await mkdir(path.join(root, "config"), { recursive: true });
+    await mkdir(path.join(root, "src", "Command"), { recursive: true });
+    await writeFile(
+      path.join(root, "config", "services.xml"),
+      `<container xmlns="http://symfony.com/schema/dic/services">
+  <services>
+    <service id="App\\Command\\ImportOrdersCommand">
+      <argument type="service" id="App\\Contracts\\PaymentGateway" />
+      <tag name="console.command" command="app:import-orders" />
+    </service>
+  </services>
+</container>
+`
+    );
+    await writeFile(
+      path.join(root, "src", "Command", "ImportOrdersCommand.php"),
+      `<?php
+namespace App\\Command;
+final class ImportOrdersCommand {}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["ImportOrdersCommand", "PaymentGateway", "console.command", "app:import-orders"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["config/services.xml"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "config/services.xml::service.ImportOrdersCommand",
+      kind: "method",
+      file: "config/services.xml"
+    });
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "App\\Contracts\\PaymentGateway" }),
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "app:import-orders" })
+      ])
+    );
+  });
+
   test("hybrid mode surfaces C implementation functions over headers and build files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-c-"));
     await mkdir(path.join(root, "include"), { recursive: true });

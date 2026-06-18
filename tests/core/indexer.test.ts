@@ -703,6 +703,178 @@ public class CheckoutService implements PaymentRepository {
     );
   });
 
+  test("indexes PHP source files and resolves interface implementations across files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-php-"));
+    await mkdir(path.join(root, "app", "Contracts"), { recursive: true });
+    await mkdir(path.join(root, "app", "Http", "Controllers"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "Contracts", "PaymentRepository.php"),
+      `<?php
+
+namespace App\\Contracts;
+
+interface PaymentRepository
+{
+    public function findOrder(string $id): array;
+}
+`
+    );
+    await writeFile(
+      path.join(root, "app", "Http", "Controllers", "CheckoutController.php"),
+      `<?php
+
+namespace App\\Http\\Controllers;
+
+use App\\Contracts\\PaymentRepository;
+use Illuminate\\Routing\\Controller;
+
+final class CheckoutController extends Controller implements PaymentRepository
+{
+    public function findOrder(string $id): array
+    {
+        return $this->repository->findOrder($id);
+    }
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("app/Http/Controllers/CheckoutController.php");
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, target.qualified_name as target, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        left join symbols target on target.id = e.target_symbol_id
+        where e.kind = 'symbol_conforms_to'
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "app/Contracts/PaymentRepository.php", language: "php" },
+      { path: "app/Http/Controllers/CheckoutController.php", language: "php" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "App\\Http\\Controllers", kind: "module" },
+        { qualified_name: "App\\Http\\Controllers\\CheckoutController", kind: "class" },
+        { qualified_name: "App\\Http\\Controllers\\CheckoutController::findOrder", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "App\\Http\\Controllers\\CheckoutController",
+          target: "App\\Contracts\\PaymentRepository",
+          target_name: "PaymentRepository",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "App\\Http\\Controllers\\CheckoutController::findOrder",
+          target: "App\\Contracts\\PaymentRepository::findOrder",
+          target_name: "App\\Contracts\\PaymentRepository::findOrder",
+          kind: "symbol_conforms_to"
+        }
+      ])
+    );
+  });
+
+  test("indexes Symfony YAML service configuration symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-yaml-"));
+    await mkdir(path.join(root, "config"), { recursive: true });
+    await writeFile(
+      path.join(root, "config", "services.yaml"),
+      `services:
+  App\\Command\\ImportOrdersCommand:
+    arguments:
+      $gateway: '@App\\Contracts\\PaymentGateway'
+    tags:
+      - { name: 'console.command', command: 'app:import-orders' }
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const symbols = db.prepare("select qualified_name, kind from symbols order by qualified_name").all();
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([{ path: "config/services.yaml", language: "yaml", role: "source" }]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([{ qualified_name: "config/services.yaml::service.ImportOrdersCommand", kind: "method" }])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        { source: "config/services.yaml::service.ImportOrdersCommand", target_name: "App\\Contracts\\PaymentGateway", kind: "symbol_calls_name" },
+        { source: "config/services.yaml::service.ImportOrdersCommand", target_name: "console.command", kind: "symbol_calls_name" },
+        { source: "config/services.yaml::service.ImportOrdersCommand", target_name: "app:import-orders", kind: "symbol_calls_name" }
+      ])
+    );
+  });
+
+  test("indexes Symfony XML service configuration symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-xml-services-"));
+    await mkdir(path.join(root, "config"), { recursive: true });
+    await writeFile(
+      path.join(root, "config", "services.xml"),
+      `<container xmlns="http://symfony.com/schema/dic/services">
+  <services>
+    <service id="App\\Command\\ImportOrdersCommand">
+      <argument type="service" id="App\\Contracts\\PaymentGateway" />
+      <tag name="console.command" command="app:import-orders" />
+    </service>
+  </services>
+</container>
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const symbols = db.prepare("select qualified_name, kind from symbols order by qualified_name").all();
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, e.target_name, e.kind
+        from edges e
+        join symbols source on source.id = e.source_symbol_id
+        order by source.qualified_name, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([{ path: "config/services.xml", language: "xml", role: "source" }]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([{ qualified_name: "config/services.xml::service.ImportOrdersCommand", kind: "method" }])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        { source: "config/services.xml::service.ImportOrdersCommand", target_name: "App\\Contracts\\PaymentGateway", kind: "symbol_calls_name" },
+        { source: "config/services.xml::service.ImportOrdersCommand", target_name: "console.command", kind: "symbol_calls_name" },
+        { source: "config/services.xml::service.ImportOrdersCommand", target_name: "app:import-orders", kind: "symbol_calls_name" }
+      ])
+    );
+  });
+
   test("indexes C++ source, headers, build ownership, and resolves interface implementations across files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-cpp-"));
     await mkdir(path.join(root, "include", "acme", "checkout"), { recursive: true });

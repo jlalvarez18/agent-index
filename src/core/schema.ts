@@ -12,8 +12,10 @@ export type Language =
   | "kotlin"
   | "java"
   | "ruby"
+  | "php"
   | "xml"
-  | "toml";
+  | "toml"
+  | "yaml";
 
 export type FileRole = "source" | "test" | "docs" | "example" | "fixture" | "tool" | "benchmark";
 

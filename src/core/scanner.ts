@@ -55,6 +55,7 @@ const CPP_TEST_FILE_NAME_PATTERN = /(?:^test_|_test|_tests|Test|Tests)\.(?:cc|cp
 const CYTHON_TEST_FILE_NAME_PATTERN = /(?:^test_|_test)(?:[A-Za-z0-9_]*)(?:\.pyx|\.pxd|\.pxi)(?:\.(?:tp|in))?$/u;
 const KOTLIN_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.kts?$/u;
 const JAVA_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|IT|ITCase)\.java$/u;
+const PHP_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.php$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
@@ -119,8 +120,11 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     "Rakefile",
     "config.ru",
     "rails",
+    ".php",
     ".xml",
-    ".toml"
+    ".toml",
+    ".yaml",
+    ".yml"
   ]);
 }
 
@@ -225,11 +229,17 @@ function languageForSuffix(suffix: string): Language {
   ) {
     return "ruby";
   }
+  if (suffix === ".php") {
+    return "php";
+  }
   if (suffix === ".xml") {
     return "xml";
   }
   if (suffix === ".toml") {
     return "toml";
+  }
+  if (suffix === ".yaml" || suffix === ".yml") {
+    return "yaml";
   }
   if (
     suffix === ".pyx" ||
@@ -285,7 +295,8 @@ export function classifyFileRole(relativePath: string): FileRole {
     isCythonTestFile(relativePath) ||
     isSwiftTestFile(relativePath) ||
     isKotlinTestFile(relativePath) ||
-    isJavaTestFile(relativePath)
+    isJavaTestFile(relativePath) ||
+    isPhpTestFile(relativePath)
   ) {
     return "test";
   }
@@ -369,4 +380,8 @@ function isKotlinTestFile(relativePath: string): boolean {
 function isJavaTestFile(relativePath: string): boolean {
   const basename = path.posix.basename(relativePath);
   return JAVA_TEST_FILE_NAME_PATTERN.test(basename) || relativePath.includes("/src/test/") || relativePath.includes("/src/androidTest/");
+}
+
+function isPhpTestFile(relativePath: string): boolean {
+  return PHP_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
 }

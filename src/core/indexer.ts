@@ -9,6 +9,7 @@ import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
 import { extractJava } from "./extractors/java.js";
 import { extractKotlin } from "./extractors/kotlin.js";
+import { extractPhp } from "./extractors/php.js";
 import { extractPython } from "./extractors/python.js";
 import { extractRuby } from "./extractors/ruby.js";
 import { extractRust } from "./extractors/rust.js";
@@ -16,6 +17,7 @@ import { extractSwift } from "./extractors/swift.js";
 import { extractToml } from "./extractors/toml.js";
 import { extractTypeScript } from "./extractors/typescript.js";
 import { extractXml } from "./extractors/xml.js";
+import { extractYaml } from "./extractors/yaml.js";
 import { scanCodeFiles } from "./scanner.js";
 import type { CodeEdge, CodeSymbol, ExtractionResult, IndexStats } from "./schema.js";
 
@@ -51,6 +53,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       if (file.language === "ruby") {
         return extractRuby(file);
       }
+      if (file.language === "php") {
+        return extractPhp(file);
+      }
       if (file.language === "go") {
         return extractGo(file);
       }
@@ -74,6 +79,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "toml") {
         return extractToml(file);
+      }
+      if (file.language === "yaml") {
+        return extractYaml(file);
       }
       return extractPython(file);
     });

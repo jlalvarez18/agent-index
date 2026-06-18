@@ -595,7 +595,7 @@ function testCandidateSqlQuery(
   const sourceStem = fileStem(normalizedSource);
   const sourceModules = moduleNamesForSource(normalizedSource);
   const sourceTokens = candidateSourcePathTokens(normalizedSource);
-  const symbolLeaf = options.symbol ? normalize(options.symbol.includes(".") ? options.symbol.slice(options.symbol.lastIndexOf(".") + 1) : options.symbol) : "";
+  const symbolLeaf = options.symbol ? symbolLeafName(options.symbol) : "";
   const pathTokensToMatch = uniqueValues([sourceStem, ...sourceTokens].filter((term) => term.length >= 3));
   const branches: string[] = [];
   const params: Record<string, unknown> = {};
@@ -804,7 +804,7 @@ function scoreTestFile(
 
   if (symbol) {
     const normalizedSymbol = normalize(symbol);
-    const symbolLeaf = normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol);
+    const symbolLeaf = symbolLeafName(symbol);
     const sourceClass = sourceClassName(symbol);
     if (sourceClass && analysis.normalizedText.includes(normalize(sourceClass))) {
       score += 32;
@@ -903,7 +903,7 @@ function firstUsefulLine(
   fixtureArgs: string[] = [],
   parametrizeBlocks: string[] = []
 ): number | null {
-  const symbolLeaf = symbol ? normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol) : undefined;
+  const symbolLeaf = symbol ? symbolLeafName(symbol) : undefined;
   const normalizedTerms = terms.map(normalize).filter((term) => term.length >= 2);
   const normalizedParametrizeBlocks = parametrizeBlocks.map(normalize);
   const lines = text.split(/\r?\n/);
@@ -922,6 +922,11 @@ function firstUsefulLine(
     );
   });
   return index === -1 ? null : index + 1;
+}
+
+function symbolLeafName(symbol: string): string {
+  const parts = symbol.split(/[^A-Za-z0-9_]+/u).filter(Boolean);
+  return normalize(parts[parts.length - 1] ?? symbol);
 }
 
 function parametrizeMentionsTarget(blocks: string[], sourceStem: string, symbol: string | undefined): boolean {

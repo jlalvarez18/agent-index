@@ -26,7 +26,7 @@ export function extractXml(file: SourceFile): ExtractionResult {
     startLine: 1,
     endLine: Math.max(lines.length, 1)
   };
-  const items = collectMavenPomItems(file, lines, moduleSymbol.qualifiedName);
+  const items = [...collectMavenPomItems(file, lines, moduleSymbol.qualifiedName), ...collectSymfonyServiceItems(file, lines, moduleSymbol.qualifiedName)];
   const symbols: CodeSymbol[] = [
     moduleSymbol,
     ...items.map((item) => ({
@@ -122,6 +122,91 @@ function collectMavenPomItems(file: SourceFile, lines: string[], moduleName: str
   }
 
   return items.sort((a, b) => a.startLine - b.startLine || a.qualifiedName.localeCompare(b.qualifiedName));
+}
+
+function collectSymfonyServiceItems(file: SourceFile, lines: string[], moduleName: string): XmlItem[] {
+  if (!/(^|\/)services[^/]*\.xml$/u.test(file.relativePath)) {
+    return [];
+  }
+  const items: XmlItem[] = [];
+  for (const service of serviceBlocks(lines)) {
+    const id = xmlAttribute(service.text, "id");
+    if (!id || !isSymfonyServiceId(id)) {
+      continue;
+    }
+    const alias = xmlAttribute(service.text, "alias");
+    const name = `${alias ? "service.alias" : "service"}.${serviceLeaf(id)}`;
+    items.push({
+      name,
+      qualifiedName: `${moduleName}::${name}`,
+      kind: "method",
+      startLine: service.startLine,
+      endLine: service.endLine,
+      parentSymbolName: moduleName,
+      relatedNames: symfonyServiceRelatedNames(id, service.text)
+    });
+  }
+  return items.sort((a, b) => a.startLine - b.startLine || a.qualifiedName.localeCompare(b.qualifiedName));
+}
+
+function serviceBlocks(lines: string[]): Array<{ text: string; startLine: number; endLine: number }> {
+  const blocks: Array<{ text: string; startLine: number; endLine: number }> = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (!/<service\b/u.test(line)) {
+      continue;
+    }
+    if (/\/>\s*$/u.test(line)) {
+      blocks.push({ text: line, startLine: index + 1, endLine: index + 1 });
+      continue;
+    }
+    for (let cursor = index; cursor < lines.length; cursor++) {
+      if (/<\/service>/u.test(lines[cursor])) {
+        blocks.push({ text: lines.slice(index, cursor + 1).join("\n"), startLine: index + 1, endLine: cursor + 1 });
+        index = cursor;
+        break;
+      }
+    }
+  }
+  return blocks;
+}
+
+function symfonyServiceRelatedNames(id: string, text: string): string[] {
+  const names = new Set<string>([id, serviceLeaf(id)]);
+  const alias = xmlAttribute(text, "alias");
+  if (alias) {
+    names.add(alias);
+    names.add(serviceLeaf(alias));
+  }
+  for (const attr of ["id", "name", "command", "tag", "type"]) {
+    for (const value of xmlAttributeValues(text, attr)) {
+      if (value !== id) {
+        names.add(value);
+        if (value.includes("\\")) {
+          names.add(serviceLeaf(value));
+        }
+      }
+    }
+  }
+  return [...names].sort();
+}
+
+function isSymfonyServiceId(value: string): boolean {
+  return Boolean(value) && !value.startsWith("_") && !/^\d/u.test(value);
+}
+
+function xmlAttribute(text: string, name: string): string | undefined {
+  return xmlAttributeValues(text, name)[0];
+}
+
+function xmlAttributeValues(text: string, name: string): string[] {
+  const pattern = new RegExp(`\\b${name}\\s*=\\s*["']([^"']+)["']`, "gu");
+  return [...text.matchAll(pattern)].map((match) => match[1].trim()).filter(Boolean);
+}
+
+function serviceLeaf(value: string): string {
+  const parts = value.split("\\");
+  return parts[parts.length - 1] || value;
 }
 
 function mavenProjectHeaderText(lines: string[]): string {

@@ -359,6 +359,67 @@ void test_cache_lookup_missing_key(void) {
     expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["test_cache_lookup_missing_key"]));
   });
 
+  test("links PHP source files to PHPUnit tests through imports, calls, and source stems", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-php-"));
+    await mkdir(path.join(root, "app", "Services"), { recursive: true });
+    await mkdir(path.join(root, "tests", "Feature"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "Services", "CheckoutService.php"),
+      `<?php
+
+namespace App\\Services;
+
+final class CheckoutService
+{
+    public function findOrderWithLineItems(string $id): array
+    {
+        return ['id' => $id, 'line_items' => []];
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "Feature", "CheckoutServiceTest.php"),
+      `<?php
+
+use App\\Services\\CheckoutService;
+
+it('loads line items for an order', function () {
+    $order = (new CheckoutService())->findOrderWithLineItems('ord_123');
+    expect($order['line_items'])->toBeArray();
+});
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "Feature", "UnrelatedTest.php"),
+      `<?php
+
+it('does something unrelated', function () {
+    expect(true)->toBeTrue();
+});
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "app/Services/CheckoutService.php",
+      symbol: "CheckoutService::findOrderWithLineItems",
+      terms: ["line", "items", "order"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/Feature/CheckoutServiceTest.php"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol", "test path includes source stem", "test body matches task terms"])
+    );
+    expect(result.matches[0].symbols).toEqual(
+      expect.arrayContaining(["tests/Feature/CheckoutServiceTest.php::it.loads.line.items.for.an.order"])
+    );
+  });
+
   test("links Rust source files to integration tests through use imports and method calls", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-rust-"));
     await mkdir(path.join(root, "src", "runtime"), { recursive: true });

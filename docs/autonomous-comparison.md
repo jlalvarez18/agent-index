@@ -29,13 +29,33 @@ autonomous agent the generated `prompt.md` as its task prompt, make only the
 condition's tool available, and let the agent choose its own navigation and edit
 strategy within the time limit.
 
-Use the same task prompt for all three conditions. The only intended difference
-is tool availability:
+Use the same target repository commit for all three conditions. Before each run,
+check out that commit and verify the worktree is clean. Record the target SHA in
+`review.json` `notes`, or in `indexing.notes` when the note is about tool setup.
+
+Use the same task text and success criteria for all three conditions. The
+generated `prompt.md` includes condition-specific tool instructions, so the only
+intended prompt difference is the Tool Condition section:
 
 - `graphify`: Graphify is available and agent-index is not.
 - `agent-index`: agent-index is available and Graphify is not.
 - `no-special-tool`: neither Graphify nor agent-index is available; normal shell
   and editor tools are still allowed.
+
+## Tool Setup Protocol
+
+Prepare any tool indexes before starting the autonomous task timer. Measure that
+setup separately in the `review.json` `indexing` block, not in
+`wallTimeMinutes`.
+
+Indexes must be task-neutral: build them from the whole checked-out target
+snapshot, without narrowing by task-specific files, symbols, expected evidence,
+or likely edit locations. Use the same cold or warm index policy across tool
+conditions and record the policy in `indexing.notes`.
+
+For example, if the agent-index run starts from a fresh full index, the Graphify
+run should use the comparable cold-start setup policy for that task. If a warm
+index is reused, record that consistently for both tool conditions.
 
 ## Record A Review
 
@@ -59,12 +79,12 @@ when you can measure them without muddying the autonomous run timer.
     "indexArtifactBytes": 1048576,
     "indexedFiles": 142,
     "indexedSymbols": 3081,
-    "notes": "Measured before starting the autonomous run timer."
+    "notes": "Measured before starting the autonomous run timer. Built a cold task-neutral index from the full target snapshot at commit 9f4c2d1."
   },
   "wallTimeMinutes": 14,
   "filesOpened": 5,
   "contextTokens": 1200,
-  "notes": "The agent used agent-index first, found the default-color logic, patched behavior, and ran focused tests."
+  "notes": "Target commit 9f4c2d1. The agent used agent-index first, found the default-color logic, patched behavior, and ran focused tests."
 }
 ```
 

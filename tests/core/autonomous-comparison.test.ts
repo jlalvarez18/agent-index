@@ -1,9 +1,10 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   autonomousConditions,
+  loadAutonomousReviews,
   loadAutonomousTaskManifest,
   prepareAutonomousRunPacket,
   summarizeAutonomousReviews,
@@ -30,6 +31,32 @@ function validManifest(): AutonomousTaskManifest {
       }
     ]
   };
+}
+
+function validReview(): AutonomousReviewRecord {
+  return {
+    taskId: "task-a",
+    condition: "agent-index",
+    success: "pass",
+    quality: 5,
+    firstUsefulFile: null,
+    firstUsefulTool: "agent-index",
+    specialToolHelped: "yes",
+    tests: "passed",
+    failureMode: null,
+    wallTimeMinutes: 12,
+    filesOpened: 4,
+    contextTokens: 900,
+    notes: "good"
+  };
+}
+
+async function writeReviewArtifact(review: Record<string, unknown>): Promise<string> {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-review-"));
+  const reviewPath = path.join(root, "task-a", "agent-index", "review.json");
+  await mkdir(path.dirname(reviewPath), { recursive: true });
+  await writeFile(reviewPath, JSON.stringify(review, null, 2), "utf8");
+  return root;
 }
 
 describe("autonomous comparison manifest", () => {
@@ -249,5 +276,35 @@ describe("autonomous comparison manifest", () => {
       "test-gap": 1,
       timeout: 1
     });
+  });
+
+  test("rejects review artifacts with missing quality", async () => {
+    const review = validReview() as unknown as Record<string, unknown>;
+    delete review.quality;
+    const root = await writeReviewArtifact(review);
+
+    await expect(loadAutonomousReviews(root)).rejects.toThrow(/quality must be an integer from 1 to 5/i);
+  });
+
+  test("rejects review artifacts with invalid conditions", async () => {
+    const review = validReview() as unknown as Record<string, unknown>;
+    review.condition = "bogus";
+    const root = await writeReviewArtifact(review);
+
+    await expect(loadAutonomousReviews(root)).rejects.toThrow(/condition must be one of/i);
+  });
+
+  test("rejects review artifacts with missing or invalid failure modes", async () => {
+    const missingFailureMode = validReview() as unknown as Record<string, unknown>;
+    delete missingFailureMode.failureMode;
+    const missingRoot = await writeReviewArtifact(missingFailureMode);
+
+    await expect(loadAutonomousReviews(missingRoot)).rejects.toThrow(/failureMode must be one of/i);
+
+    const invalidFailureMode = validReview() as unknown as Record<string, unknown>;
+    invalidFailureMode.failureMode = "unknown";
+    const invalidRoot = await writeReviewArtifact(invalidFailureMode);
+
+    await expect(loadAutonomousReviews(invalidRoot)).rejects.toThrow(/failureMode must be one of/i);
   });
 });

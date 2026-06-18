@@ -18,6 +18,20 @@ const autonomousTaskKinds: AutonomousTaskKind[] = [
   "test-discovery",
   "incremental-follow-up"
 ];
+const reviewSuccessValues = ["pass", "partial", "fail"];
+const reviewFirstUsefulTools = ["graphify", "agent-index", "rg", "file-read", "other"];
+const reviewSpecialToolHelpedValues = ["yes", "no", "ignored", "misleading"];
+const reviewTestValues = ["passed", "failed", "not-run", "not-applicable"];
+const reviewFailureModes = [
+  "wrong-file",
+  "over-read",
+  "bad-edit",
+  "test-gap",
+  "timeout",
+  "tool-ignored",
+  "tool-misled",
+  "other"
+];
 
 export async function loadAutonomousTaskManifest(manifestPath: string): Promise<AutonomousTaskManifest> {
   return validateAutonomousTaskManifest(
@@ -29,7 +43,9 @@ export async function loadAutonomousTaskManifest(manifestPath: string): Promise<
 export async function loadAutonomousReviews(artifactsDir: string): Promise<AutonomousReviewRecord[]> {
   const reviewPaths = await findReviewFiles(artifactsDir);
   const reviews = await Promise.all(
-    reviewPaths.map(async (reviewPath) => JSON.parse(await readFile(reviewPath, "utf8")) as AutonomousReviewRecord)
+    reviewPaths.map(async (reviewPath) =>
+      validateAutonomousReviewRecord(JSON.parse(await readFile(reviewPath, "utf8")), reviewPath)
+    )
   );
   return reviews;
 }
@@ -143,6 +159,38 @@ export function validateAutonomousTaskManifest(
   return manifest as unknown as AutonomousTaskManifest;
 }
 
+export function validateAutonomousReviewRecord(
+  review: unknown,
+  source = "autonomous review"
+): AutonomousReviewRecord {
+  if (!isRecord(review)) {
+    throw new Error(`${source}: review must be an object`);
+  }
+
+  const errors: string[] = [];
+  requireString(review, "taskId", source, errors);
+  requireEnum(review, "condition", autonomousConditions, source, errors);
+  requireEnum(review, "success", reviewSuccessValues, source, errors);
+  requireQuality(review, source, errors);
+  requireNullableString(review, "firstUsefulFile", source, errors);
+  requireNullableEnum(review, "firstUsefulTool", reviewFirstUsefulTools, source, errors);
+  requireEnum(review, "specialToolHelped", reviewSpecialToolHelpedValues, source, errors);
+  requireEnum(review, "tests", reviewTestValues, source, errors);
+  requireNullableEnum(review, "failureMode", reviewFailureModes, source, errors);
+  requireString(review, "notes", source, errors);
+  validateOptionalNonNegativeNumber(review, "wallTimeMinutes", source, errors);
+  validateOptionalNonNegativeNumber(review, "filesOpened", source, errors);
+  validateOptionalNonNegativeNumber(review, "contextTokens", source, errors);
+  if (review.indexing !== undefined && !isRecord(review.indexing)) {
+    errors.push(`${source}: indexing must be an object`);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(errors.join("\n"));
+  }
+  return review as unknown as AutonomousReviewRecord;
+}
+
 export function summarizeAutonomousReviews(
   reviews: AutonomousReviewRecord[]
 ): AutonomousSummaryResult {
@@ -209,6 +257,72 @@ function upperMedian(values: Array<number | undefined>): number | null {
 
 function roundToFour(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+function requireString(
+  record: Record<string, unknown>,
+  field: string,
+  source: string,
+  errors: string[]
+): void {
+  if (typeof record[field] !== "string") {
+    errors.push(`${source}: ${field} must be a string`);
+  }
+}
+
+function requireEnum(
+  record: Record<string, unknown>,
+  field: string,
+  allowed: readonly string[],
+  source: string,
+  errors: string[]
+): void {
+  if (typeof record[field] !== "string" || !allowed.includes(record[field])) {
+    errors.push(`${source}: ${field} must be one of ${allowed.join(", ")}`);
+  }
+}
+
+function requireNullableString(
+  record: Record<string, unknown>,
+  field: string,
+  source: string,
+  errors: string[]
+): void {
+  if (typeof record[field] !== "string" && record[field] !== null) {
+    errors.push(`${source}: ${field} must be a string or null`);
+  }
+}
+
+function requireNullableEnum(
+  record: Record<string, unknown>,
+  field: string,
+  allowed: readonly string[],
+  source: string,
+  errors: string[]
+): void {
+  const value = record[field];
+  if (!(field in record) || (value !== null && (typeof value !== "string" || !allowed.includes(value)))) {
+    errors.push(`${source}: ${field} must be one of ${allowed.join(", ")} or null`);
+  }
+}
+
+function requireQuality(record: Record<string, unknown>, source: string, errors: string[]): void {
+  const value = record.quality;
+  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 5) {
+    errors.push(`${source}: quality must be an integer from 1 to 5`);
+  }
+}
+
+function validateOptionalNonNegativeNumber(
+  record: Record<string, unknown>,
+  field: string,
+  source: string,
+  errors: string[]
+): void {
+  const value = record[field];
+  if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+    errors.push(`${source}: ${field} must be a finite non-negative number`);
+  }
 }
 
 async function findReviewFiles(root: string): Promise<string[]> {

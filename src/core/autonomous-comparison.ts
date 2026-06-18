@@ -32,6 +32,14 @@ const reviewFailureModes = [
   "tool-misled",
   "other"
 ];
+const autonomousIndexMetricFields = [
+  "fullIndexWallTimeSeconds",
+  "incrementalIndexWallTimeSeconds",
+  "indexArtifactBytes",
+  "indexedFiles",
+  "indexedSymbols",
+  "indexedNodes"
+];
 
 export async function loadAutonomousTaskManifest(manifestPath: string): Promise<AutonomousTaskManifest> {
   return validateAutonomousTaskManifest(
@@ -181,8 +189,11 @@ export function validateAutonomousReviewRecord(
   validateOptionalNonNegativeNumber(review, "wallTimeMinutes", source, errors);
   validateOptionalNonNegativeNumber(review, "filesOpened", source, errors);
   validateOptionalNonNegativeNumber(review, "contextTokens", source, errors);
+  validateConditionToolClaims(review, source, errors);
   if (review.indexing !== undefined && !isRecord(review.indexing)) {
     errors.push(`${source}: indexing must be an object`);
+  } else if (isRecord(review.indexing)) {
+    validateIndexingMetrics(review.indexing, source, errors);
   }
 
   if (errors.length > 0) {
@@ -228,7 +239,9 @@ function summarizeCondition(
         ? 0
         : conditionReviews.filter((review) => review.firstUsefulTool === conditionTool).length / runs,
     specialToolHelpedRate:
-      runs === 0 ? 0 : conditionReviews.filter((review) => review.specialToolHelped === "yes").length / runs,
+      runs === 0 || conditionTool === null
+        ? 0
+        : conditionReviews.filter((review) => review.specialToolHelped === "yes").length / runs,
     medianWallTimeMinutes: upperMedian(conditionReviews.map((review) => review.wallTimeMinutes)),
     medianFilesOpened: upperMedian(conditionReviews.map((review) => review.filesOpened)),
     medianContextTokens: upperMedian(conditionReviews.map((review) => review.contextTokens))
@@ -317,11 +330,54 @@ function validateOptionalNonNegativeNumber(
   record: Record<string, unknown>,
   field: string,
   source: string,
-  errors: string[]
+  errors: string[],
+  label = field
 ): void {
   const value = record[field];
   if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
-    errors.push(`${source}: ${field} must be a finite non-negative number`);
+    errors.push(`${source}: ${label} must be a finite non-negative number`);
+  }
+}
+
+function validateConditionToolClaims(
+  review: Record<string, unknown>,
+  source: string,
+  errors: string[]
+): void {
+  if (!autonomousConditions.includes(review.condition as AutonomousCondition)) {
+    return;
+  }
+  const condition = review.condition as AutonomousCondition;
+  const conditionTool = specialToolForCondition(condition);
+  const firstUsefulTool = review.firstUsefulTool;
+  const specialToolHelped = review.specialToolHelped;
+
+  if (conditionTool === null) {
+    if (firstUsefulTool === "graphify" || firstUsefulTool === "agent-index") {
+      errors.push(`${source}: no-special-tool review cannot use ${firstUsefulTool} as firstUsefulTool`);
+    }
+    if (specialToolHelped === "yes" || specialToolHelped === "misleading") {
+      errors.push(`${source}: no-special-tool review cannot mark specialToolHelped as ${specialToolHelped}`);
+    }
+    return;
+  }
+
+  const oppositeTool = conditionTool === "graphify" ? "agent-index" : "graphify";
+  if (firstUsefulTool === oppositeTool) {
+    errors.push(`${source}: ${condition} review cannot use the opposite special tool ${oppositeTool}`);
+  }
+}
+
+function validateIndexingMetrics(
+  indexing: Record<string, unknown>,
+  source: string,
+  errors: string[]
+): void {
+  for (const field of autonomousIndexMetricFields) {
+    validateOptionalNonNegativeNumber(indexing, field, source, errors, `indexing.${field}`);
+  }
+  if (indexing.notes !== undefined && typeof indexing.notes !== "string") {
+    errors.push(`${source}: indexing.notes must be a string`);
   }
 }
 

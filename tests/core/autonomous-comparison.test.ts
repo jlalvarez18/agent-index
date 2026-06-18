@@ -355,4 +355,57 @@ describe("autonomous comparison manifest", () => {
 
     await expect(loadAutonomousReviews(invalidRoot)).rejects.toThrow(/failureMode must be one of/i);
   });
+
+  test("rejects review artifacts with impossible condition tool claims", async () => {
+    const noToolReview = {
+      ...validReview(),
+      condition: "no-special-tool",
+      firstUsefulTool: "agent-index",
+      specialToolHelped: "yes"
+    };
+    const noToolRoot = await writeReviewArtifact(noToolReview);
+
+    await expect(loadAutonomousReviews(noToolRoot)).rejects.toThrow(/no-special-tool/i);
+
+    const graphifyReview = {
+      ...validReview(),
+      condition: "graphify",
+      firstUsefulTool: "agent-index"
+    };
+    const graphifyRoot = await writeReviewArtifact(graphifyReview);
+
+    await expect(loadAutonomousReviews(graphifyRoot)).rejects.toThrow(/opposite special tool/i);
+  });
+
+  test("rejects review artifacts with invalid indexing metrics", async () => {
+    const stringMetric = {
+      ...validReview(),
+      indexing: {
+        fullIndexWallTimeSeconds: "fast"
+      }
+    };
+    const stringMetricRoot = await writeReviewArtifact(stringMetric);
+
+    await expect(loadAutonomousReviews(stringMetricRoot)).rejects.toThrow(/fullIndexWallTimeSeconds/i);
+
+    const negativeMetric = {
+      ...validReview(),
+      indexing: {
+        indexedFiles: -1
+      }
+    };
+    const negativeMetricRoot = await writeReviewArtifact(negativeMetric);
+
+    await expect(loadAutonomousReviews(negativeMetricRoot)).rejects.toThrow(/indexedFiles/i);
+
+    const invalidNotes = {
+      ...validReview(),
+      indexing: {
+        notes: 42
+      }
+    };
+    const invalidNotesRoot = await writeReviewArtifact(invalidNotes);
+
+    await expect(loadAutonomousReviews(invalidNotesRoot)).rejects.toThrow(/indexing.notes/i);
+  });
 });

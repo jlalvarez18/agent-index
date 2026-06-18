@@ -46,7 +46,7 @@
       ],
       "expectedEvidence": {
         "files": ["pydantic/main.py", "pydantic/fields.py", "tests/test_computed_fields.py"],
-        "symbols": ["computed_field"]
+        "symbols": ["computed_field", "BaseModel.model_dump", "BaseModel.model_dump_json"]
       }
     },
     {
@@ -142,7 +142,7 @@
           "packages/vite/src/node/config.ts",
           "packages/vite/src/node/__tests__/config.spec.ts"
         ],
-        "symbols": ["loadEnv"]
+        "symbols": ["loadEnv", "resolveEnvPrefix"]
       },
       "testCommand": "pnpm test env"
     },

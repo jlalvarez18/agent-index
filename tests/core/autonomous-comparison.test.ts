@@ -133,6 +133,9 @@ describe("autonomous comparison manifest", () => {
       "Client._send_handling_redirects",
       "AsyncClient._send_handling_redirects"
     ]);
+    expect(taskById.get("pydantic-computed-fields-serialization")?.expectedEvidence.symbols).toEqual(
+      expect.arrayContaining(["computed_field", "BaseModel.model_dump", "BaseModel.model_dump_json"])
+    );
     expect(taskById.get("rich-print-json-file-output")?.expectedEvidence.files).toEqual(
       expect.arrayContaining(["tests/test_rich_print.py", "tests/test_console.py"])
     );
@@ -150,6 +153,9 @@ describe("autonomous comparison manifest", () => {
     );
     expect(taskById.get("vite-env-prefix-behavior")?.expectedEvidence.files).toEqual(
       expect.arrayContaining(["packages/vite/src/node/__tests__/config.spec.ts"])
+    );
+    expect(taskById.get("vite-env-prefix-behavior")?.expectedEvidence.symbols).toEqual(
+      expect.arrayContaining(["loadEnv", "resolveEnvPrefix"])
     );
   });
 

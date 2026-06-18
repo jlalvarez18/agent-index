@@ -6,9 +6,10 @@ import {
   autonomousConditions,
   loadAutonomousTaskManifest,
   prepareAutonomousRunPacket,
+  summarizeAutonomousReviews,
   validateAutonomousTaskManifest
 } from "../../src/core/autonomous-comparison.js";
-import type { AutonomousTaskManifest } from "../../src/core/schema.js";
+import type { AutonomousReviewRecord, AutonomousTaskManifest } from "../../src/core/schema.js";
 
 function validManifest(): AutonomousTaskManifest {
   return {
@@ -182,5 +183,71 @@ describe("autonomous comparison manifest", () => {
     expect(prompt).toContain("No special code-navigation tool is available");
     expect(prompt).not.toContain("Graphify is available");
     expect(prompt).not.toContain("agent-index is available");
+  });
+
+  test("summarizes autonomous review records by condition", () => {
+    const reviews: AutonomousReviewRecord[] = [
+      {
+        taskId: "a",
+        condition: "agent-index",
+        success: "pass",
+        quality: 5,
+        firstUsefulFile: "src/a.py",
+        firstUsefulTool: "agent-index",
+        specialToolHelped: "yes",
+        tests: "passed",
+        failureMode: null,
+        wallTimeMinutes: 12,
+        filesOpened: 4,
+        contextTokens: 900,
+        notes: "good"
+      },
+      {
+        taskId: "b",
+        condition: "agent-index",
+        success: "partial",
+        quality: 3,
+        firstUsefulFile: "src/b.py",
+        firstUsefulTool: "rg",
+        specialToolHelped: "no",
+        tests: "failed",
+        failureMode: "test-gap",
+        wallTimeMinutes: 30,
+        filesOpened: 10,
+        contextTokens: 2000,
+        notes: "partial"
+      },
+      {
+        taskId: "a",
+        condition: "no-special-tool",
+        success: "fail",
+        quality: 2,
+        firstUsefulFile: null,
+        firstUsefulTool: null,
+        specialToolHelped: "ignored",
+        tests: "not-run",
+        failureMode: "timeout",
+        notes: "timed out"
+      }
+    ];
+
+    const summary = summarizeAutonomousReviews(reviews);
+    expect(summary.runs).toBe(3);
+    expect(summary.byCondition.find((row) => row.condition === "agent-index")).toMatchObject({
+      runs: 2,
+      pass: 1,
+      partial: 1,
+      fail: 0,
+      avgQuality: 4,
+      specialToolUsedRate: 0.5,
+      specialToolHelpedRate: 0.5,
+      medianWallTimeMinutes: 30,
+      medianFilesOpened: 10,
+      medianContextTokens: 2000
+    });
+    expect(summary.failureModes).toMatchObject({
+      "test-gap": 1,
+      timeout: 1
+    });
   });
 });

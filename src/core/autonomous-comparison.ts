@@ -3,6 +3,8 @@ import path from "node:path";
 import type {
   AutonomousCondition,
   AutonomousReviewRecord,
+  AutonomousSummaryCondition,
+  AutonomousSummaryResult,
   AutonomousTaskKind,
   AutonomousTaskDefinition,
   AutonomousTaskManifest
@@ -131,6 +133,74 @@ export function validateAutonomousTaskManifest(
     throw new Error(errors.join("\n"));
   }
   return manifest as unknown as AutonomousTaskManifest;
+}
+
+export function summarizeAutonomousReviews(
+  reviews: AutonomousReviewRecord[]
+): AutonomousSummaryResult {
+  const failureModes: Record<string, number> = {};
+  for (const review of reviews) {
+    if (review.failureMode !== null) {
+      failureModes[review.failureMode] = (failureModes[review.failureMode] ?? 0) + 1;
+    }
+  }
+
+  return {
+    runs: reviews.length,
+    byCondition: autonomousConditions.map((condition) => summarizeCondition(condition, reviews)),
+    failureModes
+  };
+}
+
+function summarizeCondition(
+  condition: AutonomousCondition,
+  reviews: AutonomousReviewRecord[]
+): AutonomousSummaryCondition {
+  const conditionReviews = reviews.filter((review) => review.condition === condition);
+  const runs = conditionReviews.length;
+  const conditionTool = specialToolForCondition(condition);
+
+  return {
+    condition,
+    runs,
+    pass: conditionReviews.filter((review) => review.success === "pass").length,
+    partial: conditionReviews.filter((review) => review.success === "partial").length,
+    fail: conditionReviews.filter((review) => review.success === "fail").length,
+    avgQuality: runs === 0 ? 0 : roundToFour(conditionReviews.reduce((sum, review) => sum + review.quality, 0) / runs),
+    specialToolUsedRate:
+      runs === 0 || conditionTool === null
+        ? 0
+        : conditionReviews.filter((review) => review.firstUsefulTool === conditionTool).length / runs,
+    specialToolHelpedRate:
+      runs === 0 ? 0 : conditionReviews.filter((review) => review.specialToolHelped === "yes").length / runs,
+    medianWallTimeMinutes: upperMedian(conditionReviews.map((review) => review.wallTimeMinutes)),
+    medianFilesOpened: upperMedian(conditionReviews.map((review) => review.filesOpened)),
+    medianContextTokens: upperMedian(conditionReviews.map((review) => review.contextTokens))
+  };
+}
+
+function specialToolForCondition(condition: AutonomousCondition): "graphify" | "agent-index" | null {
+  if (condition === "graphify") {
+    return "graphify";
+  }
+  if (condition === "agent-index") {
+    return "agent-index";
+  }
+  return null;
+}
+
+function upperMedian(values: Array<number | undefined>): number | null {
+  const sorted = values
+    .filter((value): value is number => value !== undefined)
+    .sort((left, right) => left - right);
+  if (sorted.length === 0) {
+    return null;
+  }
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function roundToFour(value: number): number {
+  return Math.round(value * 10000) / 10000;
 }
 
 function validateTask(

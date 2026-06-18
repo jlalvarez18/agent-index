@@ -341,7 +341,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
         const condition = parseAutonomousCondition(options.condition);
         const packet = await prepareAutonomousRunPacket(task, condition, {
           artifactsDir: options.artifactsDir,
-          timeLimitMinutes: Number.parseInt(options.timeLimitMinutes, 10)
+          timeLimitMinutes: parsePositiveInteger(options.timeLimitMinutes, "--time-limit-minutes")
         });
         io.write(`Prepared ${packet.taskId} / ${packet.condition}`);
         io.write(`Prompt: ${packet.promptPath}`);
@@ -1198,6 +1198,14 @@ function parseNonNegativeNumber(value: string, flag: string): number {
   const parsed = Number.parseFloat(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error(`Invalid ${flag} value: ${value}. Expected a non-negative number.`);
+  }
+  return parsed;
+}
+
+function parsePositiveInteger(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid ${flag} value: ${value}. Expected a positive integer.`);
   }
   return parsed;
 }

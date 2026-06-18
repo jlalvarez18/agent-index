@@ -244,6 +244,48 @@ describe("runCli", () => {
     expect(prompt).toContain("agent-index is available");
   });
 
+  test("rejects invalid autonomous prepare time limits", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-cli-time-limit-"));
+    const manifestPath = path.join(root, "pilot.json");
+    const artifactsDir = path.join(root, "artifacts");
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        name: "pilot",
+        tasks: [
+          {
+            id: "click-color-default-behavior",
+            repo: "click",
+            kind: "bugfix",
+            prompt: "Find and fix where Click decides default color behavior from environment state.",
+            successCriteria: ["NO_COLOR disables color by default."],
+            expectedEvidence: {
+              files: ["src/click/globals.py"],
+              symbols: ["resolve_color_default"]
+            }
+          }
+        ]
+      })
+    );
+
+    await expect(
+      runCli([
+        "autonomous-prepare",
+        manifestPath,
+        "--task",
+        "click-color-default-behavior",
+        "--condition",
+        "agent-index",
+        "--artifacts-dir",
+        artifactsDir,
+        "--time-limit-minutes",
+        "abc"
+      ])
+    ).rejects.toThrow("Invalid --time-limit-minutes value: abc. Expected a positive integer.");
+  });
+
   test("supports file-cluster summaries for low-token repository mapping", async () => {
     const { root } = await fixtureProject();
     const output: string[] = [];

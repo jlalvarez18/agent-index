@@ -115,6 +115,42 @@ describe("autonomous comparison manifest", () => {
     const manifest = await loadAutonomousTaskManifest("benchmarks/autonomous/graphify-agent-index-pilot.json");
     expect(manifest.name).toBe("graphify-agent-index-pilot");
     expect(manifest.tasks).toHaveLength(10);
+    expect(manifest.tasks.map((task) => task.id)).toEqual([
+      "click-color-default-behavior",
+      "httpx-redirect-history",
+      "pydantic-computed-fields-serialization",
+      "tanstack-query-infinite-query-flow",
+      "rich-print-json-file-output",
+      "sqlalchemy-rowcount-preservation",
+      "fastapi-response-serialization",
+      "vite-env-prefix-behavior",
+      "redux-toolkit-create-slice-bugfix",
+      "graphify-query-path-explanation"
+    ]);
+
+    const taskById = new Map(manifest.tasks.map((task) => [task.id, task]));
+    expect(taskById.get("httpx-redirect-history")?.expectedEvidence.symbols).toEqual([
+      "Client._send_handling_redirects",
+      "AsyncClient._send_handling_redirects"
+    ]);
+    expect(taskById.get("rich-print-json-file-output")?.expectedEvidence.files).toEqual(
+      expect.arrayContaining(["tests/test_rich_print.py", "tests/test_console.py"])
+    );
+    expect(taskById.get("rich-print-json-file-output")?.testCommand).toBe(
+      "pytest tests/test_rich_print.py tests/test_console.py -k print_json"
+    );
+    expect(taskById.get("sqlalchemy-rowcount-preservation")?.expectedEvidence.files).toEqual(
+      expect.arrayContaining(["lib/sqlalchemy/engine/default.py", "lib/sqlalchemy/engine/base.py"])
+    );
+    expect(taskById.get("sqlalchemy-rowcount-preservation")?.expectedEvidence.symbols).toEqual(
+      expect.arrayContaining(["DefaultExecutionContext._setup_result_proxy"])
+    );
+    expect(taskById.get("fastapi-response-serialization")?.expectedEvidence.files).toEqual(
+      expect.arrayContaining(["tests/test_serialize_response_model.py"])
+    );
+    expect(taskById.get("vite-env-prefix-behavior")?.expectedEvidence.files).toEqual(
+      expect.arrayContaining(["packages/vite/src/node/__tests__/config.spec.ts"])
+    );
   });
 
   test("rejects missing or non-string prompts without throwing TypeError", () => {

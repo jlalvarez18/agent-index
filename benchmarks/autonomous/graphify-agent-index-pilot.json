@@ -30,7 +30,7 @@
       ],
       "expectedEvidence": {
         "files": ["httpx/_client.py", "tests/client/test_redirects.py"],
-        "symbols": ["Client.send", "AsyncClient.send"]
+        "symbols": ["Client._send_handling_redirects", "AsyncClient._send_handling_redirects"]
       },
       "testCommand": "pytest tests/client/test_redirects.py"
     },
@@ -80,10 +80,10 @@
         "Relevant JSON output tests pass."
       ],
       "expectedEvidence": {
-        "files": ["rich/__init__.py", "rich/console.py", "tests/test_json.py"],
+        "files": ["rich/__init__.py", "rich/console.py", "tests/test_rich_print.py", "tests/test_console.py"],
         "symbols": ["print_json", "Console.print_json"]
       },
-      "testCommand": "pytest tests/test_json.py"
+      "testCommand": "pytest tests/test_rich_print.py tests/test_console.py -k print_json"
     },
     {
       "id": "sqlalchemy-rowcount-preservation",
@@ -96,8 +96,13 @@
         "Relevant engine or SQL tests are identified or run."
       ],
       "expectedEvidence": {
-        "files": ["lib/sqlalchemy/engine/cursor.py", "test/sql/test_resultset.py"],
-        "symbols": ["CursorResult"]
+        "files": [
+          "lib/sqlalchemy/engine/cursor.py",
+          "lib/sqlalchemy/engine/default.py",
+          "lib/sqlalchemy/engine/base.py",
+          "test/sql/test_resultset.py"
+        ],
+        "symbols": ["CursorResult", "DefaultExecutionContext._setup_result_proxy"]
       },
       "testCommand": "pytest test/sql/test_resultset.py"
     },
@@ -112,7 +117,12 @@
         "The answer cites relevant tests or examples."
       ],
       "expectedEvidence": {
-        "files": ["fastapi/routing.py", "tests/test_serialize_response.py"],
+        "files": [
+          "fastapi/routing.py",
+          "tests/test_serialize_response_model.py",
+          "tests/test_validate_response.py",
+          "tests/test_response_model_as_return_annotation.py"
+        ],
         "symbols": ["serialize_response"]
       }
     },
@@ -127,7 +137,11 @@
         "Relevant config or env tests pass."
       ],
       "expectedEvidence": {
-        "files": ["packages/vite/src/node/env.ts", "packages/vite/src/node/config.ts"],
+        "files": [
+          "packages/vite/src/node/env.ts",
+          "packages/vite/src/node/config.ts",
+          "packages/vite/src/node/__tests__/config.spec.ts"
+        ],
         "symbols": ["loadEnv"]
       },
       "testCommand": "pnpm test env"

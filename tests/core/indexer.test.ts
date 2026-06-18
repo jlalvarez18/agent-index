@@ -397,6 +397,90 @@ cdef class RadiusNeighbors{{name_suffix}}(BaseDistancesReduction{{name_suffix}})
     );
   });
 
+  test("indexes C# source files with symbols, imports, calls, and conformance edges", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-csharp-"));
+    await mkdir(path.join(root, "src", "Checkout.Api", "Controllers"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "Checkout.Api", "Controllers", "CheckoutController.cs"),
+      `using Microsoft.AspNetCore.Mvc;
+using Acme.Checkout.Application;
+
+namespace Acme.Checkout.Api.Controllers;
+
+[ApiController]
+public sealed class CheckoutController : ControllerBase, ICheckoutHandler
+{
+    public CheckoutController(CheckoutService service)
+    {
+        Service = service;
+    }
+
+    public CheckoutService Service { get; }
+
+    public IActionResult Submit(CheckoutCommand command)
+    {
+        return Ok(Service.Handle(command));
+    }
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where file_id = (select id from files where path = ?) order by id")
+      .all("src/Checkout.Api/Controllers/CheckoutController.cs");
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, e.target_name, e.kind
+        from edges e
+        left join symbols source on source.id = e.source_symbol_id
+        join files f on f.id = source.file_id
+        where f.path = ?
+        order by e.kind, source.qualified_name, e.target_name
+        `
+      )
+      .all("src/Checkout.Api/Controllers/CheckoutController.cs");
+    db.close();
+
+    expect(files).toEqual([{ path: "src/Checkout.Api/Controllers/CheckoutController.cs", language: "csharp", role: "source" }]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "Acme.Checkout.Api.Controllers", kind: "module" },
+        { qualified_name: "Acme.Checkout.Api.Controllers.CheckoutController", kind: "class" },
+        { qualified_name: "Acme.Checkout.Api.Controllers.CheckoutController.CheckoutController", kind: "method" },
+        { qualified_name: "Acme.Checkout.Api.Controllers.CheckoutController.Service", kind: "method" },
+        { qualified_name: "Acme.Checkout.Api.Controllers.CheckoutController.Submit", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "src/Checkout.Api/Controllers/CheckoutController.cs",
+          target_name: "Microsoft.AspNetCore.Mvc",
+          kind: "symbol_imports_module"
+        },
+        {
+          source: "Acme.Checkout.Api.Controllers.CheckoutController",
+          target_name: "ControllerBase",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "Acme.Checkout.Api.Controllers.CheckoutController",
+          target_name: "ICheckoutHandler",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "Acme.Checkout.Api.Controllers.CheckoutController.Submit",
+          target_name: "Handle",
+          kind: "symbol_calls_name"
+        }
+      ])
+    );
+  });
+
   test("indexes C source, headers, tests, and C build ownership files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-c-"));
     await mkdir(path.join(root, "include"), { recursive: true });

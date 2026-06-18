@@ -11,6 +11,7 @@ export interface RelatedTestsOptions {
   terms?: string[];
   limit?: number;
   preferSymbolPathCandidates?: boolean;
+  sourceModules?: string[];
 }
 
 export interface RelatedTestsBatchOptions {
@@ -100,13 +101,14 @@ function scoreRelatedTestsForSourceOptions(
   sourceOptions: RelatedTestsOptions[],
   terms: string[] = []
 ): RelatedTestsInternalResult[] {
-  const candidatePathsBySource = sourceOptions.map((sourceOption) => queryCandidateTestPaths(db, sourceOption));
+  const enrichedSourceOptions = sourceOptions.map((sourceOption) => enrichRelatedTestOptions(db, sourceOption));
+  const candidatePathsBySource = enrichedSourceOptions.map((sourceOption) => queryCandidateTestPaths(db, sourceOption));
   const allTestPaths = candidatePathsBySource.some((paths) => paths.length === 0) ? queryAllTestPaths(db) : [];
   const analysisCache = analysesByPath(
     queryTestRowsByPaths(db, uniqueValues(candidatePathsBySource.flatMap((paths) => (paths.length > 0 ? paths : allTestPaths))), terms)
   );
 
-  return sourceOptions.map((sourceOption, index) => {
+  return enrichedSourceOptions.map((sourceOption, index) => {
     const candidatePaths = candidatePathsBySource[index].length > 0 ? candidatePathsBySource[index] : allTestPaths;
     let analyses = candidatePaths.map((candidatePath) => analysisCache.get(candidatePath)).filter((analysis): analysis is TestFileAnalysis => analysis !== undefined);
     let matches = scoreTestAnalyses(analyses, sourceOption);
@@ -130,8 +132,9 @@ function scoreRelatedTestsForSourceOptions(
 }
 
 function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptions): RelatedTestsInternalResult {
-  let { rows, pruned } = queryTestRows(db, options);
-  let matches = scoreTestRows(rows, options);
+  const enrichedOptions = enrichRelatedTestOptions(db, options);
+  let { rows, pruned } = queryTestRows(db, enrichedOptions);
+  let matches = scoreTestRows(rows, enrichedOptions);
   if (
     pruned &&
     matches.length < (options.limit ?? 5) &&
@@ -140,18 +143,44 @@ function runRelatedTestsWithDb(db: Database.Database, options: RelatedTestsOptio
   ) {
     rows = queryAllTestRows(db);
     pruned = false;
-    matches = scoreTestRows(rows, options);
+    matches = scoreTestRows(rows, enrichedOptions);
   }
   return {
     result: {
-      sourceFile: normalizeSourceFile(options.sourceFile),
-      sourceFiles: options.sourceFiles,
-      symbol: options.symbol,
+      sourceFile: normalizeSourceFile(enrichedOptions.sourceFile),
+      sourceFiles: enrichedOptions.sourceFiles,
+      symbol: enrichedOptions.symbol,
       candidateFilesScored: rows.length,
-      matches: hydrateRelatedTestSymbols(db, matches.slice(0, options.limit ?? 5), options)
+      matches: hydrateRelatedTestSymbols(db, matches.slice(0, enrichedOptions.limit ?? 5), enrichedOptions)
     },
     candidateFiles: rows.map((row) => row.path)
   };
+}
+
+function enrichRelatedTestOptions(db: Database.Database, options: RelatedTestsOptions): RelatedTestsOptions {
+  return {
+    ...options,
+    sourceModules: uniqueValues([...(options.sourceModules ?? []), ...indexedSourceModules(db, options.sourceFile)])
+  };
+}
+
+function indexedSourceModules(db: Database.Database, sourceFile: string): string[] {
+  const rows = db
+    .prepare(
+      `
+        select s.qualified_name
+        from files f
+        join symbols file_symbol on file_symbol.file_id = f.id and file_symbol.qualified_name = f.path
+        join symbols s on s.file_id = f.id
+        where f.path = @sourceFile
+          and s.kind = 'module'
+          and s.parent_symbol_id = file_symbol.id
+          and s.qualified_name != f.path
+        order by s.qualified_name
+        `
+    )
+    .all({ sourceFile: normalizeSourceFile(sourceFile) }) as Array<{ qualified_name: string }>;
+  return rows.map((row) => normalizeDottedName(row.qualified_name));
 }
 
 function queryCandidateTestPaths(db: Database.Database, options: RelatedTestsOptions): string[] {
@@ -355,7 +384,7 @@ function scoreTestRows(rows: TestFileRow[], options: RelatedTestsOptions): Relat
 
 function scoreTestAnalyses(analyses: TestFileAnalysis[], options: RelatedTestsOptions): RelatedTestMatch[] {
   return analyses
-    .map((analysis) => scoreTestFile(analysis, options.sourceFile, options.symbol, options.terms ?? []))
+    .map((analysis) => scoreTestFile(analysis, options.sourceFile, options.symbol, options.terms ?? [], options.sourceModules ?? []))
     .filter((match): match is RelatedTestMatch => match !== undefined)
     .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
 }
@@ -593,7 +622,7 @@ function testCandidateSqlQuery(
 ): { sql: string; params: Record<string, unknown> } {
   const normalizedSource = normalizeSourceFile(options.sourceFile);
   const sourceStem = fileStem(normalizedSource);
-  const sourceModules = moduleNamesForSource(normalizedSource);
+  const sourceModules = uniqueValues([...(options.sourceModules ?? []), ...moduleNamesForSource(normalizedSource)]);
   const sourceTokens = candidateSourcePathTokens(normalizedSource);
   const symbolLeaf = options.symbol ? symbolLeafName(options.symbol) : "";
   const pathTokensToMatch = uniqueValues([sourceStem, ...sourceTokens].filter((term) => term.length >= 3));
@@ -613,7 +642,7 @@ function testCandidateSqlQuery(
 
   for (const [index, sourceModule] of sourceModules.entries()) {
     const key = `candidateImport${index}`;
-    params[key] = sourceModule;
+    params[key] = sourceModule.replace(/\./gu, "");
     branches.push(`
       select distinct candidate_s.file_id
       from symbols candidate_s
@@ -733,12 +762,13 @@ function scoreTestFile(
   analysis: TestFileAnalysis,
   sourceFile: string,
   symbol: string | undefined,
-  terms: string[]
+  terms: string[],
+  indexedSourceModules: string[] = []
 ): RelatedTestMatch | undefined {
   const row = analysis.row;
   const normalizedSource = normalizeSourceFile(sourceFile);
   const sourceStem = fileStem(normalizedSource);
-  const sourceModules = moduleNamesForSource(normalizedSource);
+  const sourceModules = uniqueValues([...indexedSourceModules, ...moduleNamesForSource(normalizedSource)]);
   const sourceTokens = pathTokens(normalizedSource);
   const why: string[] = [];
   let score = 0;
@@ -1031,6 +1061,9 @@ function moduleNamesForSource(file: string): string[] {
   if (file.endsWith(".java")) {
     pathVariants.push(...javaSourceModuleVariants(segments));
   }
+  if (file.endsWith(".cs")) {
+    pathVariants.push(...csharpSourceModuleVariants(segments));
+  }
   if (withoutInit.endsWith("/index")) {
     pathVariants.push(withoutInit.slice(0, -"/index".length));
   }
@@ -1093,6 +1126,18 @@ function javaSourceModuleVariants(segments: string[]): string[] {
   }
   const withoutLeaf = packageSegments.slice(0, -1);
   return uniqueValues([packageSegments.join("/"), withoutLeaf.join("/")].filter(Boolean));
+}
+
+function csharpSourceModuleVariants(segments: string[]): string[] {
+  const srcIndex = segments.findIndex((segment) => segment === "src" || segment === "source" || segment === "Sources");
+  if (srcIndex === -1 || srcIndex + 1 >= segments.length) {
+    return [];
+  }
+  const moduleSegments = segments.slice(srcIndex + 1).map((segment, index, all) =>
+    index === all.length - 1 ? segment.replace(/\.cs$/u, "") : segment
+  );
+  const withoutLeaf = moduleSegments.slice(0, -1);
+  return uniqueValues([moduleSegments.join("/"), withoutLeaf.join("/")].filter(Boolean));
 }
 
 function cSourceModuleVariants(file: string, withoutExtension: string): string[] {

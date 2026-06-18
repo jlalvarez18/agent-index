@@ -1,0 +1,76 @@
+[
+  {
+    "id": "dapper-queryfirst-csharp-row-flow",
+    "task": "Trace Dapper QueryFirst row-selection behavior through SqlMapper and locate the xUnit coverage for QueryFirst correctness.",
+    "kind": "component-navigation",
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["QueryFirst", "QueryRow", "Row.First", "CommandDefinition"],
+          "symbolKinds": ["method"],
+          "roles": ["source"],
+          "pathHints": ["Dapper/SqlMapper.cs"],
+          "expand": ["parents", "callees"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "query",
+        "query": {
+          "terms": ["QueryFirst", "PerformanceAndCorrectness", "SingleRow", "Row.First"],
+          "symbolKinds": ["method"],
+          "roles": ["test"],
+          "pathHints": ["tests/Dapper.Tests/SingleRowTests.cs"],
+          "expand": ["parents"]
+        },
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["QueryFirst", "QueryRow", "Row.First", "CommandDefinition"],
+      ["QueryFirst_PerformanceAndCorrectness", "QueryFirst", "Row.First"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["QueryFirst", "QueryRow", "Row.First"],
+          "paths": ["Dapper"],
+          "globs": ["*.cs"],
+          "limit": 40
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["QueryFirst", "QueryRowImpl", "Row.First"],
+          "fromStep": 1,
+          "before": 8,
+          "after": 12,
+          "limit": 8
+        },
+        {
+          "type": "search-files",
+          "terms": ["QueryFirst_PerformanceAndCorrectness", "QueryFirst"],
+          "scope": "test",
+          "paths": ["tests/Dapper.Tests"],
+          "globs": ["*.cs"],
+          "limit": 30
+        }
+      ]
+    },
+    "expected": {
+      "files": ["Dapper/SqlMapper.cs", "tests/Dapper.Tests/SingleRowTests.cs"],
+      "symbols": [
+        "Dapper.SqlMapper.IDbConnection.QueryFirst(IDbConnection,string,object?,IDbTransaction?,int?,CommandType?)",
+        "Dapper.SqlMapper.QueryRowImpl",
+        "Dapper.Tests.SingleRowTests.QueryFirst_PerformanceAndCorrectness"
+      ],
+      "requiredFiles": ["Dapper/SqlMapper.cs", "tests/Dapper.Tests/SingleRowTests.cs"],
+      "requiredSymbols": [
+        "Dapper.SqlMapper.IDbConnection.QueryFirst(IDbConnection,string,object?,IDbTransaction?,int?,CommandType?)",
+        "Dapper.Tests.SingleRowTests.QueryFirst_PerformanceAndCorrectness"
+      ]
+    }
+  }
+]

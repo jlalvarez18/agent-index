@@ -4,6 +4,7 @@ import { stat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { extractC } from "./extractors/c.js";
 import { extractCpp } from "./extractors/cpp.js";
+import { extractCSharp } from "./extractors/csharp.js";
 import { extractCython } from "./extractors/cython.js";
 import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
@@ -55,6 +56,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "php") {
         return extractPhp(file);
+      }
+      if (file.language === "csharp") {
+        return extractCSharp(file);
       }
       if (file.language === "go") {
         return extractGo(file);

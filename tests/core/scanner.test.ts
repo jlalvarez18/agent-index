@@ -80,6 +80,15 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("test/controllers/users_controller_test.rb")).toBe("test");
     expect(classifyFileRole("features/sign_in.feature")).toBe("test");
     expect(classifyFileRole("src/features/payments/index.ts")).toBe("source");
+    expect(classifyFileRole("src/Checkout.Api/Controllers/CheckoutController.cs")).toBe("source");
+    expect(classifyFileRole("src/samples/Acme.Checkout/CheckoutService.cs")).toBe("source");
+    expect(classifyFileRole("test/Checkout.Api.Tests/CheckoutControllerTests.cs")).toBe("test");
+    expect(classifyFileRole("tests/Checkout.Api.UnitTests/CheckoutControllerSpec.cs")).toBe("test");
+    expect(classifyFileRole("src/Checkout.Api.Tests/CheckoutControllerFixture.cs")).toBe("test");
+    expect(classifyFileRole("samples/Checkout.Sample/Program.cs")).toBe("example");
+    expect(classifyFileRole("examples/Checkout.Example/Program.cs")).toBe("example");
+    expect(classifyFileRole("benchmarks/Checkout.Benchmarks/CheckoutBenchmarks.cs")).toBe("benchmark");
+    expect(classifyFileRole("tools/Generator/Program.cs")).toBe("tool");
     expect(classifyFileRole("source/common/router/checkout_service_test.cc")).toBe("test");
     expect(classifyFileRole("test/common/router/checkout_service_test.cpp")).toBe("test");
     expect(classifyFileRole("tests/router/route_matcher_test.cxx")).toBe("test");
@@ -144,6 +153,10 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, "config"), { recursive: true });
     await mkdir(path.join(root, "bin"), { recursive: true });
     await mkdir(path.join(root, "php-tests", "Feature"), { recursive: true });
+    await mkdir(path.join(root, "src", "Checkout.Api", "Controllers"), { recursive: true });
+    await mkdir(path.join(root, "Tests", "Checkout.Api.Tests"), { recursive: true });
+    await mkdir(path.join(root, "samples", "Checkout.Sample"), { recursive: true });
+    await mkdir(path.join(root, "tools", "Generator"), { recursive: true });
     await writeFile(path.join(root, "pkg", "service.py"), "def run():\n    return 1\n");
     await writeFile(path.join(root, "CMakeLists.txt"), "add_library(checkout_core source/common/router/checkout_service.cc)\n");
     await writeFile(path.join(root, "BUILD.bazel"), "cc_library(name = \"checkout_core\")\n");
@@ -189,6 +202,10 @@ describe("scanPythonFiles", () => {
     await writeFile(path.join(root, "Rakefile"), "task :default\n");
     await writeFile(path.join(root, "bin", "rails"), "#!/usr/bin/env ruby\n");
     await writeFile(path.join(root, "php-tests", "Feature", "CheckoutControllerTest.php"), "<?php\nclass CheckoutControllerTest {}\n");
+    await writeFile(path.join(root, "src", "Checkout.Api", "Controllers", "CheckoutController.cs"), "namespace Acme.Checkout.Api;\npublic class CheckoutController {}\n");
+    await writeFile(path.join(root, "Tests", "Checkout.Api.Tests", "CheckoutControllerTests.cs"), "public class CheckoutControllerTests {}\n");
+    await writeFile(path.join(root, "samples", "Checkout.Sample", "Program.cs"), "public class Program {}\n");
+    await writeFile(path.join(root, "tools", "Generator", "Program.cs"), "public class Program {}\n");
     await writeFile(path.join(root, "pom.xml"), "<project><artifactId>checkout-parent</artifactId></project>\n");
     await mkdir(path.join(root, "gradle"), { recursive: true });
     await writeFile(path.join(root, "gradle", "libs.versions.toml"), "[libraries]\ncoroutines = \"org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1\"\n");
@@ -229,6 +246,7 @@ describe("scanPythonFiles", () => {
       { relativePath: "pkg/service.py", language: "python" },
       { relativePath: "pom.xml", language: "xml" },
       { relativePath: "Rakefile", language: "ruby" },
+      { relativePath: "samples/Checkout.Sample/Program.cs", language: "csharp" },
       { relativePath: "sklearn/metrics/_radius_neighbors.pyx.tp", language: "cython" },
       { relativePath: "sklearn/utils/_typedefs.pxd.in", language: "cython" },
       { relativePath: "sklearn/utils/test_fast.pyx", language: "cython" },
@@ -241,11 +259,14 @@ describe("scanPythonFiles", () => {
       { relativePath: "source/common/router/route_matcher.cpp", language: "cpp" },
       { relativePath: "Sources/App/CheckoutViewModel.swift", language: "swift" },
       { relativePath: "spec/models/user_spec.rb", language: "ruby" },
+      { relativePath: "src/Checkout.Api/Controllers/CheckoutController.cs", language: "csharp" },
       { relativePath: "src/client/api.mts", language: "typescript" },
       { relativePath: "src/client/api.test.ts", language: "typescript" },
       { relativePath: "src/compiler/diagnosticMessages.json", language: "json" },
       { relativePath: "src/views/DashboardScreen.tsx", language: "typescript" },
-      { relativePath: "Tests/AppTests/CheckoutViewModelTests.swift", language: "swift" }
+      { relativePath: "Tests/AppTests/CheckoutViewModelTests.swift", language: "swift" },
+      { relativePath: "Tests/Checkout.Api.Tests/CheckoutControllerTests.cs", language: "csharp" },
+      { relativePath: "tools/Generator/Program.cs", language: "csharp" }
     ]);
     expect(files.find((file) => file.relativePath === "src/client/api.test.ts")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "internal/config/loader_test.go")?.role).toBe("test");
@@ -267,6 +288,10 @@ describe("scanPythonFiles", () => {
     expect(files.find((file) => file.relativePath === "source/common/router/checkout_service_test.cc")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "crates/runtime/src/bin/server.rs")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "crates/runtime/tests/runtime_tests.rs")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "src/Checkout.Api/Controllers/CheckoutController.cs")?.role).toBe("source");
+    expect(files.find((file) => file.relativePath === "Tests/Checkout.Api.Tests/CheckoutControllerTests.cs")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "samples/Checkout.Sample/Program.cs")?.role).toBe("example");
+    expect(files.find((file) => file.relativePath === "tools/Generator/Program.cs")?.role).toBe("tool");
   });
 
   test("can skip tests and tools for source-only benchmark indexing", async () => {

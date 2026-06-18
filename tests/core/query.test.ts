@@ -774,6 +774,91 @@ CacheEntry *cache_lookup(CacheEntry *head, const char *key) {
     expect(result.matches[0].why).toContain("path hint match");
   });
 
+  test("hybrid mode surfaces C# controller and service methods", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-csharp-"));
+    await mkdir(path.join(root, "src", "Checkout.Api", "Controllers"), { recursive: true });
+    await mkdir(path.join(root, "src", "Checkout.Application"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "Checkout.Api", "Controllers", "CheckoutController.cs"),
+      `using Microsoft.AspNetCore.Mvc;
+using Acme.Checkout.Application;
+
+namespace Acme.Checkout.Api.Controllers;
+
+[ApiController]
+public sealed class CheckoutController : ControllerBase
+{
+    private readonly CheckoutService service;
+
+    public CheckoutController(CheckoutService service)
+    {
+        this.service = service;
+    }
+
+    public IActionResult Submit(CheckoutCommand command)
+    {
+        var receipt = service.Handle(command);
+        return Ok(receipt);
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "src", "Checkout.Application", "CheckoutService.cs"),
+      `namespace Acme.Checkout.Application;
+
+public sealed class CheckoutService : ICheckoutHandler
+{
+    public CheckoutReceipt Handle(CheckoutCommand command)
+    {
+        return ProcessPayment(command);
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const controllerResult = await queryAgentIndex(
+      {
+        terms: ["Submit", "receipt", "Handle"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["Checkout.Api", "Controllers"],
+        expand: ["parents"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const serviceResult = await queryAgentIndex(
+      {
+        terms: ["CheckoutService", "Handle", "ProcessPayment"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["Checkout.Application"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(controllerResult.matches[0]).toMatchObject({
+      symbol: "Acme.Checkout.Api.Controllers.CheckoutController.Submit",
+      kind: "method",
+      file: "src/Checkout.Api/Controllers/CheckoutController.cs"
+    });
+    expect(controllerResult.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "incoming_symbol_contains_symbol",
+          symbol: "Acme.Checkout.Api.Controllers.CheckoutController"
+        })
+      ])
+    );
+    expect(serviceResult.matches[0]).toMatchObject({
+      symbol: "Acme.Checkout.Application.CheckoutService.Handle",
+      kind: "method",
+      file: "src/Checkout.Application/CheckoutService.cs"
+    });
+  });
+
   test("uses path hints for file-path scoring without turning them into source-text intent", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-path-hints-"));
     await mkdir(path.join(root, "pkg", "templates"), { recursive: true });

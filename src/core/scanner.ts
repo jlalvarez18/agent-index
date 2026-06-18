@@ -56,6 +56,7 @@ const CYTHON_TEST_FILE_NAME_PATTERN = /(?:^test_|_test)(?:[A-Za-z0-9_]*)(?:\.pyx
 const KOTLIN_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.kts?$/u;
 const JAVA_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|IT|ITCase)\.java$/u;
 const PHP_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.php$/u;
+const CSHARP_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec|Specs|Fixture|Fixtures|IT)\.cs$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
@@ -121,6 +122,7 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     "config.ru",
     "rails",
     ".php",
+    ".cs",
     ".xml",
     ".toml",
     ".yaml",
@@ -161,6 +163,9 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
       const absolutePath = path.join(directory, entry.name);
       const relativePath = path.relative(root, absolutePath).split(path.sep).join("/");
       if (isSupportArtifactFile(relativePath)) {
+        continue;
+      }
+      if (suffix === ".cs" && isCSharpGeneratedOutputPath(relativePath)) {
         continue;
       }
       const text = await readFile(absolutePath, "utf8");
@@ -232,6 +237,9 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".php") {
     return "php";
   }
+  if (suffix === ".cs") {
+    return "csharp";
+  }
   if (suffix === ".xml") {
     return "xml";
   }
@@ -296,7 +304,8 @@ export function classifyFileRole(relativePath: string): FileRole {
     isSwiftTestFile(relativePath) ||
     isKotlinTestFile(relativePath) ||
     isJavaTestFile(relativePath) ||
-    isPhpTestFile(relativePath)
+    isPhpTestFile(relativePath) ||
+    isCSharpTestFile(relativePath)
   ) {
     return "test";
   }
@@ -322,7 +331,7 @@ export function classifyFileRole(relativePath: string): FileRole {
 }
 
 function isSupportRoleSegment(segments: string[], index: number, roleDirs: Set<string>): boolean {
-  return roleDirs.has(segments[index]) && !isInsideJvmSourcePackagePath(segments, index);
+  return roleDirs.has(segments[index]) && !isInsideJvmSourcePackagePath(segments, index) && !isInsideDotNetSourcePackagePath(segments, index);
 }
 
 function isInsideJvmSourcePackagePath(segments: string[], index: number): boolean {
@@ -339,9 +348,19 @@ function isInsideJvmSourcePackagePath(segments: string[], index: number): boolea
   );
 }
 
+function isInsideDotNetSourcePackagePath(segments: string[], index: number): boolean {
+  const srcIndex = segments.lastIndexOf("src", index);
+  return srcIndex !== -1 && index > srcIndex && segments.length > srcIndex + 2;
+}
+
 function isSupportArtifactFile(relativePath: string): boolean {
   const basename = path.posix.basename(relativePath);
   return SUPPORT_ARTIFACT_JSON_FILES.has(basename) || basename.endsWith("-benchmark.json");
+}
+
+function isCSharpGeneratedOutputPath(relativePath: string): boolean {
+  const segments = relativePath.split("/").filter(Boolean);
+  return segments.some((segment) => segment === "bin" || segment === "obj");
 }
 
 function isJavaScriptTestFile(relativePath: string): boolean {
@@ -384,4 +403,15 @@ function isJavaTestFile(relativePath: string): boolean {
 
 function isPhpTestFile(relativePath: string): boolean {
   return PHP_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
+}
+
+function isCSharpTestFile(relativePath: string): boolean {
+  const basename = path.posix.basename(relativePath);
+  const segments = relativePath.split("/").filter(Boolean);
+  return (
+    CSHARP_TEST_FILE_NAME_PATTERN.test(basename) ||
+    segments.some((segment) => /\.(?:Tests?|Specs?|UnitTests?|IntegrationTests?)$/iu.test(segment)) ||
+    relativePath.includes("/src/test/") ||
+    relativePath.includes("/src/tests/")
+  );
 }

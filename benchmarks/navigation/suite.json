@@ -371,6 +371,13 @@
     "mode": "hybrid"
   },
   {
+    "name": "dapper-csharp",
+    "evalPath": "dapper-queryfirst-csharp-row-flow.json",
+    "target": "Dapper",
+    "repoUrl": "https://github.com/DapperLib/Dapper.git",
+    "mode": "hybrid"
+  },
+  {
     "name": "redis-c",
     "evalPath": "redis-dict-rehash-c.json",
     "target": "redis",

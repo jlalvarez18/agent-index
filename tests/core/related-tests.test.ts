@@ -537,6 +537,142 @@ TEST(UnrelatedTest, DoesNothing) {
     expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["envoy::router::RouteMatcherTest.MatchRouteFindsRouteEntry"]));
   });
 
+  test("links C# source files to xUnit, NUnit, or MSTest-style coverage through using directives, calls, and source stems", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-csharp-"));
+    await mkdir(path.join(root, "src", "Checkout.Api", "Controllers"), { recursive: true });
+    await mkdir(path.join(root, "tests", "Checkout.Api.Tests", "Controllers"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "Checkout.Api", "Controllers", "CheckoutController.cs"),
+      `namespace Acme.Checkout.Api.Controllers;
+
+public sealed class CheckoutController
+{
+    public CheckoutReceipt Submit(CheckoutCommand command)
+    {
+        return Handle(command);
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "Checkout.Api.Tests", "Controllers", "CheckoutControllerTests.cs"),
+      `using Acme.Checkout.Api.Controllers;
+using Xunit;
+
+namespace Acme.Checkout.Api.Tests.Controllers;
+
+public sealed class CheckoutControllerTests
+{
+    [Fact]
+    public void Submit_returns_receipt_for_valid_command()
+    {
+        var controller = new CheckoutController();
+        var receipt = controller.Submit(new CheckoutCommand());
+        Assert.NotNull(receipt);
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "Checkout.Api.Tests", "Controllers", "UnrelatedTests.cs"),
+      `using Xunit;
+
+public sealed class UnrelatedTests
+{
+    [Fact]
+    public void Does_nothing()
+    {
+        Assert.True(true);
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/Checkout.Api/Controllers/CheckoutController.cs",
+      symbol: "Acme.Checkout.Api.Controllers.CheckoutController.Submit",
+      terms: ["receipt", "valid", "command"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/Checkout.Api.Tests/Controllers/CheckoutControllerTests.cs"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test calls source symbol", "test path includes source stem", "test body matches task terms"])
+    );
+    expect(result.matches[0].symbols).toEqual(
+      expect.arrayContaining(["Acme.Checkout.Api.Tests.Controllers.CheckoutControllerTests.Submit_returns_receipt_for_valid_command"])
+    );
+  });
+
+  test("links C# tests through indexed source namespaces when paths do not mirror namespaces", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-csharp-namespace-"));
+    await mkdir(path.join(root, "src", "Web", "Controllers"), { recursive: true });
+    await mkdir(path.join(root, "tests", "Behavior"), { recursive: true });
+    await writeFile(
+      path.join(root, "src", "Web", "Controllers", "CheckoutEndpoint.cs"),
+      `namespace Acme.Checkout.Api.Controllers;
+
+public sealed class CheckoutEndpoint
+{
+    public CheckoutReceipt Submit(CheckoutCommand command)
+    {
+        return new CheckoutReceipt(command.Id);
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "Behavior", "SubmissionBehaviorTests.cs"),
+      `using Acme.Checkout.Api.Controllers;
+using Xunit;
+
+namespace Acme.Checkout.Tests.Behavior;
+
+public sealed class SubmissionBehaviorTests
+{
+    [Fact]
+    public void Submit_returns_receipt_for_command()
+    {
+        var endpoint = new CheckoutEndpoint();
+        var receipt = endpoint.Submit(new CheckoutCommand());
+        Assert.NotNull(receipt);
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "tests", "Behavior", "UnrelatedTests.cs"),
+      `using Xunit;
+
+public sealed class UnrelatedTests
+{
+    [Fact]
+    public void Does_nothing()
+    {
+        Assert.True(true);
+    }
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "src/Web/Controllers/CheckoutEndpoint.cs",
+      limit: 1
+    });
+
+    expect(result.candidateFilesScored).toBe(1);
+    expect(result.matches[0]).toMatchObject({
+      file: "tests/Behavior/SubmissionBehaviorTests.cs"
+    });
+    expect(result.matches[0].why).toContain("test imports source module");
+  });
+
   test("can batch related-test discovery for multiple source symbols", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-batch-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

@@ -399,7 +399,7 @@ The test suite covers scanner filtering, Python extraction, SQLite indexing, que
 
 ## Current Limits
 
-- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, and C/C++ have first-class or active first-class navigation tracks; Cython/JSON extraction remains intentionally narrower.
+- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, C#, and C/C++ have first-class or active first-class navigation tracks; Cython/JSON extraction remains intentionally narrower.
 - Full reindex only.
 - No embeddings.
 - No MCP server.

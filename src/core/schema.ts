@@ -13,6 +13,7 @@ export type Language =
   | "java"
   | "ruby"
   | "php"
+  | "csharp"
   | "xml"
   | "toml"
   | "yaml";

@@ -52,6 +52,29 @@ describe("autonomous comparison manifest", () => {
     expect(() => validateAutonomousTaskManifest(manifest, "fixture.json")).toThrow(/leaks expected evidence/i);
   });
 
+  test("rejects success criteria that leak expected evidence", () => {
+    const fileLeak = validManifest();
+    fileLeak.tasks[0].successCriteria = ["Fix src/click/globals.py without changing public APIs."];
+    expect(() => validateAutonomousTaskManifest(fileLeak, "fixture.json")).toThrow(/leaks expected evidence/i);
+
+    const symbolLeak = validManifest();
+    symbolLeak.tasks[0].successCriteria = ["resolve_color_default handles NO_COLOR correctly."];
+    expect(() => validateAutonomousTaskManifest(symbolLeak, "fixture.json")).toThrow(/leaks expected evidence/i);
+  });
+
+  test("rejects path traversal task ids before preparing run packets", async () => {
+    const manifest = validManifest();
+    manifest.tasks[0].id = "../outside";
+    expect(() => validateAutonomousTaskManifest(manifest, "fixture.json")).toThrow(/path-safe slug/i);
+
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-traversal-"));
+    await expect(
+      prepareAutonomousRunPacket(manifest.tasks[0], "agent-index", {
+        artifactsDir: root
+      })
+    ).rejects.toThrow(/path-safe slug/i);
+  });
+
   test("loads a manifest from disk", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-manifest-"));
     const manifestPath = path.join(root, "pilot.json");
@@ -128,7 +151,7 @@ describe("autonomous comparison manifest", () => {
 
     expect(packet.taskId).toBe("click-color-default-behavior");
     expect(packet.condition).toBe("agent-index");
-    expect(packet.runDir).toContain("click-color-default-behavior/agent-index");
+    expect(packet.runDir).toBe(path.join(root, "click-color-default-behavior", "agent-index"));
     expect(packet.promptPath).toBe(path.join(packet.runDir, "prompt.md"));
     expect(packet.reviewTemplatePath).toBe(path.join(packet.runDir, "review-template.json"));
 

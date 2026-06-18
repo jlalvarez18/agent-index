@@ -42,7 +42,15 @@ export async function prepareAutonomousRunPacket(
   condition: AutonomousCondition,
   options: PrepareAutonomousRunOptions
 ): Promise<AutonomousRunPacket> {
-  const runDir = path.join(options.artifactsDir, task.id, condition);
+  if (!isPathSafeSlug(task.id)) {
+    throw new Error(`autonomous task id "${task.id}" must be a path-safe slug`);
+  }
+
+  const artifactsDir = path.resolve(options.artifactsDir);
+  const runDir = path.resolve(artifactsDir, task.id, condition);
+  if (!isPathInside(runDir, artifactsDir)) {
+    throw new Error(`autonomous run directory must stay inside artifactsDir: ${runDir}`);
+  }
   await mkdir(runDir, { recursive: true });
 
   const promptPath = path.join(runDir, "prompt.md");
@@ -142,6 +150,9 @@ function validateTask(
     errors.push(`${source}: task id is required`);
     return;
   }
+  if (!isPathSafeSlug(task.id)) {
+    errors.push(`${source}: ${taskLabel}: task id must be a path-safe slug`);
+  }
   if (ids.has(task.id)) {
     errors.push(`${source}: duplicate task id "${task.id}"`);
   }
@@ -180,7 +191,11 @@ function validateTask(
     errors.push(`${source}: ${taskLabel}: notes must be a string`);
   }
 
-  if (typeof task.prompt === "string" && isExpectedEvidence(task.expectedEvidence)) {
+  if (
+    typeof task.prompt === "string" &&
+    isExpectedEvidence(task.expectedEvidence) &&
+    Array.isArray(task.successCriteria)
+  ) {
     const leaked = leakedEvidence(task as unknown as AutonomousTaskDefinition);
     if (leaked.length > 0) {
       errors.push(`${source}: ${taskLabel}: prompt leaks expected evidence: ${leaked.join(", ")}`);
@@ -189,12 +204,24 @@ function validateTask(
 }
 
 function leakedEvidence(task: AutonomousTaskDefinition): string[] {
-  const prompt = task.prompt.toLowerCase();
+  const agentVisibleText = [
+    task.prompt,
+    ...task.successCriteria.filter((criterion): criterion is string => typeof criterion === "string")
+  ].join("\n").toLowerCase();
   const evidence = [
     ...(task.expectedEvidence?.files ?? []),
     ...(task.expectedEvidence?.symbols ?? [])
   ].filter((value) => value.length > 0);
-  return evidence.filter((value) => prompt.includes(value.toLowerCase()));
+  return evidence.filter((value) => agentVisibleText.includes(value.toLowerCase()));
+}
+
+function isPathSafeSlug(value: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes("..");
+}
+
+function isPathInside(childPath: string, parentPath: string): boolean {
+  const relative = path.relative(parentPath, childPath);
+  return relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function conditionInstructions(condition: AutonomousCondition): string {

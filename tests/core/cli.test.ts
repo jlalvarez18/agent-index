@@ -162,6 +162,88 @@ describe("runCli", () => {
     expect(output[2].length).toBeLessThan(output[1].length);
   });
 
+  test("lists autonomous comparison tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-cli-list-"));
+    const manifestPath = path.join(root, "pilot.json");
+    const output: string[] = [];
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        name: "pilot",
+        tasks: [
+          {
+            id: "click-color-default-behavior",
+            repo: "click",
+            kind: "bugfix",
+            prompt: "Find and fix where Click decides default color behavior from environment state.",
+            successCriteria: ["NO_COLOR disables color by default."],
+            expectedEvidence: {
+              files: ["src/click/globals.py"],
+              symbols: ["resolve_color_default"]
+            }
+          }
+        ]
+      })
+    );
+
+    await runCli(["autonomous-list", manifestPath], { write: (line) => output.push(line) });
+
+    expect(output.join("\n")).toContain("pilot");
+    expect(output.join("\n")).toContain("click-color-default-behavior");
+    expect(output.join("\n")).toContain("graphify, agent-index, no-special-tool");
+  });
+
+  test("prepares an autonomous run packet", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-autonomous-cli-prepare-"));
+    const manifestPath = path.join(root, "pilot.json");
+    const artifactsDir = path.join(root, "artifacts");
+    const output: string[] = [];
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        version: 1,
+        name: "pilot",
+        tasks: [
+          {
+            id: "click-color-default-behavior",
+            repo: "click",
+            kind: "bugfix",
+            prompt: "Find and fix where Click decides default color behavior from environment state.",
+            successCriteria: ["NO_COLOR disables color by default."],
+            expectedEvidence: {
+              files: ["src/click/globals.py"],
+              symbols: ["resolve_color_default"]
+            }
+          }
+        ]
+      })
+    );
+
+    await runCli(
+      [
+        "autonomous-prepare",
+        manifestPath,
+        "--task",
+        "click-color-default-behavior",
+        "--condition",
+        "agent-index",
+        "--artifacts-dir",
+        artifactsDir
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    expect(output.join("\n")).toContain("prompt.md");
+    const prompt = await readFile(
+      path.join(artifactsDir, "click-color-default-behavior", "agent-index", "prompt.md"),
+      "utf8"
+    );
+    expect(prompt).toContain("agent-index is available");
+  });
+
   test("supports file-cluster summaries for low-token repository mapping", async () => {
     const { root } = await fixtureProject();
     const output: string[] = [];

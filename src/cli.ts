@@ -3,6 +3,11 @@ import { Command, CommanderError } from "commander";
 import { realpathSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { runAgentEval } from "./core/agent-eval.js";
+import {
+  autonomousConditions,
+  loadAutonomousTaskManifest,
+  prepareAutonomousRunPacket
+} from "./core/autonomous-comparison.js";
 import { runBenchmark } from "./core/benchmark.js";
 import { findFileClusters } from "./core/file-clusters.js";
 import { indexTarget } from "./core/indexer.js";
@@ -17,6 +22,7 @@ import { appendLessonTrace, appendQueryTrace, buildTraceReport, formatTraceRepor
 import type {
   AgentEvalResult,
   AgentQuery,
+  AutonomousCondition,
   BenchmarkQueryStyle,
   FileClusterResult,
   FileRole,
@@ -303,6 +309,43 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           graphifyResultsPath: options.graphifyResults
         });
       io.write(options.json ? JSON.stringify(result, null, 2) : formatAgentEval(result, Boolean(options.misses)));
+      }
+    );
+
+  program
+    .command("autonomous-list")
+    .argument("<manifest>", "autonomous comparison task manifest")
+    .action(async (manifestPath: string) => {
+      const manifest = await loadAutonomousTaskManifest(manifestPath);
+      io.write(formatAutonomousList(manifest));
+    });
+
+  program
+    .command("autonomous-prepare")
+    .argument("<manifest>", "autonomous comparison task manifest")
+    .requiredOption("--task <id>", "task id to prepare")
+    .requiredOption("--condition <condition>", "graphify, agent-index, or no-special-tool")
+    .requiredOption("--artifacts-dir <path>", "artifact root for run packets")
+    .option("--time-limit-minutes <minutes>", "wall-clock cap included in the prompt", "30")
+    .action(
+      async (
+        manifestPath: string,
+        options: { task: string; condition: string; artifactsDir: string; timeLimitMinutes: string }
+      ) => {
+        const manifest = await loadAutonomousTaskManifest(manifestPath);
+        const task = manifest.tasks.find((candidate) => candidate.id === options.task);
+        if (!task) {
+          throw new Error(`Unknown autonomous task: ${options.task}`);
+        }
+
+        const condition = parseAutonomousCondition(options.condition);
+        const packet = await prepareAutonomousRunPacket(task, condition, {
+          artifactsDir: options.artifactsDir,
+          timeLimitMinutes: Number.parseInt(options.timeLimitMinutes, 10)
+        });
+        io.write(`Prepared ${packet.taskId} / ${packet.condition}`);
+        io.write(`Prompt: ${packet.promptPath}`);
+        io.write(`Review template: ${packet.reviewTemplatePath}`);
       }
     );
 
@@ -671,6 +714,15 @@ function formatAgentEvalMisses(result: AgentEvalResult): string[] {
   ];
 }
 
+function formatAutonomousList(manifest: { name: string; tasks: Array<{ id: string; repo: string; kind: string }> }): string {
+  return [
+    `Autonomous comparison: ${manifest.name}`,
+    `Conditions: ${autonomousConditions.join(", ")}`,
+    "",
+    ...manifest.tasks.map((task) => `${task.id}\t${task.repo}\t${task.kind}`)
+  ].join("\n");
+}
+
 function formatNavigationEval(result: NavigationEvalResult, includeCases = false): string {
   const lines = [
     `Cases: ${result.cases}`,
@@ -954,6 +1006,13 @@ function parseQueryFormat(format: string): "json" | "compact" {
     return format;
   }
   throw new Error(`Invalid query format: ${format}. Expected "json" or "compact".`);
+}
+
+function parseAutonomousCondition(value: string): AutonomousCondition {
+  if (autonomousConditions.includes(value as AutonomousCondition)) {
+    return value as AutonomousCondition;
+  }
+  throw new Error(`Invalid autonomous condition: ${value}. Expected one of: ${autonomousConditions.join(", ")}.`);
 }
 
 function parseTestNavigationFormat(format: string, command: string): TestNavigationFormat {

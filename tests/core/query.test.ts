@@ -145,6 +145,161 @@ def verify_signature(payload, signature):
     expect(result.matches[0]).toMatchObject({ symbol: "load_value", kind: "function" });
   });
 
+  test("hybrid mode surfaces Ruby controller methods with namespace and path hints", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-ruby-"));
+    await mkdir(path.join(root, "app", "controllers", "admin"), { recursive: true });
+    await mkdir(path.join(root, "app", "serializers"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "controllers", "admin", "users_controller.rb"),
+      `module Admin
+  class UsersController < ApplicationController
+    def show
+      render json: UserSerializer.new(current_user)
+    end
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "app", "serializers", "user_serializer.rb"),
+      `class UserSerializer
+  def initialize(user)
+    @user = user
+  end
+end
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["Admin", "UsersController", "render", "current_user"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["app/controllers/admin"],
+        expand: ["parents"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "Admin::UsersController.show",
+      kind: "method",
+      file: "app/controllers/admin/users_controller.rb"
+    });
+    expect(result.matches[0].why).toContain("path hint match");
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "incoming_symbol_contains_symbol",
+          symbol: "Admin::UsersController"
+        })
+      ])
+    );
+  });
+
+  test("graph expansion surfaces resolved Ruby sibling method calls", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-ruby-sibling-calls-"));
+    await mkdir(path.join(root, "app", "jobs"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "jobs", "user_email_job.rb"),
+      `class UserEmailJob < ApplicationJob
+  def execute(args)
+    send_user_email(args)
+  end
+
+  def send_user_email(args)
+    message_for_email(args[:user])
+  end
+
+  def message_for_email(user)
+    UserMailer.digest(user).deliver_later
+  end
+end
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["execute", "send_user_email", "message_for_email"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["app/jobs"],
+        expand: ["callees"]
+      },
+      { target: root, mode: "hybrid", limit: 3 }
+    );
+
+    const execute = result.matches.find((match) => match.symbol === "UserEmailJob.execute");
+    expect(execute?.neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: "symbol_calls_name",
+          symbol: "UserEmailJob.send_user_email",
+          file: "app/jobs/user_email_job.rb"
+        })
+      ])
+    );
+  });
+
+  test("hybrid mode surfaces Ruby DSL task and Cucumber scenario symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-ruby-dsl-"));
+    await mkdir(path.join(root, "lib", "tasks"), { recursive: true });
+    await mkdir(path.join(root, "features"), { recursive: true });
+    await writeFile(
+      path.join(root, "lib", "tasks", "reports.rake"),
+      `namespace :reports do
+  desc "Refresh reporting cache"
+  task refresh: :environment do
+    Reports::RefreshJob.perform_now
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "features", "sign_in.feature"),
+      `Feature: User sign in
+  Scenario: Locked account
+    Given a locked account
+    Then sign in is denied
+`
+    );
+    await indexTarget(root);
+
+    const taskResult = await queryAgentIndex(
+      {
+        terms: ["reports", "refresh", "RefreshJob", "reporting cache"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["lib/tasks"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+    const scenarioResult = await queryAgentIndex(
+      {
+        terms: ["locked account", "sign in", "denied"],
+        symbolKinds: ["method"],
+        roles: ["test"],
+        pathHints: ["features"],
+        expand: []
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(taskResult.matches[0]).toMatchObject({
+      symbol: "rake.reports.refresh",
+      kind: "method",
+      file: "lib/tasks/reports.rake"
+    });
+    expect(scenarioResult.matches[0]).toMatchObject({
+      symbol: "feature.User_sign_in.locked_account",
+      kind: "method",
+      file: "features/sign_in.feature"
+    });
+  });
+
   test("hybrid mode surfaces typed generic TypeScript client and config symbols", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-typescript-generics-"));
     await mkdir(path.join(root, "src", "client"), { recursive: true });

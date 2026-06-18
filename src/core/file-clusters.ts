@@ -347,12 +347,16 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       if (cythonBoost > 0) {
         cluster.why.add("Cython navigation signal match");
       }
+      const railsBoost = railsClusterBoost(cluster, queryTerms);
+      if (railsBoost > 0) {
+        cluster.why.add("Rails navigation signal match");
+      }
       return {
         file: cluster.file,
         role: cluster.role,
         language: cluster.language,
         score: Number(
-          (cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost + kotlinBoost + buildToolBoost + cythonBoost).toFixed(2)
+          (cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost + kotlinBoost + buildToolBoost + cythonBoost + railsBoost).toFixed(2)
         ),
         matchedChunks: cluster.matchedChunks,
         contextChars: cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0),
@@ -363,6 +367,67 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       };
     })
     .sort((a, b) => b.score - a.score || b.matchedChunks - a.matchedChunks || a.file.localeCompare(b.file));
+}
+
+function railsClusterBoost(cluster: MutableCluster, queryTerms: string[]): number {
+  if (cluster.language !== "ruby") {
+    return 0;
+  }
+  const querySet = new Set(queryTerms);
+  if (
+    ![
+      "route",
+      "routes",
+      "controller",
+      "action",
+      "model",
+      "job",
+      "mailer",
+      "serializer",
+      "policy",
+      "authorize",
+      "authorization",
+      "request",
+      "spec",
+      "destroy",
+      "delete",
+      "create",
+      "update"
+    ].some((term) => querySet.has(term))
+  ) {
+    return 0;
+  }
+
+  const file = cluster.file;
+  const normalizedFile = normalize(file);
+  const symbolText = normalize(cluster.symbols.map((symbol) => symbol.name).join(" "));
+  const evidence = normalize(cluster.evidence ?? "");
+  const haystack = `${normalizedFile} ${symbolText} ${evidence}`;
+  let score = 0;
+
+  if (/^config\/routes\.rb$/u.test(file)) {
+    score += 18;
+  }
+  if (/^app\/controllers\/.*_controller\.rb$/u.test(file)) {
+    score += 18;
+  }
+  if (/^app\/models\/.*\.rb$/u.test(file)) {
+    score += 12;
+  }
+  if (/^app\/(?:jobs|mailers|serializers|policies)\/.*\.rb$/u.test(file)) {
+    score += 14;
+  }
+  if (/^app\/(?:controllers|models)\/concerns\/.*\.rb$/u.test(file)) {
+    score += 10;
+  }
+  if (/^db\/migrate\/.*\.rb$/u.test(file)) {
+    score += 10;
+  }
+  const evidenceTerms = ["authorize", "policy", "serializer", "perform", "queue", "mailer", "route", "resources", "destroy", "delete"].filter((term) =>
+    haystack.includes(term)
+  );
+  score += Math.min(evidenceTerms.length * 3, 12);
+  return Math.min(score, 30);
 }
 
 function rankedClusterSymbols(cluster: MutableCluster, agentQuery: AgentQuery): FileClusterMatch["symbols"] {
@@ -399,7 +464,10 @@ function symbolNameTermBoost(symbolName: string, agentQuery: AgentQuery): number
   const compactSymbol = normalizedSymbol.replace(/\s+/g, "");
   return normalizedQueryTerms(agentQuery).reduce((score, term) => {
     const compactTerm = term.replace(/\s+/g, "");
-    return normalizedSymbol.includes(term) || compactSymbol.includes(compactTerm) ? score + 20 : score;
+    const leaf = normalizedSymbol.split(/\s+/u).at(-1) ?? normalizedSymbol;
+    const compactLeaf = leaf.replace(/\s+/g, "");
+    const exactLeafBoost = leaf === term || compactLeaf === compactTerm ? 90 : 0;
+    return normalizedSymbol.includes(term) || compactSymbol.includes(compactTerm) ? score + 20 + exactLeafBoost : score;
   }, 0);
 }
 

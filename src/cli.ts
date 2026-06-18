@@ -680,6 +680,14 @@ function formatNavigationEval(result: NavigationEvalResult, includeCases = false
     `agent-index completion rate: ${result.agentIndexCompletionRate.toFixed(2)}`,
     `rg broad completion rate: ${result.rgCompletionRate.toFixed(2)}`,
     `rg optimized completion rate: ${result.rgOptimizedCompletionRate.toFixed(2)}`,
+    ...(result.agentToolUseCases > 0
+      ? [
+          `agent-index tool-use cases: ${result.agentToolUseCases}`,
+          `agent-index tool-use satisfied rate: ${result.agentToolUseSatisfiedRate.toFixed(2)}`,
+          `agent-index tool-use avg first useful latency: ${Math.round(result.agentToolUseAvgFirstUsefulLatencyMs)}ms`,
+          `agent-index tool-use avg completion context tokens: ${Math.round(result.agentToolUseAvgCompletionContextTokens)}`
+        ]
+      : []),
     `agent-index avg commands: ${result.agentIndexAvgCommands.toFixed(2)}`,
     `rg broad avg commands: ${result.rgAvgCommands.toFixed(2)}`,
     `rg optimized avg commands: ${result.rgOptimizedAvgCommands.toFixed(2)}`,
@@ -736,7 +744,10 @@ function formatNavigationEval(result: NavigationEvalResult, includeCases = false
           `agentFirstUsefulTokens=${formatTokens(navigationCase.agentIndex.firstUsefulContextTokens)}`,
           `agentCompleteCommand=${formatRank(navigationCase.agentIndex.completionCommand)}`,
           `agentCompleteMs=${formatLatency(navigationCase.agentIndex.completionLatencyMs)}`,
-          `agentCompleteTokens=${formatTokens(navigationCase.agentIndex.completionContextTokens)}`
+          `agentCompleteTokens=${formatTokens(navigationCase.agentIndex.completionContextTokens)}`,
+          navigationCase.agentToolUse
+            ? `agentToolUse=${navigationCase.agentToolUse.satisfied ? "yes" : "no"}`
+            : undefined
         ].join("  ")
       )
     );
@@ -756,6 +767,14 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
     `agent-index completion rate: ${result.agentIndexCompletionRate.toFixed(2)}`,
     `rg broad completion rate: ${result.rgCompletionRate.toFixed(2)}`,
     `rg optimized completion rate: ${result.rgOptimizedCompletionRate.toFixed(2)}`,
+    ...(result.agentToolUseCases > 0
+      ? [
+          `agent-index tool-use cases: ${result.agentToolUseCases}`,
+          `agent-index tool-use satisfied rate: ${result.agentToolUseSatisfiedRate.toFixed(2)}`,
+          `agent-index tool-use avg first useful latency: ${Math.round(result.agentToolUseAvgFirstUsefulLatencyMs)}ms`,
+          `agent-index tool-use avg completion context tokens: ${Math.round(result.agentToolUseAvgCompletionContextTokens)}`
+        ]
+      : []),
     `agent-index avg commands: ${result.agentIndexAvgCommands.toFixed(2)}`,
     `rg broad avg commands: ${result.rgAvgCommands.toFixed(2)}`,
     `rg optimized avg commands: ${result.rgOptimizedAvgCommands.toFixed(2)}`,
@@ -804,6 +823,9 @@ function formatNavigationSuite(result: NavigationSuiteResult, includeRepos = fal
           `agentFirstUsefulTokens=${Math.round(repo.result.agentIndexAvgFirstUsefulContextTokens)}`,
           `agentCompletionMs=${Math.round(repo.result.agentIndexAvgCompletionLatencyMs)}`,
           `agentCompletionTokens=${Math.round(repo.result.agentIndexAvgCompletionContextTokens)}`,
+          repo.result.agentToolUseCases > 0
+            ? `agentToolUse=${repo.result.agentToolUseSatisfiedRate.toFixed(2)}`
+            : undefined,
           `rgBroadTokens=${Math.round(repo.result.rgAvgContextTokens)}`,
           `rgOptimizedTokens=${Math.round(repo.result.rgOptimizedAvgContextTokens)}`,
           repo.runStats ? `agentLatency=${formatRunSpread(repo.runStats.agentIndexAvgLatencyMs)}` : undefined,

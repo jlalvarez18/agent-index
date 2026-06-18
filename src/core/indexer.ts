@@ -10,6 +10,7 @@ import { extractJson } from "./extractors/json.js";
 import { extractJava } from "./extractors/java.js";
 import { extractKotlin } from "./extractors/kotlin.js";
 import { extractPython } from "./extractors/python.js";
+import { extractRuby } from "./extractors/ruby.js";
 import { extractRust } from "./extractors/rust.js";
 import { extractSwift } from "./extractors/swift.js";
 import { extractToml } from "./extractors/toml.js";
@@ -46,6 +47,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "java") {
         return extractJava(file);
+      }
+      if (file.language === "ruby") {
+        return extractRuby(file);
       }
       if (file.language === "go") {
         return extractGo(file);

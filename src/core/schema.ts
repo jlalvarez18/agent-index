@@ -11,6 +11,7 @@ export type Language =
   | "swift"
   | "kotlin"
   | "java"
+  | "ruby"
   | "xml"
   | "toml";
 
@@ -347,10 +348,21 @@ export interface NavigationRgOptimizedPlan {
   steps: NavigationRgOptimizedPlanStep[];
 }
 
+export interface NavigationAgentToolUseExpectation {
+  expected: "agent-index-first" | "agent-index-early";
+  maxFirstUsefulCommand?: number;
+  maxCompletionCommand?: number;
+  maxFirstUsefulLatencyMs?: number;
+  maxCompletionLatencyMs?: number;
+  maxFirstUsefulContextTokens?: number;
+  maxCompletionContextTokens?: number;
+}
+
 export interface NavigationEvalCase {
   id: string;
   task: string;
   kind?: NavigationTaskKind;
+  agentToolUse?: NavigationAgentToolUseExpectation;
   agentIndexQueries?: AgentQuery[];
   agentIndexSteps?: NavigationAgentStep[];
   rgQueries: string[][];
@@ -379,6 +391,19 @@ export interface NavigationEvalStepResult {
   outputFiles?: string[];
   outputSymbols?: string[];
   outputTerms?: string[];
+}
+
+export interface NavigationAgentToolUseResult {
+  expected: NavigationAgentToolUseExpectation["expected"];
+  satisfied: boolean;
+  firstToolCommand: number | null;
+  firstUsefulCommand: number | null;
+  completionCommand: number | null;
+  firstUsefulLatencyMs: number | null;
+  completionLatencyMs: number | null;
+  firstUsefulContextTokens: number | null;
+  completionContextTokens: number | null;
+  reasons: string[];
 }
 
 export interface NavigationEvalWorkflowResult {
@@ -411,6 +436,7 @@ export interface NavigationEvalCaseResult {
   agentIndex: NavigationEvalWorkflowResult;
   rg: NavigationEvalWorkflowResult;
   rgOptimized: NavigationEvalWorkflowResult;
+  agentToolUse?: NavigationAgentToolUseResult;
   tokenSavings: number;
   tokenSavingsRatio: number | null;
   optimizedRgTokenSavings: number;
@@ -429,6 +455,12 @@ export interface NavigationEvalResult {
   agentIndexCompletionRate: number;
   rgCompletionRate: number;
   rgOptimizedCompletionRate: number;
+  agentToolUseCases: number;
+  agentToolUseSatisfiedRate: number;
+  agentToolUseAvgFirstUsefulLatencyMs: number;
+  agentToolUseAvgCompletionLatencyMs: number;
+  agentToolUseAvgFirstUsefulContextTokens: number;
+  agentToolUseAvgCompletionContextTokens: number;
   agentIndexAvgCommands: number;
   rgAvgCommands: number;
   rgOptimizedAvgCommands: number;
@@ -504,6 +536,12 @@ export interface NavigationSuiteResult {
   agentIndexCompletionRate: number;
   rgCompletionRate: number;
   rgOptimizedCompletionRate: number;
+  agentToolUseCases: number;
+  agentToolUseSatisfiedRate: number;
+  agentToolUseAvgFirstUsefulLatencyMs: number;
+  agentToolUseAvgCompletionLatencyMs: number;
+  agentToolUseAvgFirstUsefulContextTokens: number;
+  agentToolUseAvgCompletionContextTokens: number;
   agentIndexAvgCommands: number;
   rgAvgCommands: number;
   rgOptimizedAvgCommands: number;

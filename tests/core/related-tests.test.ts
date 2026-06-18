@@ -79,6 +79,112 @@ def test_client_factory():
     expect(result.matches[0].why).toContain("test imports source module");
   });
 
+  test("links Rails controllers to matching RSpec controller specs", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-ruby-"));
+    await mkdir(path.join(root, "app", "controllers", "admin"), { recursive: true });
+    await mkdir(path.join(root, "spec", "controllers"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "controllers", "admin", "users_controller.rb"),
+      `module Admin
+  class UsersController < ApplicationController
+    def show
+      render json: UserSerializer.new(current_user)
+    end
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "spec", "controllers", "users_controller_spec.rb"),
+      `RSpec.describe Admin::UsersController do
+  describe "#show" do
+    it "renders the current user" do
+      get :show
+      expect(response).to have_http_status(:ok)
+    end
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "spec", "controllers", "reports_controller_spec.rb"),
+      `RSpec.describe ReportsController do
+  it "is unrelated" do
+    expect(true).to eq(true)
+  end
+end
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "app/controllers/admin/users_controller.rb",
+      symbol: "Admin::UsersController.show",
+      terms: ["current user", "render"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "spec/controllers/users_controller_spec.rb"
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test path includes source stem", "test body mentions source symbol", "test body matches task terms"])
+    );
+    expect(result.matches).toHaveLength(1);
+  });
+
+  test("links Rails request specs to controller actions through RSpec source mentions and route calls", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-ruby-request-"));
+    await mkdir(path.join(root, "app", "controllers"), { recursive: true });
+    await mkdir(path.join(root, "config"), { recursive: true });
+    await mkdir(path.join(root, "spec", "requests"), { recursive: true });
+    await writeFile(
+      path.join(root, "config", "routes.rb"),
+      `Rails.application.routes.draw do
+  resources :users, only: [:destroy]
+end
+`
+    );
+    await writeFile(
+      path.join(root, "app", "controllers", "users_controller.rb"),
+      `class UsersController < ApplicationController
+  def destroy
+    DeleteUserJob.perform_later(params[:id])
+    redirect_to users_path
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "spec", "requests", "account_deletion_spec.rb"),
+      `RSpec.describe UsersController, type: :request do
+  let(:user) { create(:user) }
+
+  it "queues deletion from the destroy route" do
+    perform_enqueued_jobs do
+      delete user_path(user)
+    end
+  end
+end
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "app/controllers/users_controller.rb",
+      symbol: "UsersController.destroy",
+      terms: ["destroy", "delete", "queued", "route"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "spec/requests/account_deletion_spec.rb"
+    });
+    expect(result.matches[0].why).toEqual(expect.arrayContaining(["RSpec describes source symbol", "request spec exercises Rails route"]));
+  });
+
   test("links Cython source modules to Python tests that import their package sidecar", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-cython-"));
     await mkdir(path.join(root, "sklearn", "cluster"), { recursive: true });

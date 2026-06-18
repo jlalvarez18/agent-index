@@ -342,6 +342,124 @@ def dbscan_inner(const uint8_t[::1] is_core, object[:] neighborhoods, intp_t[::1
     expect(result.clusters[0].why).toContain("Cython navigation signal match");
   });
 
+  test("boosts Rails topology files for feature navigation tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-rails-"));
+    await mkdir(path.join(root, "app", "controllers"), { recursive: true });
+    await mkdir(path.join(root, "app", "models"), { recursive: true });
+    await mkdir(path.join(root, "app", "jobs"), { recursive: true });
+    await mkdir(path.join(root, "app", "mailers"), { recursive: true });
+    await mkdir(path.join(root, "app", "serializers"), { recursive: true });
+    await mkdir(path.join(root, "app", "policies"), { recursive: true });
+    await mkdir(path.join(root, "config"), { recursive: true });
+    await writeFile(
+      path.join(root, "config", "routes.rb"),
+      `Rails.application.routes.draw do
+  resources :users, only: [:destroy]
+end
+`
+    );
+    await writeFile(
+      path.join(root, "app", "controllers", "users_controller.rb"),
+      `class UsersController < ApplicationController
+  def destroy
+    authorize User
+    DeleteUserJob.perform_later(params[:id])
+    render json: UserSerializer.new(current_user)
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "app", "models", "user.rb"),
+      `class User < ApplicationRecord
+  has_many :audit_events
+  before_destroy :archive_profile
+end
+`
+    );
+    await writeFile(path.join(root, "app", "jobs", "delete_user_job.rb"), "class DeleteUserJob < ApplicationJob\n  queue_as :default\nend\n");
+    await writeFile(path.join(root, "app", "mailers", "user_mailer.rb"), "class UserMailer < ApplicationMailer\n  def deleted(user)\n  end\nend\n");
+    await writeFile(path.join(root, "app", "serializers", "user_serializer.rb"), "class UserSerializer\n  def initialize(user)\n  end\nend\n");
+    await writeFile(path.join(root, "app", "policies", "user_policy.rb"), "class UserPolicy\n  def destroy?\n    user.admin?\n  end\nend\n");
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["user", "destroy", "delete", "authorize", "serializer", "job", "mailer", "policy", "route"],
+        symbolKinds: ["class", "method"],
+        roles: ["source"],
+        pathHints: ["app", "config/routes"]
+      },
+      { target: root, limit: 7 }
+    );
+
+    expect(result.clusters.map((cluster) => cluster.file)).toEqual(
+      expect.arrayContaining([
+        "config/routes.rb",
+        "app/controllers/users_controller.rb",
+        "app/models/user.rb",
+        "app/jobs/delete_user_job.rb",
+        "app/mailers/user_mailer.rb",
+        "app/serializers/user_serializer.rb",
+        "app/policies/user_policy.rb"
+      ])
+    );
+    expect(result.clusters.filter((cluster) => cluster.why.includes("Rails navigation signal match")).map((cluster) => cluster.file)).toEqual(
+      expect.arrayContaining(["app/controllers/users_controller.rb", "config/routes.rb", "app/jobs/delete_user_job.rb"])
+    );
+  });
+
+  test("keeps explicitly requested Rails job methods in the cluster symbol shortlist", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-rails-job-symbols-"));
+    await mkdir(path.join(root, "app", "jobs", "regular"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "jobs", "regular", "user_email.rb"),
+      `module Jobs
+  class UserEmail < ::Jobs::Base
+    include Skippable
+    sidekiq_options queue: "low"
+
+    def quit_email_early?
+      SiteSetting.disable_emails == "yes"
+    end
+
+    def execute(args)
+      send_user_email(args)
+    end
+
+    def send_user_email(args)
+      message_for_email(args[:user], args[:type])
+    end
+
+    def set_skip_context(type)
+      @skip_context = type
+    end
+
+    def message_for_email(user, type)
+      return skip_message(SkippedEmailLog.reason_types[:user_email_seen_recently]) if type == "digest"
+      UserNotifications.digest(user)
+    end
+  end
+end
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["Jobs::UserEmail", "execute", "send_user_email", "message_for_email", "SkippedEmailLog", "sidekiq_options"],
+        symbolKinds: ["class", "method"],
+        roles: ["source"],
+        pathHints: ["app/jobs/regular/user_email.rb"]
+      },
+      { target: root, limit: 1 }
+    );
+
+    expect(result.clusters[0]?.symbols.map((symbol) => symbol.name)).toEqual(
+      expect.arrayContaining(["Jobs::UserEmail.execute", "Jobs::UserEmail.send_user_email", "Jobs::UserEmail.message_for_email"])
+    );
+  });
+
   test("boosts Gradle version catalog clusters for Kotlin alias ownership tasks", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-catalog-"));
     await mkdir(path.join(root, "gradle"), { recursive: true });

@@ -805,6 +805,15 @@ function scoreTestFile(
   if (symbol) {
     const normalizedSymbol = normalize(symbol);
     const symbolLeaf = normalize(symbol.includes(".") ? symbol.slice(symbol.lastIndexOf(".") + 1) : symbol);
+    const sourceClass = sourceClassName(symbol);
+    if (sourceClass && analysis.normalizedText.includes(normalize(sourceClass))) {
+      score += 32;
+      why.push("RSpec describes source symbol");
+    }
+    if (isRailsRequestSpec(row.path) && railsRequestSpecExercisesRoute(analysis.normalizedText, normalizedSource, symbolLeaf)) {
+      score += 28;
+      why.push("request spec exercises Rails route");
+    }
     if (analysis.normalizedText.includes(normalizedSymbol) || analysis.normalizedText.includes(symbolLeaf)) {
       score += 24;
       why.push("test body mentions source symbol");
@@ -835,6 +844,24 @@ function scoreTestFile(
     firstLine: firstUsefulLine(row.text, sourceStem, sourceModules, symbol, terms, fixtureArgs ?? [], parametrizeBlocks ?? []),
     symbols: splitCsv(row.symbols)
   };
+}
+
+function sourceClassName(symbol: string): string | undefined {
+  const owner = symbol.includes(".") ? symbol.slice(0, symbol.lastIndexOf(".")) : symbol;
+  const leaf = owner.split(/::|\./u).pop();
+  return leaf && /^[A-Z]/u.test(leaf) ? leaf : undefined;
+}
+
+function isRailsRequestSpec(filePath: string): boolean {
+  return /^spec\/requests\/.*_spec\.rb$/u.test(filePath);
+}
+
+function railsRequestSpecExercisesRoute(normalizedText: string, sourceFile: string, symbolLeaf: string): boolean {
+  const controllerStem = fileStem(sourceFile).replace(/\s*controller$/u, "");
+  return (
+    ["get", "post", "put", "patch", "delete"].some((verb) => normalizedText.includes(verb)) &&
+    (normalizedText.includes(`${controllerStem} path`) || normalizedText.includes(`${controllerStem} url`) || normalizedText.includes(symbolLeaf))
+  );
 }
 
 function mayUseRelatedFixture(text: string, normalizedText: string, sourceStem: string, symbol: string | undefined): boolean {

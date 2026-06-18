@@ -1,0 +1,88 @@
+[
+  {
+    "id": "rails-redirecting-controller-flow",
+    "task": "Trace how Rails controller redirects compute and protect redirect locations, then find the related controller redirect tests.",
+    "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionContextTokens": 800
+    },
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["redirect", "controller", "location", "allow_other_host", "unsafe", "response"],
+          "symbolKinds": ["module", "class", "method"],
+          "roles": ["source", "test"],
+          "pathHints": ["actionpack", "controller", "redirect"]
+        },
+        "limit": 5,
+        "testLimit": 4,
+        "testFanoutLimit": 3
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["redirect_to", "url_from", "allow_other_host", "UnsafeRedirectError", "redirect location"],
+          "symbolKinds": ["module", "class", "method"],
+          "roles": ["source"],
+          "pathHints": ["actionpack/lib/action_controller"]
+        },
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["redirect", "controller", "location", "allow_other_host", "unsafe", "response"],
+      ["redirect_to", "url_from", "allow_other_host", "UnsafeRedirectError", "test"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["redirect_to", "allow_other_host", "UnsafeRedirectError"],
+          "scope": "source",
+          "paths": ["actionpack/lib/action_controller"],
+          "globs": ["*.rb"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["redirect_to", "url_from", "allow_other_host", "redirect location"],
+          "before": 10,
+          "after": 18,
+          "limit": 5
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["redirect", "allow_other_host", "unsafe", "location"],
+          "scope": "test",
+          "paths": ["actionpack/test"],
+          "globs": ["*_test.rb", "*test*.rb"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 3,
+          "terms": ["redirect_to", "allow_other_host", "unsafe", "location"],
+          "before": 8,
+          "after": 12,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": ["actionpack/lib/action_controller/metal/redirecting.rb", "actionpack/test/controller/redirect_test.rb"],
+      "symbols": [
+        "ActionController::Redirecting",
+        "ActionController::Redirecting.redirect_to",
+        "ActionController::Redirecting.url_from"
+      ],
+      "requiredFiles": ["actionpack/lib/action_controller/metal/redirecting.rb", "actionpack/test/controller/redirect_test.rb"],
+      "requiredSymbols": ["ActionController::Redirecting.redirect_to", "ActionController::Redirecting.url_from"]
+    }
+  }
+]

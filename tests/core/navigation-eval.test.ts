@@ -64,6 +64,166 @@ ${Array.from(
 }
 
 describe("runNavigationEval", () => {
+  test("measures agent-index tool use for realistic bugfix and feature workflows", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-tool-use-"));
+    await mkdir(path.join(root, "app", "controllers"), { recursive: true });
+    await mkdir(path.join(root, "app", "jobs"), { recursive: true });
+    await mkdir(path.join(root, "spec", "requests"), { recursive: true });
+    await mkdir(path.join(root, "spec", "jobs"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "controllers", "redirects_controller.rb"),
+      `class RedirectsController < ApplicationController
+  def create
+    redirect_to safe_redirect_url(params[:next])
+  end
+
+  def safe_redirect_url(next_url)
+    url_from(next_url) || root_path
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "spec", "requests", "redirects_spec.rb"),
+      `RSpec.describe RedirectsController do
+  describe "POST /redirects" do
+    it "falls back for unsafe redirect targets" do
+      post "/redirects", params: { next: "https://evil.example" }
+      expect(response).to redirect_to("/")
+    end
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "app", "jobs", "welcome_email_job.rb"),
+      `class WelcomeEmailJob < ApplicationJob
+  queue_as :mailers
+
+  def perform(user_id)
+    user = User.find(user_id)
+    UserMailer.welcome(user).deliver_later
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "spec", "jobs", "welcome_email_job_spec.rb"),
+      `RSpec.describe WelcomeEmailJob do
+  it "enqueues welcome mail delivery" do
+    perform_enqueued_jobs do
+      described_class.perform_later(123)
+    end
+  end
+end
+`
+    );
+    await indexTarget(root);
+
+    const evalRoot = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-eval-tool-use-file-"));
+    const navigationEvalPath = path.join(evalRoot, "navigation-eval.json");
+    await writeFile(
+      navigationEvalPath,
+      JSON.stringify(
+        [
+          {
+            id: "rails-redirect-bugfix-tool-use",
+            task: "Bug fix: unsafe redirect targets should fall back to the application root. Use code navigation before editing.",
+            kind: "bugfix",
+            agentToolUse: {
+              expected: "agent-index-first",
+              maxFirstUsefulCommand: 1,
+              maxCompletionContextTokens: 500
+            },
+            agentIndexSteps: [
+              {
+                type: "file-clusters",
+                query: {
+                  terms: ["unsafe redirect", "safe_redirect_url", "url_from", "redirect_to"],
+                  symbolKinds: ["class", "method"],
+                  roles: ["source"],
+                  pathHints: ["app/controllers"]
+                },
+                limit: 3
+              },
+              {
+                type: "related-tests",
+                sourceFromStep: 1,
+                terms: ["unsafe redirect", "redirect_to", "request"],
+                limit: 3
+              }
+            ],
+            rgQueries: [["unsafe redirect", "safe_redirect_url", "url_from", "redirect_to"]],
+            expected: {
+              files: ["app/controllers/redirects_controller.rb", "spec/requests/redirects_spec.rb"],
+              symbols: ["RedirectsController.safe_redirect_url"],
+              requiredFiles: ["app/controllers/redirects_controller.rb", "spec/requests/redirects_spec.rb"],
+              requiredSymbols: ["RedirectsController.safe_redirect_url"]
+            }
+          },
+          {
+            id: "rails-job-feature-tool-use",
+            task: "Feature: add instrumentation around welcome email delivery. Use code navigation before editing.",
+            kind: "feature",
+            agentToolUse: {
+              expected: "agent-index-first",
+              maxFirstUsefulCommand: 1,
+              maxCompletionContextTokens: 500
+            },
+            agentIndexSteps: [
+              {
+                type: "source-tests",
+                query: {
+                  terms: ["WelcomeEmailJob", "welcome mail", "perform_enqueued_jobs", "deliver_later"],
+                  symbolKinds: ["class", "method"],
+                  roles: ["source", "test"],
+                  pathHints: ["app/jobs", "spec/jobs"]
+                },
+                limit: 3,
+                testLimit: 3
+              }
+            ],
+            rgQueries: [["WelcomeEmailJob", "welcome mail", "perform_enqueued_jobs", "deliver_later"]],
+            expected: {
+              files: ["app/jobs/welcome_email_job.rb", "spec/jobs/welcome_email_job_spec.rb"],
+              symbols: ["WelcomeEmailJob.perform"],
+              requiredFiles: ["app/jobs/welcome_email_job.rb", "spec/jobs/welcome_email_job_spec.rb"],
+              requiredSymbols: ["WelcomeEmailJob.perform"]
+            }
+          }
+        ],
+        null,
+        2
+      )
+    );
+
+    const result = await runNavigationEval(navigationEvalPath, {
+      target: root,
+      mode: "hybrid"
+    });
+
+    expect(result.agentToolUseCases).toBe(2);
+    expect(result.agentToolUseSatisfiedRate).toBe(1);
+    expect(result.agentToolUseAvgFirstUsefulLatencyMs).toEqual(expect.any(Number));
+    expect(result.agentToolUseAvgCompletionContextTokens).toBeLessThanOrEqual(500);
+    expect(result.caseResults.map((caseResult) => caseResult.agentToolUse)).toEqual([
+      expect.objectContaining({
+        expected: "agent-index-first",
+        satisfied: true,
+        firstToolCommand: 1,
+        firstUsefulCommand: 1,
+        completionContextTokens: expect.any(Number)
+      }),
+      expect.objectContaining({
+        expected: "agent-index-first",
+        satisfied: true,
+        firstToolCommand: 1,
+        firstUsefulCommand: 1,
+        completionContextTokens: expect.any(Number)
+      })
+    ]);
+  });
+
   test("compares compact agent-index navigation against real rg output", async () => {
     const { root, navigationEvalPath } = await fixtureProject();
 

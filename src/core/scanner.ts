@@ -111,6 +111,14 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     ".kt",
     ".kts",
     ".java",
+    ".rb",
+    ".rake",
+    ".gemspec",
+    ".feature",
+    "Gemfile",
+    "Rakefile",
+    "config.ru",
+    "rails",
     ".xml",
     ".toml"
   ]);
@@ -205,6 +213,18 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".java") {
     return "java";
   }
+  if (
+    suffix === ".rb" ||
+    suffix === ".rake" ||
+    suffix === ".gemspec" ||
+    suffix === ".feature" ||
+    suffix === "Gemfile" ||
+    suffix === "Rakefile" ||
+    suffix === "config.ru" ||
+    suffix === "rails"
+  ) {
+    return "ruby";
+  }
   if (suffix === ".xml") {
     return "xml";
   }
@@ -256,6 +276,7 @@ export function classifyFileRole(relativePath: string): FileRole {
   const segments = relativePath.split("/").filter(Boolean);
   if (
     segments.some((segment, index) => TEST_DIRS.has(segment) || (index === 0 && segment === "t")) ||
+    (segments[0] === "features" && path.posix.basename(relativePath).endsWith(".feature")) ||
     isJavaScriptTestFile(relativePath) ||
     isGoTestFile(relativePath) ||
     isRustTestFile(relativePath) ||
@@ -276,6 +297,9 @@ export function classifyFileRole(relativePath: string): FileRole {
   }
   if (segments.some((segment, index) => isSupportRoleSegment(segments, index, FIXTURE_DIRS))) {
     return "fixture";
+  }
+  if (segments[0] === "bin") {
+    return "tool";
   }
   if (segments.some((segment, index) => isSupportRoleSegment(segments, index, TOOL_DIRS))) {
     return "tool";

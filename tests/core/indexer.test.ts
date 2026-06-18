@@ -136,6 +136,100 @@ impl ComputedFields {
     );
   });
 
+  test("indexes Ruby source files with qualified symbols and edges", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-ruby-"));
+    await mkdir(path.join(root, "app", "controllers", "admin"), { recursive: true });
+    await mkdir(path.join(root, "spec", "controllers"), { recursive: true });
+    await writeFile(
+      path.join(root, "app", "controllers", "admin", "users_controller.rb"),
+      `require "json"
+
+module Admin
+  class UsersController < ApplicationController
+    include Auditable
+
+    def show
+      audit_show
+      render json: UserSerializer.new(current_user)
+    end
+
+    def audit_show
+      AuditLogger.info("show")
+    end
+  end
+end
+`
+    );
+    await writeFile(
+      path.join(root, "spec", "controllers", "users_controller_spec.rb"),
+      `RSpec.describe Admin::UsersController do
+  it "renders the current user" do
+    get :show
+  end
+end
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where qualified_name like 'Admin%' order by qualified_name")
+      .all();
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, e.target_name, e.kind
+        from edges e
+        left join symbols source on source.id = e.source_symbol_id
+        order by source.qualified_name, e.kind, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "app/controllers/admin/users_controller.rb", language: "ruby", role: "source" },
+      { path: "spec/controllers/users_controller_spec.rb", language: "ruby", role: "test" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "Admin", kind: "module" },
+        { qualified_name: "Admin::UsersController", kind: "class" },
+        { qualified_name: "Admin::UsersController.show", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        {
+          source: "app/controllers/admin/users_controller.rb",
+          target_name: "json",
+          kind: "symbol_imports_module"
+        },
+        {
+          source: "Admin::UsersController",
+          target_name: "ApplicationController",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "Admin::UsersController",
+          target_name: "Auditable",
+          kind: "symbol_conforms_to"
+        },
+        {
+          source: "Admin::UsersController.show",
+          target_name: "Admin::UsersController.audit_show",
+          kind: "symbol_calls_name"
+        },
+        {
+          source: "Admin::UsersController.show",
+          target_name: "UserSerializer",
+          kind: "symbol_calls_name"
+        }
+      ])
+    );
+  });
+
   test("indexes Rust crate metadata and resolves trait implementations across files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-rust-traits-"));
     await mkdir(path.join(root, "src", "runtime"), { recursive: true });

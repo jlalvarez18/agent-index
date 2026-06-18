@@ -336,6 +336,20 @@
     "mode": "hybrid"
   },
   {
+    "name": "rails-ruby",
+    "evalPath": "rails-redirecting-controller-flow.json",
+    "target": "rails",
+    "repoUrl": "https://github.com/rails/rails.git",
+    "mode": "hybrid"
+  },
+  {
+    "name": "discourse-ruby",
+    "evalPath": "discourse-user-email-job-flow.json",
+    "target": "discourse",
+    "repoUrl": "https://github.com/discourse/discourse.git",
+    "mode": "hybrid"
+  },
+  {
     "name": "redis-c",
     "evalPath": "redis-dict-rehash-c.json",
     "target": "redis",

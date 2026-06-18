@@ -144,11 +144,28 @@ Relative `evalPath`, `target`, and `indexPath` values resolve relative to the ma
 - `firstUsefulRank`: where the useful hit appeared in that command's output.
 - `missingFiles` / `missingSymbols`: what the workflow still lacks for task-completion coverage.
 - `contextTokens`: deterministic `ceil(chars / 4)` estimate of what the agent had to read.
+- `agentToolUse`: optional per-case expectation for realistic bugfix or feature workflows where the authored agent workflow should call agent-index first or early before editing.
+- `agentToolUseSatisfiedRate`: suite-level rate for cases whose agent-index workflow met the configured first-useful, completion, latency, and context bounds.
 - `winner`: favors the workflow that finds useful code with fewer context tokens without taking more commands to get there.
 
 Use `expected.files` and `expected.symbols` for acceptable useful hits. Use `expected.requiredFiles` and `expected.requiredSymbols` for the files/symbols required to call the navigation task complete. If required fields are omitted, completion uses all expected files and symbols.
 
 Older fixtures may still use `agentIndexQueries`; the runner treats each query as a `query` step. New fixtures should prefer `agentIndexSteps` so they can measure realistic map -> source -> tests workflows.
+First-class language fixtures should include at least one bugfix or feature case with `agentToolUse`, for example:
+
+```json
+{
+  "kind": "bugfix",
+  "agentToolUse": {
+    "expected": "agent-index-first",
+    "maxFirstUsefulCommand": 1,
+    "maxCompletionContextTokens": 800
+  }
+}
+```
+
+This does not simulate a full autonomous LLM. It measures the contract we can keep stable in CI: the authored coding-agent workflow reaches for agent-index at the start of a realistic task and gets useful, bounded context before an edit would happen.
+
 For `related-tests`, either pass `sourceFile` explicitly or use `sourceFromStep` with a 1-based prior step number. `sourceFromStep` derives the source file from the actual prior output, which is better for blind map -> test workflows.
 Use `rgOptimizedSteps` to model a stronger rg workflow explicitly. A `files` step runs filename narrowing like `rg --files-with-matches`; a `snippets` step reads bounded context from explicit files or from a prior file-list step. Keep these steps authored in the fixture rather than inferred from expected files.
 

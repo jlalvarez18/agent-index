@@ -5,6 +5,7 @@ import path from "node:path";
 import type {
   AgentQuery,
   FileClusterMatch,
+  NavigationAgentToolUseResult,
   NavigationEvalCase,
   NavigationEvalCaseResult,
   NavigationEvalResult,
@@ -567,6 +568,7 @@ function scoreNavigationCase(
 ): NavigationEvalCaseResult {
   const tokenSavings = rg.contextTokens - agentIndex.contextTokens;
   const optimizedRgTokenSavings = rgOptimized.contextTokens - agentIndex.contextTokens;
+  const agentToolUse = navigationCase.agentToolUse ? scoreAgentToolUse(navigationCase.agentToolUse, agentIndex) : undefined;
   return {
     id: navigationCase.id,
     task: navigationCase.task,
@@ -576,6 +578,7 @@ function scoreNavigationCase(
     agentIndex,
     rg,
     rgOptimized,
+    ...(agentToolUse ? { agentToolUse } : {}),
     tokenSavings,
     tokenSavingsRatio: rg.contextTokens === 0 ? null : Number((tokenSavings / rg.contextTokens).toFixed(4)),
     optimizedRgTokenSavings,
@@ -597,6 +600,15 @@ function summarizeNavigationCases(caseResults: NavigationEvalCaseResult[]): Navi
     agentIndexCompletionRate: ratio(caseResults.filter((result) => result.agentIndex.taskComplete).length, caseResults.length),
     rgCompletionRate: ratio(caseResults.filter((result) => result.rg.taskComplete).length, caseResults.length),
     rgOptimizedCompletionRate: ratio(caseResults.filter((result) => result.rgOptimized.taskComplete).length, caseResults.length),
+    agentToolUseCases: toolUseResults(caseResults).length,
+    agentToolUseSatisfiedRate: ratio(
+      toolUseResults(caseResults).filter((toolUse) => toolUse.satisfied).length,
+      toolUseResults(caseResults).length
+    ),
+    agentToolUseAvgFirstUsefulLatencyMs: averagePresent(toolUseResults(caseResults).map((toolUse) => toolUse.firstUsefulLatencyMs)),
+    agentToolUseAvgCompletionLatencyMs: averagePresent(toolUseResults(caseResults).map((toolUse) => toolUse.completionLatencyMs)),
+    agentToolUseAvgFirstUsefulContextTokens: averagePresent(toolUseResults(caseResults).map((toolUse) => toolUse.firstUsefulContextTokens)),
+    agentToolUseAvgCompletionContextTokens: averagePresent(toolUseResults(caseResults).map((toolUse) => toolUse.completionContextTokens)),
     agentIndexAvgCommands: ratio(caseResults.reduce((sum, result) => sum + result.agentIndex.commands, 0), caseResults.length),
     rgAvgCommands: ratio(caseResults.reduce((sum, result) => sum + result.rg.commands, 0), caseResults.length),
     rgOptimizedAvgCommands: ratio(caseResults.reduce((sum, result) => sum + result.rgOptimized.commands, 0), caseResults.length),
@@ -639,6 +651,93 @@ function summarizeNavigationCases(caseResults: NavigationEvalCaseResult[]): Navi
     optimizedRgInconclusive: caseResults.filter((result) => result.optimizedRgWinner === "inconclusive").length,
     caseResults
   };
+}
+
+function scoreAgentToolUse(
+  expectation: NonNullable<NavigationEvalCase["agentToolUse"]>,
+  agentIndex: NavigationEvalWorkflowResult
+): NavigationAgentToolUseResult {
+  const firstToolCommand = agentIndex.commands > 0 ? 1 : null;
+  const maxFirstUsefulCommand =
+    expectation.maxFirstUsefulCommand ?? (expectation.expected === "agent-index-first" ? 1 : 2);
+  const reasons: string[] = [];
+
+  if (firstToolCommand === null) {
+    reasons.push("agent-index was not called");
+  } else if (expectation.expected === "agent-index-first" && firstToolCommand !== 1) {
+    reasons.push(`agent-index first call was command ${firstToolCommand}, expected command 1`);
+  }
+
+  if (agentIndex.firstUsefulCommand === null) {
+    reasons.push("agent-index did not find a useful file or symbol");
+  } else if (agentIndex.firstUsefulCommand > maxFirstUsefulCommand) {
+    reasons.push(`first useful agent-index result was command ${agentIndex.firstUsefulCommand}, expected <= ${maxFirstUsefulCommand}`);
+  }
+
+  if (expectation.maxCompletionCommand !== undefined) {
+    if (agentIndex.completionCommand === null) {
+      reasons.push("agent-index did not complete the task");
+    } else if (agentIndex.completionCommand > expectation.maxCompletionCommand) {
+      reasons.push(`agent-index completed at command ${agentIndex.completionCommand}, expected <= ${expectation.maxCompletionCommand}`);
+    }
+  }
+
+  if (expectation.maxFirstUsefulLatencyMs !== undefined) {
+    if (agentIndex.firstUsefulLatencyMs === null) {
+      reasons.push("agent-index has no first-useful latency");
+    } else if (agentIndex.firstUsefulLatencyMs > expectation.maxFirstUsefulLatencyMs) {
+      reasons.push(
+        `agent-index first-useful latency was ${Math.round(agentIndex.firstUsefulLatencyMs)}ms, expected <= ${expectation.maxFirstUsefulLatencyMs}ms`
+      );
+    }
+  }
+
+  if (expectation.maxCompletionLatencyMs !== undefined) {
+    if (agentIndex.completionLatencyMs === null) {
+      reasons.push("agent-index has no completion latency");
+    } else if (agentIndex.completionLatencyMs > expectation.maxCompletionLatencyMs) {
+      reasons.push(
+        `agent-index completion latency was ${Math.round(agentIndex.completionLatencyMs)}ms, expected <= ${expectation.maxCompletionLatencyMs}ms`
+      );
+    }
+  }
+
+  if (expectation.maxFirstUsefulContextTokens !== undefined) {
+    if (agentIndex.firstUsefulContextTokens === null) {
+      reasons.push("agent-index has no first-useful context token count");
+    } else if (agentIndex.firstUsefulContextTokens > expectation.maxFirstUsefulContextTokens) {
+      reasons.push(
+        `agent-index first-useful context was ${agentIndex.firstUsefulContextTokens} tokens, expected <= ${expectation.maxFirstUsefulContextTokens}`
+      );
+    }
+  }
+
+  if (expectation.maxCompletionContextTokens !== undefined) {
+    if (agentIndex.completionContextTokens === null) {
+      reasons.push("agent-index has no completion context token count");
+    } else if (agentIndex.completionContextTokens > expectation.maxCompletionContextTokens) {
+      reasons.push(
+        `agent-index completion context was ${agentIndex.completionContextTokens} tokens, expected <= ${expectation.maxCompletionContextTokens}`
+      );
+    }
+  }
+
+  return {
+    expected: expectation.expected,
+    satisfied: reasons.length === 0,
+    firstToolCommand,
+    firstUsefulCommand: agentIndex.firstUsefulCommand,
+    completionCommand: agentIndex.completionCommand,
+    firstUsefulLatencyMs: agentIndex.firstUsefulLatencyMs,
+    completionLatencyMs: agentIndex.completionLatencyMs,
+    firstUsefulContextTokens: agentIndex.firstUsefulContextTokens,
+    completionContextTokens: agentIndex.completionContextTokens,
+    reasons
+  };
+}
+
+function toolUseResults(caseResults: NavigationEvalCaseResult[]): NavigationAgentToolUseResult[] {
+  return caseResults.map((result) => result.agentToolUse).filter((toolUse): toolUse is NavigationAgentToolUseResult => Boolean(toolUse));
 }
 
 function summarizeWorkflow(steps: NavigationEvalStepResult[], navigationCase?: NavigationEvalCase): NavigationEvalWorkflowResult {

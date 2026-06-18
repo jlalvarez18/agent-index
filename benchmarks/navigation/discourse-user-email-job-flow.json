@@ -1,0 +1,127 @@
+[
+  {
+    "id": "discourse-user-email-job-flow",
+    "task": "Trace Discourse user email delivery from the background job through skip conditions, Guardian visibility checks, mailer dispatch, and the job spec coverage.",
+    "kind": "component-navigation",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionContextTokens": 900
+    },
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["Jobs::UserEmail", "execute", "send_user_email", "message_for_email", "SkippedEmailLog", "Guardian", "sidekiq_options"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["app/jobs/regular"],
+          "pathMode": "filter"
+        },
+        "limit": 4
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 2,
+        "terms": ["Jobs::UserEmail", "digest", "recently seen", "disable emails", "Guardian", "SkippedEmailLog"],
+        "limit": 4
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["UserNotifications", "digest", "confirm_new_email", "email token", "mail"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["app/mailers"]
+        },
+        "limit": 6
+      },
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["UserStat", "UserOption", "digest_attempted_at", "email_digests", "mailing_list_mode"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["app/models"]
+        },
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["Jobs::UserEmail", "digest", "recently seen", "disable emails", "Guardian", "can_see", "UserNotifications", "SkippedEmailLog"],
+      ["UserNotifications", "digest", "confirm_new_email", "email token", "mail", "spec"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["class UserEmail", "Jobs::UserEmail", "sidekiq_options", "digest"],
+          "scope": "source",
+          "paths": ["app/jobs"],
+          "globs": ["*.rb"],
+          "limit": 20
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 1,
+          "terms": ["execute", "send_user_email", "message_for_email", "Guardian", "SkippedEmailLog"],
+          "before": 8,
+          "after": 18,
+          "limit": 8
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["Jobs::UserEmail", "digest", "recently seen", "disable emails"],
+          "scope": "test",
+          "paths": ["spec/jobs"],
+          "globs": ["*_spec.rb"],
+          "limit": 20
+        },
+        {
+          "type": "search-files",
+          "terms": ["class UserNotifications", "def digest", "confirm_new_email"],
+          "scope": "source",
+          "paths": ["app/mailers"],
+          "globs": ["*.rb"],
+          "limit": 10
+        },
+        {
+          "type": "read-snippets",
+          "fromStep": 4,
+          "terms": ["digest", "confirm_new_email", "mail"],
+          "before": 8,
+          "after": 16,
+          "limit": 5
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "app/jobs/regular/user_email.rb",
+        "spec/jobs/user_email_spec.rb",
+        "app/mailers/user_notifications.rb"
+      ],
+      "symbols": [
+        "Jobs::UserEmail",
+        "Jobs::UserEmail.execute",
+        "Jobs::UserEmail.send_user_email",
+        "Jobs::UserEmail.message_for_email",
+        "UserNotifications.digest"
+      ],
+      "requiredFiles": [
+        "app/jobs/regular/user_email.rb",
+        "spec/jobs/user_email_spec.rb",
+        "app/mailers/user_notifications.rb"
+      ],
+      "requiredSymbols": [
+        "Jobs::UserEmail.execute",
+        "Jobs::UserEmail.send_user_email",
+        "Jobs::UserEmail.message_for_email",
+        "UserNotifications.digest"
+      ]
+    }
+  }
+]

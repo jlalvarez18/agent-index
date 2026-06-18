@@ -147,6 +147,12 @@ function summarizeSuite(repoResults: NavigationSuiteRepoResult[], runs = 1): Nav
     agentIndexCompletionRate: weightedRate(repoResults, (result) => result.agentIndexCompletionRate),
     rgCompletionRate: weightedRate(repoResults, (result) => result.rgCompletionRate),
     rgOptimizedCompletionRate: weightedRate(repoResults, (result) => result.rgOptimizedCompletionRate),
+    agentToolUseCases: repoResults.reduce((sum, repo) => sum + repo.result.agentToolUseCases, 0),
+    agentToolUseSatisfiedRate: weightedToolUseRate(repoResults, (result) => result.agentToolUseSatisfiedRate),
+    agentToolUseAvgFirstUsefulLatencyMs: weightedToolUseRate(repoResults, (result) => result.agentToolUseAvgFirstUsefulLatencyMs),
+    agentToolUseAvgCompletionLatencyMs: weightedToolUseRate(repoResults, (result) => result.agentToolUseAvgCompletionLatencyMs),
+    agentToolUseAvgFirstUsefulContextTokens: weightedToolUseRate(repoResults, (result) => result.agentToolUseAvgFirstUsefulContextTokens),
+    agentToolUseAvgCompletionContextTokens: weightedToolUseRate(repoResults, (result) => result.agentToolUseAvgCompletionContextTokens),
     agentIndexAvgCommands: weightedRate(repoResults, (result) => result.agentIndexAvgCommands),
     rgAvgCommands: weightedRate(repoResults, (result) => result.rgAvgCommands),
     rgOptimizedAvgCommands: weightedRate(repoResults, (result) => result.rgOptimizedAvgCommands),
@@ -191,6 +197,18 @@ function weightedRate(
     return 0;
   }
   const weighted = repoResults.reduce((sum, repo) => sum + metric(repo.result) * repo.result.cases, 0);
+  return Number((weighted / cases).toFixed(4));
+}
+
+function weightedToolUseRate(
+  repoResults: NavigationSuiteRepoResult[],
+  metric: (result: NavigationSuiteRepoResult["result"]) => number
+): number {
+  const cases = repoResults.reduce((sum, repo) => sum + repo.result.agentToolUseCases, 0);
+  if (cases === 0) {
+    return 0;
+  }
+  const weighted = repoResults.reduce((sum, repo) => sum + metric(repo.result) * repo.result.agentToolUseCases, 0);
   return Number((weighted / cases).toFixed(4));
 }
 

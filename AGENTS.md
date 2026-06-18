@@ -62,10 +62,14 @@ For documentation-only changes, a full test run is usually optional, but run `np
 ## Engineering Rules
 
 - Prefer small, focused changes that match existing local patterns.
+- Dogfood agent-index when navigating this repository. For non-trivial codebase exploration, especially first-class language work, load/use the `using-agent-index` workflow before falling back to broad `rg`. Use `rg` for exact text checks, quick file listing, or when agent-index lacks coverage, but do not let `rg` replace the product's own navigation loop.
 - Keep extractors deterministic and dependency-light. Most non-Python extractors are line-based by design.
 - Update tests with behavior changes. Add extractor tests for syntax extraction, indexer tests for storage/edges, and query/navigation tests for ranking behavior.
 - Do not weaken benchmark expectations to make a result pass. If a real repo changed, update the fixture to match the current repo and document the correction.
 - Keep benchmark queries fair: no exact expected-file leakage in behavior-only cases, and model optimized `rg` as a realistic multi-step workflow.
+- For every first-class language addition or material language-support update, include both navigation workflow coverage and an end-to-end agent-use check when practical:
+  - Authored workflow evals with `agentToolUse` expectations measure whether a scripted agent-index workflow reaches useful context quickly. They are valuable, but they do not prove an autonomous agent will choose agent-index.
+  - A live-agent or subagent coding trial should give an agent a realistic bugfix or feature task in a real or representative repo, make agent-index available, and record whether the agent actually calls agent-index before broad search/editing. Capture first tool used, time/context to first useful file, files inspected, files edited, tests run, outcome, and where `rg` was still needed.
 - Do not commit generated local indexes, temporary benchmark artifacts, or cloned benchmark repositories.
 
 ## Adding Language Support
@@ -78,7 +82,10 @@ Use [docs/adding-language-support.md](docs/adding-language-support.md). The shor
 4. Dispatch it from [src/core/indexer.ts](src/core/indexer.ts).
 5. Add extractor, scanner, indexer, query, and navigation tests.
 6. Add at least one real-world benchmark if the language is meant to be first-class.
-7. Document benchmark results under `docs/findings/`.
+7. Add a dogfood note or findings entry describing how agent-index was used during the implementation itself, including any places where `rg` was still necessary.
+8. Add at least one bugfix or feature-style authored workflow eval with `agentToolUse` expectations, ideally on a real repository. This records first-useful latency, completion latency, first-useful context, and completion context for a scripted agent-index workflow.
+9. Run and document at least one live-agent or subagent coding trial for the language when practical. The trial should start from only a bugfix or feature request, not a prewritten agent-index query plan, and should report whether the agent chose agent-index before broad `rg`, what it found, what it edited, and whether verification passed.
+10. Document benchmark results and live-agent findings under `docs/findings/`.
 
 ## Query And Benchmark Guidance
 

@@ -243,7 +243,8 @@ describe("autonomous comparison manifest", () => {
       condition: "agent-index",
       success: "fail",
       specialToolHelped: "ignored",
-      indexing: {}
+      indexing: {},
+      dependencySetup: {}
     });
   });
 
@@ -407,5 +408,51 @@ describe("autonomous comparison manifest", () => {
     const invalidNotesRoot = await writeReviewArtifact(invalidNotes);
 
     await expect(loadAutonomousReviews(invalidNotesRoot)).rejects.toThrow(/indexing.notes/i);
+  });
+
+  test("accepts dependency setup and coordinator verification records", async () => {
+    const review = {
+      ...validReview(),
+      dependencySetup: {
+        dependencySetupWallTimeSeconds: 16.2,
+        dependencyArtifactBytes: 123456,
+        notes: "Installed dependencies from a warm local package cache before the autonomous timer."
+      },
+      coordinatorVerification: {
+        tests: "passed",
+        command: "pnpm --filter @tanstack/react-query test:lib src/__tests__/useInfiniteQuery.test.tsx --run",
+        notes: "Coordinator reran the same focused test after normalizing dependency setup."
+      }
+    };
+    const root = await writeReviewArtifact(review);
+
+    await expect(loadAutonomousReviews(root)).resolves.toHaveLength(1);
+  });
+
+  test("rejects invalid dependency setup and coordinator verification records", async () => {
+    const invalidDependencySetup = {
+      ...validReview(),
+      dependencySetup: {
+        dependencySetupWallTimeSeconds: -1
+      }
+    };
+    const invalidDependencySetupRoot = await writeReviewArtifact(invalidDependencySetup);
+
+    await expect(loadAutonomousReviews(invalidDependencySetupRoot)).rejects.toThrow(
+      /dependencySetup\.dependencySetupWallTimeSeconds/i
+    );
+
+    const invalidCoordinatorVerification = {
+      ...validReview(),
+      coordinatorVerification: {
+        tests: "green",
+        notes: ""
+      }
+    };
+    const invalidCoordinatorVerificationRoot = await writeReviewArtifact(invalidCoordinatorVerification);
+
+    await expect(loadAutonomousReviews(invalidCoordinatorVerificationRoot)).rejects.toThrow(
+      /coordinatorVerification/i
+    );
   });
 });

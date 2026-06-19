@@ -621,6 +621,18 @@ export interface AutonomousIndexMetrics {
   notes?: string;
 }
 
+export interface AutonomousDependencySetupMetrics {
+  dependencySetupWallTimeSeconds?: number;
+  dependencyArtifactBytes?: number;
+  notes?: string;
+}
+
+export interface AutonomousCoordinatorVerification {
+  tests: "passed" | "failed" | "not-run" | "not-applicable";
+  command?: string;
+  notes: string;
+}
+
 export interface AutonomousReviewRecord {
   taskId: string;
   condition: AutonomousCondition;
@@ -641,6 +653,8 @@ export interface AutonomousReviewRecord {
     | "other"
     | null;
   indexing?: AutonomousIndexMetrics;
+  dependencySetup?: AutonomousDependencySetupMetrics;
+  coordinatorVerification?: AutonomousCoordinatorVerification;
   wallTimeMinutes?: number;
   filesOpened?: number;
   contextTokens?: number;

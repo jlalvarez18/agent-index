@@ -57,6 +57,26 @@ For example, if the agent-index run starts from a fresh full index, the Graphify
 run should use the comparable cold-start setup policy for that task. If a warm
 index is reused, record that consistently for both tool conditions.
 
+## Dependency Setup Protocol
+
+Prepare target-repository dependencies before starting the autonomous task
+timer. Dependency setup is part of the trial preflight, not part of the
+navigation/editing run. Use the same cache, network, and permission policy for
+all three conditions.
+
+For example, if a pnpm workspace needs to hydrate `node_modules` from a warm
+local store, do that for the Graphify, agent-index, and no-special-tool
+checkouts before dispatching agents. Record the setup in `review.json`
+`dependencySetup`, including whether packages came from a warm local cache or
+required network access. Do not let one condition run tests with privileged cache
+access while another condition is scored as `not-run` for the same setup issue.
+
+Before dispatch, run a cheap neutral check that the target test runner starts,
+such as `pytest --version`, `pnpm --version`, or a test-list command. Avoid
+task-specific test selection during preflight unless the same command is used
+for every condition and recorded as setup verification rather than autonomous
+task work.
+
 ## Record A Review
 
 After the run, copy `review-template.json` to `review.json` in the run directory
@@ -81,6 +101,16 @@ when you can measure them without muddying the autonomous run timer.
     "indexedSymbols": 3081,
     "notes": "Measured before starting the autonomous run timer. Built a cold task-neutral index from the full target snapshot at commit 9f4c2d1."
   },
+  "dependencySetup": {
+    "dependencySetupWallTimeSeconds": 11,
+    "dependencyArtifactBytes": 52428800,
+    "notes": "Measured before starting the autonomous run timer. Installed dependencies from a warm local package cache with network disabled."
+  },
+  "coordinatorVerification": {
+    "tests": "passed",
+    "command": "pytest tests/test_globals.py",
+    "notes": "Coordinator reran the same focused tests after normalizing dependency setup across all conditions."
+  },
   "wallTimeMinutes": 14,
   "filesOpened": 5,
   "contextTokens": 1200,
@@ -90,6 +120,12 @@ when you can measure them without muddying the autonomous run timer.
 
 For the no-special-tool condition, leave `indexing` absent unless there is a
 separate setup cost worth recording in `notes`.
+
+Use `tests` for what the autonomous agent actually ran during its task. If the
+coordinator later reruns tests because setup was uneven, keep the agent's
+original test outcome in `tests` and record the later result in
+`coordinatorVerification`. When reporting results, call out coordinator reruns
+explicitly.
 
 ## Summarize Results
 

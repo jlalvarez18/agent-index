@@ -40,6 +40,10 @@ const autonomousIndexMetricFields = [
   "indexedSymbols",
   "indexedNodes"
 ];
+const autonomousDependencySetupMetricFields = [
+  "dependencySetupWallTimeSeconds",
+  "dependencyArtifactBytes"
+];
 
 export async function loadAutonomousTaskManifest(manifestPath: string): Promise<AutonomousTaskManifest> {
   return validateAutonomousTaskManifest(
@@ -194,6 +198,16 @@ export function validateAutonomousReviewRecord(
     errors.push(`${source}: indexing must be an object`);
   } else if (isRecord(review.indexing)) {
     validateIndexingMetrics(review.indexing, source, errors);
+  }
+  if (review.dependencySetup !== undefined && !isRecord(review.dependencySetup)) {
+    errors.push(`${source}: dependencySetup must be an object`);
+  } else if (isRecord(review.dependencySetup)) {
+    validateDependencySetupMetrics(review.dependencySetup, source, errors);
+  }
+  if (review.coordinatorVerification !== undefined && !isRecord(review.coordinatorVerification)) {
+    errors.push(`${source}: coordinatorVerification must be an object`);
+  } else if (isRecord(review.coordinatorVerification)) {
+    validateCoordinatorVerification(review.coordinatorVerification, source, errors);
   }
 
   if (errors.length > 0) {
@@ -381,6 +395,33 @@ function validateIndexingMetrics(
   }
 }
 
+function validateDependencySetupMetrics(
+  dependencySetup: Record<string, unknown>,
+  source: string,
+  errors: string[]
+): void {
+  for (const field of autonomousDependencySetupMetricFields) {
+    validateOptionalNonNegativeNumber(dependencySetup, field, source, errors, `dependencySetup.${field}`);
+  }
+  if (dependencySetup.notes !== undefined && typeof dependencySetup.notes !== "string") {
+    errors.push(`${source}: dependencySetup.notes must be a string`);
+  }
+}
+
+function validateCoordinatorVerification(
+  verification: Record<string, unknown>,
+  source: string,
+  errors: string[]
+): void {
+  requireEnum(verification, "tests", reviewTestValues, source, errors);
+  if (verification.command !== undefined && typeof verification.command !== "string") {
+    errors.push(`${source}: coordinatorVerification.command must be a string`);
+  }
+  if (typeof verification.notes !== "string" || verification.notes.trim().length === 0) {
+    errors.push(`${source}: coordinatorVerification.notes must be a non-empty string`);
+  }
+}
+
 async function findReviewFiles(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   const nested = await Promise.all(
@@ -520,6 +561,7 @@ function reviewTemplate(taskId: string, condition: AutonomousCondition): Autonom
     tests: "not-run",
     failureMode: null,
     indexing: {},
+    dependencySetup: {},
     notes: ""
   };
 }

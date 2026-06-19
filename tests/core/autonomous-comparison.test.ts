@@ -408,6 +408,16 @@ describe("autonomous comparison manifest", () => {
     const invalidNotesRoot = await writeReviewArtifact(invalidNotes);
 
     await expect(loadAutonomousReviews(invalidNotesRoot)).rejects.toThrow(/indexing.notes/i);
+
+    const unknownMetric = {
+      ...validReview(),
+      indexing: {
+        durationSeconds: 2
+      }
+    };
+    const unknownMetricRoot = await writeReviewArtifact(unknownMetric);
+
+    await expect(loadAutonomousReviews(unknownMetricRoot)).rejects.toThrow(/indexing\.durationSeconds/i);
   });
 
   test("accepts dependency setup and coordinator verification records", async () => {
@@ -453,6 +463,18 @@ describe("autonomous comparison manifest", () => {
 
     await expect(loadAutonomousReviews(invalidCoordinatorVerificationRoot)).rejects.toThrow(
       /coordinatorVerification/i
+    );
+
+    const unknownDependencySetup = {
+      ...validReview(),
+      dependencySetup: {
+        preflightCommand: "pnpm --version"
+      }
+    };
+    const unknownDependencySetupRoot = await writeReviewArtifact(unknownDependencySetup);
+
+    await expect(loadAutonomousReviews(unknownDependencySetupRoot)).rejects.toThrow(
+      /dependencySetup\.preflightCommand/i
     );
   });
 });

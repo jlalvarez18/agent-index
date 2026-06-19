@@ -44,6 +44,9 @@ const autonomousDependencySetupMetricFields = [
   "dependencySetupWallTimeSeconds",
   "dependencyArtifactBytes"
 ];
+const autonomousIndexMetricFieldSet = new Set([...autonomousIndexMetricFields, "notes"]);
+const autonomousDependencySetupMetricFieldSet = new Set([...autonomousDependencySetupMetricFields, "notes"]);
+const autonomousCoordinatorVerificationFieldSet = new Set(["tests", "command", "notes"]);
 
 export async function loadAutonomousTaskManifest(manifestPath: string): Promise<AutonomousTaskManifest> {
   return validateAutonomousTaskManifest(
@@ -387,6 +390,7 @@ function validateIndexingMetrics(
   source: string,
   errors: string[]
 ): void {
+  rejectUnknownFields(indexing, autonomousIndexMetricFieldSet, source, errors, "indexing");
   for (const field of autonomousIndexMetricFields) {
     validateOptionalNonNegativeNumber(indexing, field, source, errors, `indexing.${field}`);
   }
@@ -400,6 +404,7 @@ function validateDependencySetupMetrics(
   source: string,
   errors: string[]
 ): void {
+  rejectUnknownFields(dependencySetup, autonomousDependencySetupMetricFieldSet, source, errors, "dependencySetup");
   for (const field of autonomousDependencySetupMetricFields) {
     validateOptionalNonNegativeNumber(dependencySetup, field, source, errors, `dependencySetup.${field}`);
   }
@@ -413,12 +418,27 @@ function validateCoordinatorVerification(
   source: string,
   errors: string[]
 ): void {
+  rejectUnknownFields(verification, autonomousCoordinatorVerificationFieldSet, source, errors, "coordinatorVerification");
   requireEnum(verification, "tests", reviewTestValues, source, errors);
   if (verification.command !== undefined && typeof verification.command !== "string") {
     errors.push(`${source}: coordinatorVerification.command must be a string`);
   }
   if (typeof verification.notes !== "string" || verification.notes.trim().length === 0) {
     errors.push(`${source}: coordinatorVerification.notes must be a non-empty string`);
+  }
+}
+
+function rejectUnknownFields(
+  record: Record<string, unknown>,
+  allowedFields: ReadonlySet<string>,
+  source: string,
+  errors: string[],
+  label: string
+): void {
+  for (const field of Object.keys(record)) {
+    if (!allowedFields.has(field)) {
+      errors.push(`${source}: ${label}.${field} is not a supported field`);
+    }
   }
 }
 

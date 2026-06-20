@@ -658,6 +658,9 @@ export interface AutonomousReviewRecord {
   wallTimeMinutes?: number;
   filesOpened?: number;
   contextTokens?: number;
+  outputTokens?: number;
+  agentTurns?: number;
+  toolCalls?: number;
   notes: string;
 }
 
@@ -673,6 +676,9 @@ export interface AutonomousSummaryCondition {
   medianWallTimeMinutes: number | null;
   medianFilesOpened: number | null;
   medianContextTokens: number | null;
+  medianOutputTokens: number | null;
+  medianAgentTurns: number | null;
+  medianToolCalls: number | null;
 }
 
 export interface AutonomousSummaryResult {

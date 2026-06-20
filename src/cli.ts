@@ -748,10 +748,20 @@ function formatAutonomousSummary(summary: AutonomousSummaryResult): string {
         `fail=${row.fail}`,
         `avgQuality=${formatSummaryNumber(row.avgQuality)}`,
         `specialToolUsed=${Math.round(row.specialToolUsedRate * row.runs)}`,
-        `specialToolHelped=${Math.round(row.specialToolHelpedRate * row.runs)}`
+        `specialToolHelped=${Math.round(row.specialToolHelpedRate * row.runs)}`,
+        `medianWallTime=${formatNullableSummaryNumber(row.medianWallTimeMinutes)}`,
+        `medianTurns=${formatNullableSummaryNumber(row.medianAgentTurns)}`,
+        `medianToolCalls=${formatNullableSummaryNumber(row.medianToolCalls)}`,
+        `medianFilesOpened=${formatNullableSummaryNumber(row.medianFilesOpened)}`,
+        `medianContextTokens=${formatNullableSummaryNumber(row.medianContextTokens)}`,
+        `medianOutputTokens=${formatNullableSummaryNumber(row.medianOutputTokens)}`
       ].join(" ")
     )
   ].join("\n");
+}
+
+function formatNullableSummaryNumber(value: number | null): string {
+  return value === null ? "n/a" : formatSummaryNumber(value);
 }
 
 function formatSummaryNumber(value: number): string {

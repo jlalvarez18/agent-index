@@ -47,6 +47,9 @@ function validReview(): AutonomousReviewRecord {
     wallTimeMinutes: 12,
     filesOpened: 4,
     contextTokens: 900,
+    outputTokens: 250,
+    agentTurns: 6,
+    toolCalls: 14,
     notes: "good"
   };
 }
@@ -276,6 +279,9 @@ describe("autonomous comparison manifest", () => {
         wallTimeMinutes: 12,
         filesOpened: 4,
         contextTokens: 900,
+        outputTokens: 250,
+        agentTurns: 6,
+        toolCalls: 14,
         notes: "good"
       },
       {
@@ -291,6 +297,9 @@ describe("autonomous comparison manifest", () => {
         wallTimeMinutes: 30,
         filesOpened: 10,
         contextTokens: 2000,
+        outputTokens: 750,
+        agentTurns: 10,
+        toolCalls: 27,
         notes: "partial"
       },
       {
@@ -319,7 +328,10 @@ describe("autonomous comparison manifest", () => {
       specialToolHelpedRate: 0.5,
       medianWallTimeMinutes: 30,
       medianFilesOpened: 10,
-      medianContextTokens: 2000
+      medianContextTokens: 2000,
+      medianOutputTokens: 750,
+      medianAgentTurns: 10,
+      medianToolCalls: 27
     });
     expect(summary.failureModes).toMatchObject({
       "test-gap": 1,
@@ -418,6 +430,20 @@ describe("autonomous comparison manifest", () => {
     const unknownMetricRoot = await writeReviewArtifact(unknownMetric);
 
     await expect(loadAutonomousReviews(unknownMetricRoot)).rejects.toThrow(/indexing\.durationSeconds/i);
+  });
+
+  test("rejects review artifacts with invalid run measurements", async () => {
+    const badMeasurements = {
+      ...validReview(),
+      outputTokens: -1,
+      agentTurns: "many",
+      toolCalls: null
+    };
+    const root = await writeReviewArtifact(badMeasurements);
+
+    await expect(loadAutonomousReviews(root)).rejects.toThrow(/outputTokens/i);
+    await expect(loadAutonomousReviews(root)).rejects.toThrow(/agentTurns/i);
+    await expect(loadAutonomousReviews(root)).rejects.toThrow(/toolCalls/i);
   });
 
   test("accepts dependency setup and coordinator verification records", async () => {

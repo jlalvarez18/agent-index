@@ -308,6 +308,9 @@ describe("runCli", () => {
         wallTimeMinutes: 12,
         filesOpened: 4,
         contextTokens: 900,
+        outputTokens: 250,
+        agentTurns: 6,
+        toolCalls: 14,
         notes: "good"
       })
     );
@@ -317,6 +320,9 @@ describe("runCli", () => {
     expect(output.join("\n")).toContain("Runs: 1");
     expect(output.join("\n")).toContain("agent-index");
     expect(output.join("\n")).toContain("pass=1");
+    expect(output.join("\n")).toContain("medianTurns=6");
+    expect(output.join("\n")).toContain("medianToolCalls=14");
+    expect(output.join("\n")).toContain("medianContextTokens=900");
   });
 
   test("supports file-cluster summaries for low-token repository mapping", async () => {

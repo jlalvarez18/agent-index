@@ -139,6 +139,7 @@ export function renderAutonomousPrompt(
     "- Do not use internet access, credentials, or services outside the repository.",
     "- For explanation-only tasks, cite the relevant files and line numbers.",
     "- At the end, report what changed or what you found, and list tests run.",
+    "- At the end, record benchmark measurements in review.json: wallTimeMinutes, agentTurns, toolCalls, filesOpened, contextTokens, and outputTokens. Use best estimates when exact UI token counters are unavailable, and explain estimates in notes.",
     ""
   ].join("\n");
 }
@@ -196,6 +197,9 @@ export function validateAutonomousReviewRecord(
   validateOptionalNonNegativeNumber(review, "wallTimeMinutes", source, errors);
   validateOptionalNonNegativeNumber(review, "filesOpened", source, errors);
   validateOptionalNonNegativeNumber(review, "contextTokens", source, errors);
+  validateOptionalNonNegativeNumber(review, "outputTokens", source, errors);
+  validateOptionalNonNegativeNumber(review, "agentTurns", source, errors);
+  validateOptionalNonNegativeNumber(review, "toolCalls", source, errors);
   validateConditionToolClaims(review, source, errors);
   if (review.indexing !== undefined && !isRecord(review.indexing)) {
     errors.push(`${source}: indexing must be an object`);
@@ -261,7 +265,10 @@ function summarizeCondition(
         : conditionReviews.filter((review) => review.specialToolHelped === "yes").length / runs,
     medianWallTimeMinutes: upperMedian(conditionReviews.map((review) => review.wallTimeMinutes)),
     medianFilesOpened: upperMedian(conditionReviews.map((review) => review.filesOpened)),
-    medianContextTokens: upperMedian(conditionReviews.map((review) => review.contextTokens))
+    medianContextTokens: upperMedian(conditionReviews.map((review) => review.contextTokens)),
+    medianOutputTokens: upperMedian(conditionReviews.map((review) => review.outputTokens)),
+    medianAgentTurns: upperMedian(conditionReviews.map((review) => review.agentTurns)),
+    medianToolCalls: upperMedian(conditionReviews.map((review) => review.toolCalls))
   };
 }
 
@@ -582,6 +589,12 @@ function reviewTemplate(taskId: string, condition: AutonomousCondition): Autonom
     failureMode: null,
     indexing: {},
     dependencySetup: {},
+    wallTimeMinutes: undefined,
+    filesOpened: undefined,
+    contextTokens: undefined,
+    outputTokens: undefined,
+    agentTurns: undefined,
+    toolCalls: undefined,
     notes: ""
   };
 }

@@ -112,8 +112,11 @@ when you can measure them without muddying the autonomous run timer.
     "notes": "Coordinator reran the same focused tests after normalizing dependency setup across all conditions."
   },
   "wallTimeMinutes": 14,
+  "agentTurns": 8,
+  "toolCalls": 22,
   "filesOpened": 5,
   "contextTokens": 1200,
+  "outputTokens": 650,
   "notes": "Target commit 9f4c2d1. The agent used agent-index first, found the default-color logic, patched behavior, and ran focused tests."
 }
 ```
@@ -126,6 +129,14 @@ coordinator later reruns tests because setup was uneven, keep the agent's
 original test outcome in `tests` and record the later result in
 `coordinatorVerification`. When reporting results, call out coordinator reruns
 explicitly.
+
+Record benchmark measurements consistently:
+
+- `wallTimeMinutes`: elapsed wall-clock time from the agent receiving the prompt to its final answer.
+- `agentTurns`: assistant turns in the autonomous run.
+- `toolCalls`: total shell/file/edit/special-tool calls used by the agent.
+- `filesOpened`: distinct repository files inspected by the agent, excluding generated artifacts.
+- `contextTokens` and `outputTokens`: exact UI counters when available; otherwise best estimates, with the estimation method in `notes`.
 
 ## Summarize Results
 

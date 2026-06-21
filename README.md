@@ -207,7 +207,7 @@ Free-text lexical query remains available for debugging and human convenience:
 npm run agent-index -- query "where is the command entrypoint handled?" --target /path/to/python/repo
 ```
 
-The query command returns JSON with ranked matches, line ranges, scores, reasons, and nearby graph context. For lower-token agent navigation, use compact output:
+The query command returns JSON with ranked matches, line ranges, scores, reasons, and nearby graph context. Agents should prefer compact output for first-pass navigation, then use full JSON only for ranking audits, integrations, or debugging:
 
 ```bash
 npm run agent-index -- query "where is semantic cache loaded?" \
@@ -215,6 +215,39 @@ npm run agent-index -- query "where is semantic cache loaded?" \
   --mode hybrid \
   --format compact
 ```
+
+Compact output is designed to be decision-ready: each match includes an address, capped evidence, short reasons, at most a couple of related symbols, and the next file target to inspect. For example, the existing Flutter checkout fixture query:
+
+```bash
+node dist/cli.js query \
+  --target benchmarks/fixtures/flutter_shop \
+  --index-path /tmp/flutter-shop.sqlite \
+  --mode hybrid \
+  --term submit \
+  --term authorize \
+  --term paid \
+  --term failed \
+  --term notifyListeners \
+  --kind method \
+  --kind function \
+  --role source \
+  --path lib/src/checkout \
+  --expand parents \
+  --expand callees \
+  --limit 3 \
+  --format compact
+```
+
+Returns output shaped like:
+
+```text
+1 lib/src/checkout/checkout_controller.dart:24-41 method CheckoutController.submit evidence="notifyListeners();"
+  why: symbol name match, method name match, nearby graph edge
+  related: calls authorize, calls notifyListeners
+  next: open lib/src/checkout/checkout_controller.dart:24
+```
+
+For that representative query, compact output was 943 bytes versus 3,431 bytes for full JSON. The JSON output is still available with `--format json`.
 
 By default, `query` uses `symbol` mode. You can inspect the other ranking modes with:
 

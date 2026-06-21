@@ -157,7 +157,8 @@ describe("runCli", () => {
 
     expect(output[2].split("\n")[0]).toContain("1 pkg/cache.py:1-3 function load_value evidence=");
     expect(output[2]).toContain("semantic_cache");
-    expect(output[2]).not.toContain("why");
+    expect(output[2]).toContain("why:");
+    expect(output[2]).toContain("next: open pkg/cache.py:1");
     expect(output[2]).not.toContain("neighbors");
     expect(output[2].length).toBeLessThan(output[1].length);
   });
@@ -375,6 +376,8 @@ def store_value(key, value):
 
     expect(output[1]).toContain("1 pkg/cache.py role=source");
     expect(output[1]).toContain("evidence=");
+    expect(output[1]).toContain("why:");
+    expect(output[1]).toContain("next: open pkg/cache.py:1");
     expect(output[1]).not.toContain("; ");
     expect(output[1]).not.toContain("score=");
     expect(output[1]).not.toContain("tokens=");
@@ -411,6 +414,8 @@ def test_load_value():
     });
 
     expect(output[1]).toContain("1 pkg/cache.py:1 load_value -> tests/test_cache.py");
+    expect(output[1]).toContain("why:");
+    expect(output[1]).toContain("next: open pkg/cache.py:1");
     const json = JSON.parse(output[2]);
     expect(json.bundles[0].source.file).toBe("pkg/cache.py");
     expect(json.bundles[0].tests[0].file).toBe("tests/test_cache.py");
@@ -447,17 +452,21 @@ def test_load_value():
     const compactRelatedJson = JSON.parse(output[3]);
 
     expect(output[2].length).toBeLessThan(output[1].length);
-    expect(compactSourceJson.bundles[0]).toEqual({
+    expect(compactSourceJson.bundles[0]).toMatchObject({
       source: {
         file: "pkg/cache.py",
         symbol: "load_value",
-        line: 1
+        line: 1,
+        why: expect.any(String),
+        next: "open pkg/cache.py:1"
       },
       tests: [
         {
           file: "tests/test_cache.py",
           firstLine: 1,
-          symbols: ["test_load_value"]
+          symbols: ["test_load_value"],
+          why: expect.any(String),
+          next: "open tests/test_cache.py:1"
         }
       ]
     });
@@ -465,12 +474,13 @@ def test_load_value():
     expect(compactSourceJson.bundles[0]).not.toHaveProperty("why");
     expect(fullSourceJson.bundles[0].source).toHaveProperty("contextChars");
 
-    expect(compactRelatedJson.matches[0]).toEqual({
+    expect(compactRelatedJson.matches[0]).toMatchObject({
       file: "tests/test_cache.py",
       firstLine: 1,
-      symbols: ["test_load_value"]
+      symbols: ["test_load_value"],
+      why: expect.any(String),
+      next: "open tests/test_cache.py:1"
     });
-    expect(compactRelatedJson.matches[0]).not.toHaveProperty("why");
     expect(compactRelatedJson.matches[0]).not.toHaveProperty("score");
   });
 
@@ -779,8 +789,10 @@ def test_load_value():
 
     expect(output[1]).toContain("1 tests/test_cache.py:1");
     expect(output[1]).toContain("score=");
+    expect(output[1]).toContain("why:");
+    expect(output[1]).toContain("test body mentions source symbol");
+    expect(output[1]).toContain("next: open tests/test_cache.py:1");
     expect(output[1]).not.toContain("why=");
-    expect(output[1]).not.toContain("test body mentions source symbol");
     const json = JSON.parse(output[2]);
     expect(json.matches[0]).toMatchObject({
       file: "tests/test_cache.py",

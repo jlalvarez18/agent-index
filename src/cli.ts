@@ -31,6 +31,8 @@ import type {
   FileRole,
   NavigationEvalResult,
   NavigationSuiteResult,
+  QueryMatch,
+  QueryNeighbor,
   QueryResponse,
   QueryExpansion,
   QueryMode,
@@ -603,9 +605,15 @@ function formatQueryCompact(response: QueryResponse): string {
   }
 
   return response.matches
-    .map(
-      (match, index) =>
-        `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}${formatEvidence(match.evidence)}`
+    .map((match, index) =>
+      [
+        `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}${formatEvidence(match.evidence)}`,
+        `  why: ${formatCompactWhy(match.why)}`,
+        formatCompactRelated(match),
+        `  next: ${formatOpenHint(match.file, match.lines[0])}`
+      ]
+        .filter((line): line is string => line !== undefined)
+        .join("\n")
     )
     .join("\n");
 }
@@ -618,7 +626,12 @@ function formatFileClusters(result: FileClusterResult): string {
   return result.clusters
     .map((cluster, index) => {
       const symbols = cluster.symbols.slice(0, 1).map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
-      return `${index + 1} ${cluster.file} role=${cluster.role} chunks=${cluster.matchedChunks} symbols=${symbols}${formatEvidence(cluster.evidence)}`;
+      const line = cluster.symbols[0]?.lines[0] ?? 1;
+      return [
+        `${index + 1} ${cluster.file} role=${cluster.role} chunks=${cluster.matchedChunks} symbols=${symbols}${formatEvidence(cluster.evidence)}`,
+        `  why: ${formatCompactWhy(cluster.why)}`,
+        `  next: ${formatOpenHint(cluster.file, line)}`
+      ].join("\n");
     })
     .join("\n");
 }
@@ -636,7 +649,12 @@ function formatSourceTests(result: SourceTestsResult): string {
         .slice(0, 2)
         .map((test) => `${test.file}${test.firstLine === null ? "" : `:${test.firstLine}`}`)
         .join(", ");
-      return `${index + 1} ${source}${tests ? ` -> ${tests}` : ""}`;
+      const line = sourceSymbol?.lines[0] ?? null;
+      return [
+        `${index + 1} ${source}${tests ? ` -> ${tests}` : ""}`,
+        `  why: ${formatCompactWhy(bundle.source.why)}`,
+        `  next: ${formatOpenHint(bundle.source.file, line)}`
+      ].join("\n");
     })
     .join("\n");
 }
@@ -667,12 +685,16 @@ function compactSourceTestsJson(result: SourceTestsResult): unknown {
         source: {
           file: bundle.source.file,
           symbol: sourceSymbol?.name ?? null,
-          line: sourceSymbol?.lines[0] ?? null
+          line: sourceSymbol?.lines[0] ?? null,
+          why: formatCompactWhy(bundle.source.why),
+          next: formatOpenHint(bundle.source.file, sourceSymbol?.lines[0] ?? null)
         },
         tests: bundle.tests.map((test) => ({
           file: test.file,
           firstLine: test.firstLine,
-          symbols: test.symbols
+          symbols: test.symbols,
+          why: formatCompactWhy(test.why),
+          next: formatOpenHint(test.file, test.firstLine)
         }))
       };
     })
@@ -970,7 +992,11 @@ function formatRelatedTests(result: ReturnType<typeof findRelatedTests>): string
   return result.matches
     .map((match, index) => {
       const line = match.firstLine === null ? "" : `:${match.firstLine}`;
-      return `${index + 1} ${match.file}${line} score=${match.score}`;
+      return [
+        `${index + 1} ${match.file}${line} score=${match.score}`,
+        `  why: ${formatCompactWhy(match.why)}`,
+        `  next: ${formatOpenHint(match.file, match.firstLine)}`
+      ].join("\n");
     })
     .join("\n");
 }
@@ -983,7 +1009,9 @@ function compactRelatedTestsJson(result: ReturnType<typeof findRelatedTests>): u
     matches: result.matches.map((match) => ({
       file: match.file,
       firstLine: match.firstLine,
-      symbols: match.symbols
+      symbols: match.symbols,
+      why: formatCompactWhy(match.why),
+      next: formatOpenHint(match.file, match.firstLine)
     }))
   };
 }
@@ -1022,7 +1050,81 @@ function formatTokens(tokens: number | null): string {
 }
 
 function formatEvidence(evidence: string | undefined): string {
-  return evidence ? ` evidence=${JSON.stringify(evidence)}` : "";
+  return evidence ? ` evidence=${JSON.stringify(truncateCompactText(evidence, 96))}` : "";
+}
+
+function formatCompactWhy(why: string[]): string {
+  const usefulReasons = uniqueCompactValues(why).filter((reason) => reason !== "matched source text");
+  const primaryReasons = usefulReasons.filter((reason) => !/\bpath\b/u.test(reason)).slice(0, 3);
+  const reasons =
+    primaryReasons.length > 0
+      ? [...primaryReasons, ...usefulReasons.filter((reason) => !primaryReasons.includes(reason))].slice(0, 3)
+      : usefulReasons.length > 0
+        ? usefulReasons.slice(0, 3)
+        : uniqueCompactValues(why).slice(0, 2);
+  return reasons.length > 0 ? reasons.map((reason) => truncateCompactText(reason, 48)).join(", ") : "matched result";
+}
+
+function formatCompactRelated(match: QueryMatch): string | undefined {
+  const related = compactRelatedNeighbors(match.neighbors, match).slice(0, 2);
+  if (related.length === 0) {
+    return undefined;
+  }
+  return `  related: ${related.join(", ")}`;
+}
+
+function compactRelatedNeighbors(neighbors: QueryNeighbor[], match: QueryMatch): string[] {
+  const related: string[] = [];
+  const seen = new Set<string>();
+  for (const neighbor of neighbors) {
+    if (neighbor.symbol === match.symbol && neighbor.file === match.file) {
+      continue;
+    }
+    const file = neighbor.file ? ` ${neighbor.file}${neighbor.lines ? `:${neighbor.lines[0]}` : ""}` : "";
+    const value = `${compactRelationName(neighbor.relation)} ${neighbor.symbol}${file}`;
+    const key = `${neighbor.relation}\0${neighbor.symbol}\0${neighbor.file ?? ""}\0${neighbor.lines?.[0] ?? ""}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    related.push(truncateCompactText(value, 96));
+  }
+  return related;
+}
+
+function compactRelationName(relation: string): string {
+  if (relation === "symbol_calls_name") {
+    return "calls";
+  }
+  if (relation === "called_by_name") {
+    return "called by";
+  }
+  if (relation === "symbol_imports_module") {
+    return "imports";
+  }
+  if (relation === "symbol_contains_symbol") {
+    return "contains";
+  }
+  if (relation === "file_contains_symbol") {
+    return "contains";
+  }
+  return relation.replace(/^incoming_/u, "").replace(/^symbol_/u, "").replace(/_/gu, " ");
+}
+
+function formatOpenHint(file: string, line: number | null | undefined): string {
+  return line === null || line === undefined ? `open ${file}` : `open ${file}:${line}`;
+}
+
+function uniqueCompactValues(values: string[]): string[] {
+  return values.filter((value, index) => value.trim().length > 0 && values.indexOf(value) === index);
+}
+
+function truncateCompactText(value: string, maxLength: number): string {
+  const singleLine = value.replace(/\s+/gu, " ").trim();
+  if (singleLine.length <= maxLength) {
+    return singleLine;
+  }
+  return `${singleLine.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
 function formatMention(mention: boolean | null): string {

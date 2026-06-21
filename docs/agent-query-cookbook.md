@@ -12,6 +12,7 @@ Use shorthand structured flags for the primary agent path:
 node dist/cli.js query \
   --target /path/to/python/repo \
   --mode hybrid \
+  --format compact \
   --term webhook \
   --term signature \
   --term verify \
@@ -69,8 +70,8 @@ Supported JSON fields and their shorthand flags:
 2. Put exact API or owner names in `terms` when you can infer them.
 3. Put directory and module guesses in `pathHints`.
 4. Set `symbolKinds` when the target kind is obvious.
-5. Query in `hybrid` mode.
-6. Inspect the top results and neighbors.
+5. Query in `hybrid` mode with `--format compact` for the default agent path.
+6. Inspect the top result's `why`, `related`, and `next` lines before opening files.
 7. If the top result is nearby but not the edit location, rerun with more discriminating terms.
 
 Use `--debug` when the ranking is surprising:
@@ -79,6 +80,7 @@ Use `--debug` when the ranking is surprising:
 node dist/cli.js query \
   --target /path/to/python/repo \
   --mode hybrid \
+  --format json \
   --debug \
   --term login,SESSION_KEY,BACKEND_SESSION_KEY \
   --kind function \
@@ -86,6 +88,19 @@ node dist/cli.js query \
   --expand callees,parents \
   --role source
 ```
+
+## Compact Output Contract
+
+Use compact output when an agent needs to decide the next file or command without reading full JSON:
+
+```text
+1 lib/src/checkout/checkout_controller.dart:24-41 method CheckoutController.submit evidence="notifyListeners();"
+  why: symbol name match, method name match, nearby graph edge
+  related: calls authorize, calls notifyListeners
+  next: open lib/src/checkout/checkout_controller.dart:24
+```
+
+The full JSON shape still exists for debugging and integrations, but it repeats scores, all reasons, and all neighbor objects. On the existing Flutter checkout fixture query from `benchmarks/navigation/flutter-shop-dart-checkout-flow.json`, the compact output for three results was 943 bytes versus 3,431 bytes for JSON.
 
 ## Common Mistakes
 

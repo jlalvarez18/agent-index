@@ -1101,7 +1101,15 @@ function formatCompactSourceTests(bundles: SourceTestBundle[]): string {
 }
 
 function formatEvidence(evidence: string | undefined): string {
-  return evidence ? ` evidence=${JSON.stringify(evidence)}` : "";
+  return evidence ? ` evidence=${JSON.stringify(truncateCompactText(evidence, 96))}` : "";
+}
+
+function truncateCompactText(value: string, maxLength: number): string {
+  const singleLine = value.replace(/\s+/gu, " ").trim();
+  if (singleLine.length <= maxLength) {
+    return singleLine;
+  }
+  return `${singleLine.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
 function formatRgFileList(files: string[]): string {

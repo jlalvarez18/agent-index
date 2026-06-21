@@ -1,0 +1,175 @@
+[
+  {
+    "id": "flutter-shop-dart-checkout-submit-bugfix",
+    "task": "Find the checkout submission path that authorizes a cart, updates paid or failed status, and notifies listeners.",
+    "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 2,
+      "maxFirstUsefulContextTokens": 900,
+      "maxCompletionContextTokens": 1400
+    },
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["submit", "authorize", "paid", "failed", "notifyListeners"],
+          "symbolKinds": ["method", "function"],
+          "roles": ["source"],
+          "pathHints": ["lib/src/checkout"],
+          "expand": ["parents", "callees"]
+        },
+        "limit": 5
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 2,
+        "terms": ["authorizes", "notifies", "paid"],
+        "limit": 3
+      }
+    ],
+    "rgQueries": [["submit", "authorize", "notifyListeners", "paid", "failed"], ["authorizes", "notifies", "paid"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["submit", "authorize", "notifyListeners"], "scope": "source", "paths": ["lib/src/checkout"], "globs": ["*.dart"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["paid", "failed", "notifyListeners"], "fromStep": 1, "before": 6, "after": 18, "limit": 6 },
+        { "type": "search-files", "terms": ["authorizes", "notifies", "paid"], "scope": "test", "paths": ["test"], "globs": ["*.dart"], "limit": 20 }
+      ]
+    },
+    "expected": {
+      "files": ["lib/src/checkout/checkout_controller.dart", "test/checkout/checkout_controller_test.dart"],
+      "symbols": ["CheckoutController.submit"],
+      "requiredFiles": ["lib/src/checkout/checkout_controller.dart"],
+      "requiredSymbols": ["CheckoutController.submit"]
+    }
+  },
+  {
+    "id": "flutter-shop-dart-checkout-button-feature",
+    "task": "Locate the widget behavior that disables checkout while submission is not allowed and sends the cart through the controller.",
+    "kind": "feature",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 2,
+      "maxFirstUsefulContextTokens": 900,
+      "maxCompletionContextTokens": 1400
+    },
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["checkout", "button", "enabled", "canSubmit", "GestureDetector", "cart"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source"],
+          "pathHints": ["lib/src/checkout"],
+          "expand": ["children", "callees"]
+        },
+        "limit": 6
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 2,
+        "terms": ["button", "submits", "enabled"],
+        "limit": 3
+      }
+    ],
+    "rgQueries": [["checkout", "button", "enabled", "canSubmit", "GestureDetector", "cart"], ["button", "submits", "enabled"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["GestureDetector", "canSubmit", "cart"], "scope": "source", "paths": ["lib/src/checkout"], "globs": ["*.dart"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["CheckoutButton", "onTap", "submit"], "fromStep": 1, "before": 6, "after": 14, "limit": 6 },
+        { "type": "search-files", "terms": ["button", "submits", "enabled"], "scope": "test", "paths": ["test"], "globs": ["*.dart"], "limit": 20 }
+      ]
+    },
+    "expected": {
+      "files": ["lib/src/checkout/checkout_button.dart", "test/checkout/checkout_button_test.dart"],
+      "symbols": ["CheckoutButton.build"],
+      "requiredFiles": ["lib/src/checkout/checkout_button.dart"],
+      "requiredSymbols": ["CheckoutButton.build"]
+    }
+  },
+  {
+    "id": "flutter-shop-dart-payment-flow-explanation",
+    "task": "Explain how the payment repository converts a cart total into a receipt label through the mapper callback.",
+    "kind": "code-explanation",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 900,
+      "maxCompletionContextTokens": 1000
+    },
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["PaymentRepository", "authorize", "postPayment", "ReceiptMapper", "label"],
+          "symbolKinds": ["class", "method", "typealias"],
+          "roles": ["source"],
+          "pathHints": ["lib/src/payments"],
+          "expand": ["children", "callees"]
+        },
+        "limit": 6
+      }
+    ],
+    "rgQueries": [["PaymentRepository", "authorize", "postPayment", "ReceiptMapper", "label"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["PaymentRepository", "authorize", "ReceiptMapper"], "scope": "source", "paths": ["lib/src/payments"], "globs": ["*.dart"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["postPayment", "label"], "fromStep": 1, "before": 4, "after": 16, "limit": 6 }
+      ]
+    },
+    "expected": {
+      "files": ["lib/src/payments/payment_repository.dart"],
+      "symbols": ["PaymentRepository.authorize", "PaymentRepository.postPayment", "ReceiptMapper"],
+      "requiredFiles": ["lib/src/payments/payment_repository.dart"],
+      "requiredSymbols": ["PaymentRepository.authorize"]
+    }
+  },
+  {
+    "id": "flutter-shop-dart-checkout-source-to-test",
+    "task": "Starting from checkout state-management clues, find the controller source and the Flutter test that covers submission notifications.",
+    "kind": "test-discovery",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 1200,
+      "maxCompletionContextTokens": 1600
+    },
+    "agentIndexSteps": [
+      {
+        "type": "source-tests",
+        "query": {
+          "terms": ["checkout", "status", "authorize", "notifyListeners", "submission"],
+          "symbolKinds": ["class", "method"],
+          "roles": ["source", "test"],
+          "pathHints": ["checkout"]
+        },
+        "limit": 6,
+        "testLimit": 4
+      }
+    ],
+    "rgQueries": [["checkout", "status", "authorize", "notifyListeners", "submission"], ["submit", "notifies", "flutter_test"]],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        { "type": "search-files", "terms": ["checkout", "authorize", "notifyListeners"], "scope": "source", "paths": ["lib"], "globs": ["*.dart"], "limit": 20 },
+        { "type": "search-files", "terms": ["submit", "notifies", "flutter_test"], "scope": "test", "paths": ["test"], "globs": ["*.dart"], "limit": 20 },
+        { "type": "read-snippets", "terms": ["CheckoutController", "submit"], "fromStep": 2, "before": 4, "after": 12, "limit": 6 }
+      ]
+    },
+    "expected": {
+      "files": ["lib/src/checkout/checkout_controller.dart", "test/checkout/checkout_controller_test.dart"],
+      "symbols": ["CheckoutController.submit"],
+      "requiredFiles": ["lib/src/checkout/checkout_controller.dart", "test/checkout/checkout_controller_test.dart"],
+      "requiredSymbols": ["CheckoutController.submit"]
+    }
+  }
+]

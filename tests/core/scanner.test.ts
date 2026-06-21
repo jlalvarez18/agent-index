@@ -56,6 +56,14 @@ describe("scanPythonFiles", () => {
     expect(classifyFileRole("app/src/test/java/com/acme/CheckoutViewModelTest.kt")).toBe("test");
     expect(classifyFileRole("app/src/androidTest/java/com/acme/CheckoutScreenTest.kt")).toBe("test");
     expect(classifyFileRole("app/src/test/java/com/acme/CheckoutServiceTest.java")).toBe("test");
+    expect(classifyFileRole("lib/src/checkout_controller.dart")).toBe("source");
+    expect(classifyFileRole("test/widgets/checkout_button_test.dart")).toBe("test");
+    expect(classifyFileRole("integration_test/app_test.dart")).toBe("test");
+    expect(classifyFileRole("example/lib/main.dart")).toBe("example");
+    expect(classifyFileRole("tool/generate_routes.dart")).toBe("tool");
+    expect(classifyFileRole("benchmark/checkout_benchmark.dart")).toBe("benchmark");
+    expect(classifyFileRole("fixtures/golden_case.dart")).toBe("fixture");
+    expect(classifyFileRole("docs/snippets/widget.dart")).toBe("docs");
     expect(classifyFileRole("app/Http/Controllers/CheckoutController.php")).toBe("source");
     expect(classifyFileRole("src/Service/CheckoutService.php")).toBe("source");
     expect(classifyFileRole("config/services.php")).toBe("source");
@@ -146,6 +154,12 @@ describe("scanPythonFiles", () => {
     await mkdir(path.join(root, "Tests", "AppTests"), { recursive: true });
     await mkdir(path.join(root, "app", "src", "main", "java", "com", "acme"), { recursive: true });
     await mkdir(path.join(root, "app", "src", "test", "java", "com", "acme"), { recursive: true });
+    await mkdir(path.join(root, "lib", "src", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "test", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "integration_test"), { recursive: true });
+    await mkdir(path.join(root, "example", "lib"), { recursive: true });
+    await mkdir(path.join(root, "tool"), { recursive: true });
+    await mkdir(path.join(root, "benchmark"), { recursive: true });
     await mkdir(path.join(root, "app", "controllers", "admin"), { recursive: true });
     await mkdir(path.join(root, "app", "Http", "Controllers"), { recursive: true });
     await mkdir(path.join(root, "spec", "models"), { recursive: true });
@@ -192,6 +206,12 @@ describe("scanPythonFiles", () => {
     await writeFile(path.join(root, "app", "src", "test", "java", "com", "acme", "CheckoutViewModelTest.kt"), "class CheckoutViewModelTest\n");
     await writeFile(path.join(root, "app", "src", "main", "java", "com", "acme", "CheckoutService.java"), "class CheckoutService {}\n");
     await writeFile(path.join(root, "app", "src", "test", "java", "com", "acme", "CheckoutServiceTest.java"), "class CheckoutServiceTest {}\n");
+    await writeFile(path.join(root, "lib", "src", "checkout", "checkout_controller.dart"), "class CheckoutController {}\n");
+    await writeFile(path.join(root, "test", "checkout", "checkout_controller_test.dart"), "void main() {}\n");
+    await writeFile(path.join(root, "integration_test", "app_test.dart"), "void main() {}\n");
+    await writeFile(path.join(root, "example", "lib", "main.dart"), "void main() {}\n");
+    await writeFile(path.join(root, "tool", "generate_routes.dart"), "void main() {}\n");
+    await writeFile(path.join(root, "benchmark", "checkout_benchmark.dart"), "void main() {}\n");
     await writeFile(path.join(root, "app", "controllers", "admin", "users_controller.rb"), "class Admin::UsersController < ApplicationController\nend\n");
     await writeFile(path.join(root, "app", "Http", "Controllers", "CheckoutController.php"), "<?php\nclass CheckoutController {}\n");
     await writeFile(path.join(root, "spec", "models", "user_spec.rb"), "RSpec.describe User do\nend\n");
@@ -223,6 +243,7 @@ describe("scanPythonFiles", () => {
       { relativePath: "app/src/main/java/com/acme/CheckoutViewModel.kt", language: "kotlin" },
       { relativePath: "app/src/test/java/com/acme/CheckoutServiceTest.java", language: "java" },
       { relativePath: "app/src/test/java/com/acme/CheckoutViewModelTest.kt", language: "kotlin" },
+      { relativePath: "benchmark/checkout_benchmark.dart", language: "dart" },
       { relativePath: "bin/rails", language: "ruby" },
       { relativePath: "BUILD.bazel", language: "cpp" },
       { relativePath: "CMakeLists.txt", language: "cpp" },
@@ -233,13 +254,16 @@ describe("scanPythonFiles", () => {
       { relativePath: "crates/runtime/src/bin/server.rs", language: "rust" },
       { relativePath: "crates/runtime/src/lib.rs", language: "rust" },
       { relativePath: "crates/runtime/tests/runtime_tests.rs", language: "rust" },
+      { relativePath: "example/lib/main.dart", language: "dart" },
       { relativePath: "features/sign_in.feature", language: "ruby" },
       { relativePath: "Gemfile", language: "ruby" },
       { relativePath: "gradle/libs.versions.toml", language: "toml" },
       { relativePath: "include/acme/checkout_service.hpp", language: "cpp" },
       { relativePath: "include/acme/detail.hh", language: "cpp" },
       { relativePath: "include/cache.h", language: "c" },
+      { relativePath: "integration_test/app_test.dart", language: "dart" },
       { relativePath: "internal/config/loader_test.go", language: "go" },
+      { relativePath: "lib/src/checkout/checkout_controller.dart", language: "dart" },
       { relativePath: "Makefile", language: "c" },
       { relativePath: "meson.build", language: "cpp" },
       { relativePath: "php-tests/Feature/CheckoutControllerTest.php", language: "php" },
@@ -264,8 +288,10 @@ describe("scanPythonFiles", () => {
       { relativePath: "src/client/api.test.ts", language: "typescript" },
       { relativePath: "src/compiler/diagnosticMessages.json", language: "json" },
       { relativePath: "src/views/DashboardScreen.tsx", language: "typescript" },
+      { relativePath: "test/checkout/checkout_controller_test.dart", language: "dart" },
       { relativePath: "Tests/AppTests/CheckoutViewModelTests.swift", language: "swift" },
       { relativePath: "Tests/Checkout.Api.Tests/CheckoutControllerTests.cs", language: "csharp" },
+      { relativePath: "tool/generate_routes.dart", language: "dart" },
       { relativePath: "tools/Generator/Program.cs", language: "csharp" }
     ]);
     expect(files.find((file) => file.relativePath === "src/client/api.test.ts")?.role).toBe("test");
@@ -275,6 +301,12 @@ describe("scanPythonFiles", () => {
     expect(files.find((file) => file.relativePath === "Tests/AppTests/CheckoutViewModelTests.swift")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutViewModelTest.kt")?.role).toBe("test");
     expect(files.find((file) => file.relativePath === "app/src/test/java/com/acme/CheckoutServiceTest.java")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "lib/src/checkout/checkout_controller.dart")?.role).toBe("source");
+    expect(files.find((file) => file.relativePath === "test/checkout/checkout_controller_test.dart")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "integration_test/app_test.dart")?.role).toBe("test");
+    expect(files.find((file) => file.relativePath === "example/lib/main.dart")?.role).toBe("example");
+    expect(files.find((file) => file.relativePath === "tool/generate_routes.dart")?.role).toBe("tool");
+    expect(files.find((file) => file.relativePath === "benchmark/checkout_benchmark.dart")?.role).toBe("benchmark");
     expect(files.find((file) => file.relativePath === "app/controllers/admin/users_controller.rb")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "app/Http/Controllers/CheckoutController.php")?.role).toBe("source");
     expect(files.find((file) => file.relativePath === "config/routes.rb")?.role).toBe("source");

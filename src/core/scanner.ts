@@ -28,6 +28,7 @@ const SUPPORT_CODE_DIRS = new Set([
   "type_tests",
   "testing",
   "tools",
+  "tool",
   "_tools",
   "scripts",
   "worked",
@@ -36,6 +37,7 @@ const SUPPORT_CODE_DIRS = new Set([
   "examples",
   "example",
   "benchmarks",
+  "benchmark",
   "asv_benchmarks",
   "benches",
   "fixtures",
@@ -46,7 +48,7 @@ const SUPPORT_CODE_DIRS = new Set([
 
 const TOP_LEVEL_SUPPORT_CODE_DIRS = new Set(["t"]);
 
-const TEST_DIRS = new Set(["tests", "test", "__tests__", "spec", "specs", "_tests", "type_tests", "testing"]);
+const TEST_DIRS = new Set(["tests", "test", "__tests__", "spec", "specs", "_tests", "type_tests", "testing", "integration_test"]);
 const TEST_FILE_NAME_PATTERN = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const GO_TEST_FILE_NAME_PATTERN = /_test\.go$/u;
 const RUST_TEST_FILE_NAME_PATTERN = /(?:^test_|_test|_tests|tests)\.rs$/u;
@@ -57,11 +59,12 @@ const KOTLIN_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.kts?$/u;
 const JAVA_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|IT|ITCase)\.java$/u;
 const PHP_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec)\.php$/u;
 const CSHARP_TEST_FILE_NAME_PATTERN = /(?:Test|Tests|Spec|Specs|Fixture|Fixtures|IT)\.cs$/u;
+const DART_TEST_FILE_NAME_PATTERN = /_test\.dart$/u;
 const DOCS_DIRS = new Set(["docs", "docs_src"]);
 const EXAMPLE_DIRS = new Set(["examples", "example", "samples", "sample"]);
 const FIXTURE_DIRS = new Set(["fixtures", "fixture"]);
-const TOOL_DIRS = new Set(["tools", "_tools", "scripts", "worked"]);
-const BENCHMARK_DIRS = new Set(["benchmarks", "asv_benchmarks", "benches"]);
+const TOOL_DIRS = new Set(["tools", "tool", "_tools", "scripts", "worked"]);
+const BENCHMARK_DIRS = new Set(["benchmarks", "benchmark", "asv_benchmarks", "benches"]);
 const SUPPORT_ARTIFACT_JSON_FILES = new Set(["benchmark.json", "graphify-results.json", "navigation-eval.json", "suite.json"]);
 
 export interface ScanOptions {
@@ -100,6 +103,7 @@ export async function scanCodeFiles(target: string, options: ScanOptions = {}): 
     ".mjs",
     ".cjs",
     ".json",
+    ".dart",
     ".pyx",
     ".pxd",
     ".pxi",
@@ -213,6 +217,9 @@ function languageForSuffix(suffix: string): Language {
   if (suffix === ".json") {
     return "json";
   }
+  if (suffix === ".dart") {
+    return "dart";
+  }
   if (suffix === ".swift") {
     return "swift";
   }
@@ -305,7 +312,8 @@ export function classifyFileRole(relativePath: string): FileRole {
     isKotlinTestFile(relativePath) ||
     isJavaTestFile(relativePath) ||
     isPhpTestFile(relativePath) ||
-    isCSharpTestFile(relativePath)
+    isCSharpTestFile(relativePath) ||
+    isDartTestFile(relativePath)
   ) {
     return "test";
   }
@@ -414,4 +422,8 @@ function isCSharpTestFile(relativePath: string): boolean {
     relativePath.includes("/src/test/") ||
     relativePath.includes("/src/tests/")
   );
+}
+
+function isDartTestFile(relativePath: string): boolean {
+  return DART_TEST_FILE_NAME_PATTERN.test(path.posix.basename(relativePath));
 }

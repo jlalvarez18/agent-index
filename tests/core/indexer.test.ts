@@ -230,6 +230,84 @@ end
     );
   });
 
+  test("indexes Dart source and Flutter tests with symbols, chunks, and edges", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-dart-"));
+    await mkdir(path.join(root, "lib", "src", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "test", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "lib", "src", "checkout", "checkout_controller.dart"),
+      `import 'package:flutter/foundation.dart';
+
+class CheckoutController extends ChangeNotifier {
+  CheckoutController(this.repository);
+
+  final PaymentRepository repository;
+
+  Future<void> submit(Cart cart) async {
+    final receipt = await repository.authorize(cart);
+    notifyListeners();
+  }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "test", "checkout", "checkout_controller_test.dart"),
+      `import 'package:flutter_test/flutter_test.dart';
+import 'package:shop/src/checkout/checkout_controller.dart';
+
+void main() {
+  test('submit notifies listeners', () async {
+    final controller = CheckoutController(FakePaymentRepository());
+    await controller.submit(Cart.empty());
+    expect(controller, isNotNull);
+  });
+}
+`
+    );
+
+    const stats = await indexTarget(root);
+    const db = new Database(stats.indexPath);
+    const files = db.prepare("select path, language, role from files order by path").all();
+    const symbols = db
+      .prepare("select qualified_name, kind from symbols where qualified_name like 'CheckoutController%' or qualified_name = 'main.submit_notifies_listeners' order by qualified_name")
+      .all();
+    const edges = db
+      .prepare(
+        `
+        select source.qualified_name as source, e.target_name, e.kind
+        from edges e
+        left join symbols source on source.id = e.source_symbol_id
+        where source.qualified_name like 'CheckoutController%' or source.qualified_name = 'main.submit_notifies_listeners'
+        order by source.qualified_name, e.kind, e.target_name
+        `
+      )
+      .all();
+    db.close();
+
+    expect(files).toEqual([
+      { path: "lib/src/checkout/checkout_controller.dart", language: "dart", role: "source" },
+      { path: "test/checkout/checkout_controller_test.dart", language: "dart", role: "test" }
+    ]);
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        { qualified_name: "CheckoutController", kind: "class" },
+        { qualified_name: "CheckoutController.CheckoutController", kind: "method" },
+        { qualified_name: "CheckoutController.repository", kind: "method" },
+        { qualified_name: "CheckoutController.submit", kind: "method" },
+        { qualified_name: "main.submit_notifies_listeners", kind: "method" }
+      ])
+    );
+    expect(edges).toEqual(
+      expect.arrayContaining([
+        { source: "CheckoutController", target_name: "ChangeNotifier", kind: "symbol_conforms_to" },
+        { source: "CheckoutController.submit", target_name: "authorize", kind: "symbol_calls_name" },
+        { source: "CheckoutController.submit", target_name: "notifyListeners", kind: "symbol_calls_name" },
+        { source: "main.submit_notifies_listeners", target_name: "CheckoutController", kind: "symbol_calls_name" },
+        { source: "main.submit_notifies_listeners", target_name: "submit", kind: "symbol_calls_name" }
+      ])
+    );
+  });
+
   test("indexes Rust crate metadata and resolves trait implementations across files", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-rust-traits-"));
     await mkdir(path.join(root, "src", "runtime"), { recursive: true });

@@ -1167,10 +1167,19 @@ function importModuleVariants(importerFile: string, importedModule: string): str
     const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(normalizeSourceFile(importerFile)), normalizedImport));
     variants.push(...modulePathVariants(resolved));
   } else {
+    variants.push(...dartPackageImportVariants(normalizedImport));
     variants.push(...modulePathVariants(normalizedImport));
     variants.push(...aliasModulePathVariants(normalizedImport));
   }
   return uniqueValues(variants.filter(Boolean));
+}
+
+function dartPackageImportVariants(modulePath: string): string[] {
+  const match = /^package:[^/]+\/(.+)$/u.exec(modulePath);
+  if (!match) {
+    return [];
+  }
+  return uniqueValues([...modulePathVariants(match[1]), ...modulePathVariants(`lib/${match[1]}`)]);
 }
 
 function aliasModulePathVariants(modulePath: string): string[] {
@@ -1184,7 +1193,7 @@ function aliasModulePathVariants(modulePath: string): string[] {
 }
 
 function modulePathVariants(modulePath: string): string[] {
-  const withoutExtension = modulePath.replace(/\.(?:cjs|mjs|jsx?|tsx?|[ch])$/u, "");
+  const withoutExtension = modulePath.replace(/\.(?:cjs|mjs|jsx?|tsx?|dart|[ch])$/u, "");
   const withoutIndex = withoutExtension.endsWith("/index") ? withoutExtension.slice(0, -"/index".length) : withoutExtension;
   const variants = [withoutExtension, withoutIndex];
   for (const sourceRoot of ["src", "lib"]) {

@@ -306,6 +306,72 @@ func TestUnrelated(t *testing.T) {
     expect(result.matches[0].symbols).toEqual(expect.arrayContaining(["TestHandlerServe", "TestHandlerServe.subtest_missing_record"]));
   });
 
+  test("links Dart lib sources to Flutter tests through package imports, calls, and source stems", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-dart-"));
+    await mkdir(path.join(root, "lib", "src", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "test", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "integration_test"), { recursive: true });
+    await writeFile(
+      path.join(root, "lib", "src", "checkout", "checkout_controller.dart"),
+      `import 'package:flutter/foundation.dart';
+
+class CheckoutController extends ChangeNotifier {
+  CheckoutController(this.repository);
+
+  final PaymentRepository repository;
+
+  Future<void> submit(Cart cart) async {
+    await repository.authorize(cart);
+    notifyListeners();
+  }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "test", "checkout", "checkout_controller_test.dart"),
+      `import 'package:flutter_test/flutter_test.dart';
+import 'package:shop/src/checkout/checkout_controller.dart';
+
+void main() {
+  test('submit notifies after authorization', () async {
+    final controller = CheckoutController(FakePaymentRepository());
+    await controller.submit(Cart.empty());
+    expect(controller, isNotNull);
+  });
+}
+`
+    );
+    await writeFile(
+      path.join(root, "integration_test", "unrelated_app_test.dart"),
+      `import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('starts app', (tester) async {
+    expect(true, isTrue);
+  });
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = findRelatedTests({
+      target: root,
+      sourceFile: "lib/src/checkout/checkout_controller.dart",
+      symbol: "CheckoutController.submit",
+      terms: ["authorization", "notify"],
+      limit: 1
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      file: "test/checkout/checkout_controller_test.dart",
+      firstLine: 2
+    });
+    expect(result.matches[0].why).toEqual(
+      expect.arrayContaining(["test imports source module", "test body mentions source symbol", "test calls source symbol", "test path includes source stem"])
+    );
+    expect(result.matches).toHaveLength(1);
+  });
+
   test("links C source files to tests through header includes, calls, and source stems", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-related-tests-c-"));
     await mkdir(path.join(root, "include"), { recursive: true });

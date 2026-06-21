@@ -114,7 +114,7 @@ Use `--index-path /path/to/index.sqlite` with `index`, `query`, and `benchmark` 
 
 `--source-only` skips common support directories such as tests, testing, docs, tools, examples, fixtures, samples, and worked corpora. That is the recommended mode for benchmark-style source retrieval.
 
-All-files indexes store a file role for every Python file: `source`, `test`, `docs`, `example`, `fixture`, `tool`, or `benchmark`. Use `--role` at query time when you want an exact category filter.
+All-files indexes store a file role for every indexed code file: `source`, `test`, `docs`, `example`, `fixture`, `tool`, or `benchmark`. Use `--role` at query time when you want an exact category filter.
 
 The success message includes the index mode, for example `(mode: source-only)`, so benchmark notes can record how the index was built.
 
@@ -311,7 +311,7 @@ npm run nav:suite -- \
   --reindex
 ```
 
-`nav:prepare` clones missing repositories declared with `repoUrl` in the suite manifest and skips existing directories. The Swift entries in `benchmarks/navigation/suite.json` cover ArgumentParser, Collections, NIO, The Composable Architecture, Alamofire, SwiftPM, and the Swift compiler checkout.
+`nav:prepare` clones missing repositories declared with `repoUrl` in the suite manifest and skips existing directories. The Swift entries in `benchmarks/navigation/suite.json` cover ArgumentParser, Collections, NIO, The Composable Architecture, Alamofire, SwiftPM, and the Swift compiler checkout. The Dart entry uses an authored Flutter-style fixture under `benchmarks/fixtures/flutter_shop` so it can run without network or cloned-repo setup.
 
 To fail CI when a new run regresses completion, wins, or context-token budget, compare artifact summaries:
 
@@ -397,11 +397,11 @@ npm run build
 git diff --check
 ```
 
-The test suite covers scanner filtering, Python extraction, SQLite indexing, query ranking, benchmark metrics, CLI smoke behavior, and package build layout.
+The test suite covers scanner filtering, language extraction, SQLite indexing, query ranking, source-to-test discovery, benchmark metrics, CLI smoke behavior, and package build layout.
 
 ## Current Limits
 
-- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, C#, and C/C++ have first-class or active first-class navigation tracks; Cython/JSON extraction remains intentionally narrower.
+- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, Dart, C#, and C/C++ have first-class or active first-class navigation tracks; Cython/JSON extraction remains intentionally narrower.
 - Full reindex only.
 - No embeddings.
 - No MCP server.
@@ -416,6 +416,7 @@ The running lab notebook lives in:
 
 - `docs/agent-query-cookbook.md`
 - `docs/findings/agent-index-process.md`
+- `docs/findings/dart-first-class-support.md`
 - `docs/findings/experiment-log.md`
 - `docs/findings/graphify-benchmark-results.md`
 - `docs/findings/httpx-benchmark-results.md`

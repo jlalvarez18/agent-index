@@ -8,6 +8,7 @@ export type Language =
   | "typescript"
   | "javascript"
   | "json"
+  | "dart"
   | "swift"
   | "kotlin"
   | "java"

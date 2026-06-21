@@ -120,6 +120,12 @@
     "mode": "hybrid"
   },
   {
+    "name": "flutter-shop-dart",
+    "evalPath": "flutter-shop-dart-checkout-flow.json",
+    "target": "../fixtures/flutter_shop",
+    "mode": "hybrid"
+  },
+  {
     "name": "celery",
     "evalPath": "celery-canvas-chain-group.json",
     "target": "celery",

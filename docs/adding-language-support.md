@@ -45,6 +45,7 @@ Examples:
 - Go tests use `_test.go`.
 - Swift tests often end with `Tests.swift`.
 - Kotlin tests can live under `src/test`, `src/androidTest`, or have names ending in `Test.kt`, `Tests.kt`, or `Spec.kt`.
+- Dart/Flutter tests commonly live under `test/` or `integration_test/` and often use `_test.dart` filenames.
 - JVM/Android package paths under `src/main/kotlin` or `src/main/java` should not be misclassified just because a package segment is named `sample`, `samples`, or `tools`.
 
 Add scanner tests in [tests/core/scanner.test.ts](../tests/core/scanner.test.ts).
@@ -141,6 +142,8 @@ Ranking changes usually belong in:
 - [src/core/query.ts](../src/core/query.ts) for symbol-level retrieval.
 - [src/core/file-clusters.ts](../src/core/file-clusters.ts) for file-level retrieval.
 - [src/core/source-tests.ts](../src/core/source-tests.ts) or [src/core/related-tests.ts](../src/core/related-tests.ts) for source/test navigation.
+
+For source/test navigation, check ecosystem import aliases as well as file names. Dart package imports such as `package:app/src/foo.dart` should normalize to source paths such as `lib/src/foo.dart`; otherwise related-test scoring can see text mentions and calls but miss import evidence.
 
 Good ranking rules are narrow and explainable. They should add `why` reasons that help debug results, such as `Kotlin navigation signal match`, `build tool ownership match`, or `path hint match`.
 

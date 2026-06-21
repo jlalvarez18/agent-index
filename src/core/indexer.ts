@@ -6,6 +6,7 @@ import { extractC } from "./extractors/c.js";
 import { extractCpp } from "./extractors/cpp.js";
 import { extractCSharp } from "./extractors/csharp.js";
 import { extractCython } from "./extractors/cython.js";
+import { extractDart } from "./extractors/dart.js";
 import { extractGo } from "./extractors/go.js";
 import { extractJson } from "./extractors/json.js";
 import { extractJava } from "./extractors/java.js";
@@ -77,6 +78,9 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       }
       if (file.language === "json") {
         return extractJson(file);
+      }
+      if (file.language === "dart") {
+        return extractDart(file);
       }
       if (file.language === "xml") {
         return extractXml(file);

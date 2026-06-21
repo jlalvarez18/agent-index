@@ -243,6 +243,70 @@ end
     );
   });
 
+  test("hybrid mode surfaces Dart Flutter controller methods with path and role hints", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-dart-"));
+    await mkdir(path.join(root, "lib", "src", "checkout"), { recursive: true });
+    await mkdir(path.join(root, "test", "checkout"), { recursive: true });
+    await writeFile(
+      path.join(root, "lib", "src", "checkout", "checkout_controller.dart"),
+      `import 'package:flutter/foundation.dart';
+
+class CheckoutController extends ChangeNotifier {
+  CheckoutController(this.repository);
+
+  final PaymentRepository repository;
+  String statusText = 'idle';
+
+  Future<void> submit(Cart cart) async {
+    statusText = 'submitting';
+    final receipt = await repository.authorize(cart);
+    statusText = receipt.label;
+    notifyListeners();
+  }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "test", "checkout", "checkout_controller_test.dart"),
+      `import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('submit updates status text', () async {
+    final controller = CheckoutController(FakePaymentRepository());
+    await controller.submit(Cart.empty());
+    expect(controller.statusText, 'paid');
+  });
+}
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["submit", "authorize", "receipt", "notifyListeners"],
+        symbolKinds: ["method"],
+        roles: ["source"],
+        pathHints: ["lib/src/checkout"],
+        expand: ["parents", "callees"]
+      },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "CheckoutController.submit",
+      kind: "method",
+      file: "lib/src/checkout/checkout_controller.dart"
+    });
+    expect(result.matches[0].why).toContain("path hint match");
+    expect(result.matches[0].neighbors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: "incoming_symbol_contains_symbol", symbol: "CheckoutController" }),
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "authorize" }),
+        expect.objectContaining({ relation: "symbol_calls_name", symbol: "notifyListeners" })
+      ])
+    );
+  });
+
   test("hybrid mode surfaces Ruby DSL task and Cucumber scenario symbols", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-ruby-dsl-"));
     await mkdir(path.join(root, "lib", "tasks"), { recursive: true });

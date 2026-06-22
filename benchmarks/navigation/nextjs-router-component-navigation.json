@@ -62,5 +62,59 @@
       ],
       "requiredSymbols": ["redirect"]
     }
+  },
+  {
+    "id": "nextjs-redirect-error-code-explanation",
+    "task": "Explain how component-facing redirect APIs create navigation errors that are recognized by App Router boundaries.",
+    "kind": "code-explanation",
+    "agentIndexSteps": [
+      {
+        "type": "file-clusters",
+        "query": {
+          "terms": ["redirect", "component", "navigation", "error", "boundary", "digest"],
+          "symbolKinds": ["function"],
+          "roles": ["source"],
+          "pathHints": ["packages/next/src/client/components", "redirect", "navigation"]
+        },
+        "limit": 6
+      }
+    ],
+    "rgQueries": [
+      ["redirect", "component", "navigation", "error", "boundary", "digest"],
+      ["redirect", "NEXT_REDIRECT", "boundary", "digest"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["redirect", "navigation", "error", "boundary"],
+          "paths": ["packages/next/src/client/components"],
+          "globs": ["*.ts", "*.tsx"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["redirect", "NEXT_REDIRECT", "digest", "boundary"],
+          "fromStep": 1,
+          "before": 10,
+          "after": 10,
+          "limit": 6
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "packages/next/src/client/components/redirect.ts",
+        "packages/next/src/client/components/redirect-error.ts",
+        "packages/next/src/client/components/redirect-boundary.tsx"
+      ],
+      "symbols": ["redirect", "getRedirectError", "isRedirectError", "RedirectBoundary"],
+      "requiredFiles": [
+        "packages/next/src/client/components/redirect.ts",
+        "packages/next/src/client/components/redirect-error.ts"
+      ],
+      "requiredSymbols": ["redirect", "isRedirectError"]
+    }
   }
 ]

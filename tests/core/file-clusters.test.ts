@@ -182,6 +182,62 @@ describe("findFileClusters", () => {
     expect(queryPlan.kind).toBe("fts");
   });
 
+  test("boosts implementation paths that cover the domain behind generic serializer matches", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-path-coverage-"));
+    await mkdir(path.join(root, "pkg", "core", "serializers", "type_serializers"), { recursive: true });
+    await mkdir(path.join(root, "pkg", "core", "serializers"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "core", "serializers", "type_serializers", "function.rs"),
+      Array.from(
+        { length: 8 },
+        (_, index) => `impl SerializationInfo${index} {
+    pub fn new(&self) {
+        let exclude_computed_fields = extra.exclude_none;
+        let serializer = self.value_serializer.as_ref();
+        let fields = serializer.fields();
+        computed_fields_hint(exclude_computed_fields, fields);
+    }
+}
+`
+      ).join("\n")
+    );
+    await writeFile(
+      path.join(root, "pkg", "core", "serializers", "computed_fields.rs"),
+      `impl ComputedFields {
+    pub fn serialize(&self) {
+        if extra.exclude_computed_fields {
+            return;
+        }
+        self.fields.serialize();
+    }
+}
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "main.py"),
+      `class BaseModel:
+    def model_dump(self, exclude_computed_fields=False):
+        serializer = self.__pydantic_serializer__
+        return serializer.to_python(self, exclude_computed_fields=exclude_computed_fields)
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["serializer", "computed", "fields", "exclude"],
+        symbolKinds: ["method", "function"],
+        roles: ["source"]
+      },
+      { target: root, limit: 5 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "pkg/core/serializers/computed_fields.rs"
+    });
+    expect(result.clusters[0].why).toContain("implementation path coverage match");
+  });
+
   test("keeps soft path prefilters for broad queries with several module hints", () => {
     const queryPlan = fileClusterSqlForTesting({
       terms: ["lock file", "lock entries", "same version", "source", "repository", "environment marker", "install operations"],

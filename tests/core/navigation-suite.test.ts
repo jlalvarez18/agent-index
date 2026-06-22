@@ -228,7 +228,17 @@ describe("runNavigationSuite", () => {
       "tanstack-query"
     ]);
     expect(new Set(cases.map((navigationCase) => navigationCase.kind))).toEqual(
-      new Set(["bugfix", "test-discovery", "component-navigation", "sdk-tracing", "config-build", "exact-string-audit", "feature"])
+      new Set([
+        "bugfix",
+        "test-discovery",
+        "source-to-test",
+        "component-navigation",
+        "code-explanation",
+        "sdk-tracing",
+        "config-build",
+        "exact-string-audit",
+        "feature"
+      ])
     );
   });
 

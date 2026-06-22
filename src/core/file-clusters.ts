@@ -335,6 +335,10 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       if (fileNameBoost > 0) {
         cluster.why.add("file name matches task terms");
       }
+      const implementationPathBoost = implementationPathCoverageBoost(cluster, queryTerms);
+      if (implementationPathBoost > 0) {
+        cluster.why.add("implementation path coverage match");
+      }
       const kotlinBoost = kotlinClusterBoost(cluster, queryTerms);
       if (kotlinBoost > 0) {
         cluster.why.add("Kotlin navigation signal match");
@@ -365,6 +369,7 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
             Math.min(cluster.matchedChunks, 5) +
             coverageBoost +
             fileNameBoost +
+            implementationPathBoost +
             kotlinBoost +
             buildToolBoost +
             cythonBoost +
@@ -599,6 +604,36 @@ function fileNameTermBoost(file: string, queryTerms: string[]): number {
   const basename = normalize(path.posix.basename(file).replace(/\.[^.]+$/u, ""));
   const matches = queryTerms.filter((term) => basename.includes(term)).length;
   return Math.min(matches * 6, 12);
+}
+
+function implementationPathCoverageBoost(cluster: MutableCluster, queryTerms: string[]): number {
+  if (cluster.role !== "source" || queryTerms.length < 3 || queryTerms.length > 6) {
+    return 0;
+  }
+
+  const pathTokens = normalize(cluster.file)
+    .split(/\s+/u)
+    .filter((token) => token.length >= 3);
+  const basenameTokens = normalize(path.posix.basename(cluster.file).replace(/\.[^.]+$/u, ""))
+    .split(/\s+/u)
+    .filter((token) => token.length >= 3);
+  const matchedPathTerms = queryTerms.filter((term) => pathTokens.some((pathToken) => clusterTokenMatches(pathToken, term)));
+  const matchedBasenameTerms = queryTerms.filter((term) => basenameTokens.some((pathToken) => clusterTokenMatches(pathToken, term)));
+  const behaviorTerms = queryTerms.filter(
+    (term) =>
+      cluster.symbols.some((symbol) => clusterTokenMatches(normalize(symbol.name), term)) ||
+      clusterTokenMatches(normalize(cluster.evidence ?? ""), term)
+  );
+
+  if (matchedPathTerms.length < 3 || matchedBasenameTerms.length < 2 || behaviorTerms.length === 0) {
+    return 0;
+  }
+
+  return Math.min(42 + matchedBasenameTerms.length * 8 + behaviorTerms.length * 6, 72);
+}
+
+function clusterTokenMatches(text: string, term: string): boolean {
+  return text.split(/\s+/u).some((token) => token === term || token.includes(term) || term.includes(token) || stemToken(token) === stemToken(term));
 }
 
 function kotlinClusterBoost(cluster: MutableCluster, queryTerms: string[]): number {

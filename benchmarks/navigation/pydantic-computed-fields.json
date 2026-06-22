@@ -133,8 +133,8 @@
   },
   {
     "id": "pydantic-computed-fields-serializer-behavior-only",
-    "task": "Find the implementation area for excluding computed fields during serialization, without using the Rust type or method name.",
-    "kind": "maintenance",
+    "task": "Bugfix where excluding computed fields during serialization is not honored; find the implementation area without using the Rust type or method name.",
+    "kind": "bugfix",
     "agentIndexSteps": [
       {
         "type": "file-clusters",

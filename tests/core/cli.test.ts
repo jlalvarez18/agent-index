@@ -484,6 +484,80 @@ def test_load_value():
     expect(compactRelatedJson.matches[0]).not.toHaveProperty("score");
   });
 
+  test("runs task presets as compact multi-step agent workflows", async () => {
+    const { root } = await fixtureProject();
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(
+      path.join(root, "tests", "test_cache.py"),
+      `from pkg.cache import load_value
+
+def test_load_value():
+    assert load_value("x") == "x"
+`
+    );
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["task", "bugfix", "semantic cache load regression", "--target", root, "--format", "compact"], {
+      write: (line) => output.push(line)
+    });
+    await runCli(["task", "bugfix", "semantic cache load regression", "--target", root, "--format", "json"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Task bugfix: semantic cache load regression");
+    expect(output[1]).toContain("Step 1 source-map file-clusters");
+    expect(output[1]).toContain("pkg/cache.py");
+    expect(output[1]).toContain("Step 3 related-tests source-tests");
+    expect(output[1]).toContain("tests/test_cache.py");
+    expect(output[1]).not.toContain("\"clusters\"");
+
+    const json = JSON.parse(output[2]);
+    expect(json.plan.steps.map((step: { purpose: string }) => step.purpose)).toEqual([
+      "source-map",
+      "implementation-context",
+      "related-tests"
+    ]);
+    expect(json.steps[0]).toMatchObject({
+      purpose: "source-map",
+      type: "file-clusters"
+    });
+  });
+
+  test("task bugfix routes blind default-disabling tasks to default resolver symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-cli-default-decision-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "globals.py"),
+      `def resolve_color_default(color=None):
+    """Get the default value of the color flag from context."""
+    if color is not None:
+        return color
+    return current_context().color
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "_compat.py"),
+      `def should_strip_ansi(stream=None, color=None):
+    if color is None:
+        if os.environ.get("NO_COLOR"):
+            return True
+        return not isatty(stream)
+    return not color
+`
+    );
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["task", "bugfix", "NO_COLOR should disable color by default", "--target", root, "--format", "compact"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Task bugfix: NO_COLOR should disable color by default");
+    expect(output[1]).toContain("pkg/globals.py");
+    expect(output[1]).toContain("resolve_color_default");
+  });
+
   test("supports navigation workflow evaluation through the public command", async () => {
     const { root } = await fixtureProject();
     const navigationEvalPath = await writeNavigationEval(root);

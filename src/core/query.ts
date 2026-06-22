@@ -1919,6 +1919,14 @@ function intentRulesForQuestion(question: string): IntentRule[] {
     });
   }
 
+  if (isDefaultDecisionResolverQuestion(tokens)) {
+    rules.push({
+      reason: "default decision resolver intent",
+      boost: 12,
+      score: (row) => defaultDecisionResolverScore(row, question)
+    });
+  }
+
   for (const reference of dottedReferences) {
     if (!shouldTreatDottedReferenceAsApi(reference, normalizedQuestion, tokens)) {
       continue;
@@ -4518,6 +4526,89 @@ function isForestFitQuestion(tokens: Set<string>): boolean {
     tokens.has("bootstrap") ||
     tokens.has("parallel");
   return forestLike && fitLike && treeBuildLike;
+}
+
+function isDefaultDecisionResolverQuestion(tokens: Set<string>): boolean {
+  const defaultLike = tokens.has("default") || tokens.has("defaults");
+  const behaviorLike =
+    tokens.has("disable") ||
+    tokens.has("disabled") ||
+    tokens.has("enable") ||
+    tokens.has("enabled") ||
+    tokens.has("decide") ||
+    tokens.has("decides") ||
+    tokens.has("decision") ||
+    tokens.has("behavior") ||
+    tokens.has("signal");
+  return defaultLike && behaviorLike;
+}
+
+function defaultDecisionResolverScore(row: CandidateRow, question: string): number {
+  if (row.file_role !== "source" || (row.kind !== "function" && row.kind !== "method")) {
+    return 0;
+  }
+
+  const symbolTokens = normalize(row.symbol_name.replace(/^_+/, ""))
+    .split(/\s+/)
+    .filter(Boolean);
+  const symbolTokenSet = new Set(symbolTokens);
+  const hasDefault = symbolTokenSet.has("default") || symbolTokenSet.has("defaults");
+  const resolverTokens = new Set(["resolve", "resolver", "get", "choose", "determine", "compute", "select"]);
+  const hasResolver = symbolTokens.some((token) => resolverTokens.has(stemToken(token)));
+  if (!hasDefault || !hasResolver) {
+    return 0;
+  }
+
+  const domainOverlap = defaultDecisionDomainOverlap(row, question, symbolTokenSet);
+  if (domainOverlap === 0) {
+    return 0;
+  }
+
+  return 42 + Math.min(domainOverlap * 8, 24) + (row.kind === "function" ? 8 : 0);
+}
+
+function defaultDecisionDomainOverlap(row: CandidateRow, question: string, symbolTokenSet: Set<string>): number {
+  const genericTokens = new Set([
+    "default",
+    "defaults",
+    "disable",
+    "disabled",
+    "enable",
+    "enabled",
+    "decide",
+    "decides",
+    "decision",
+    "behavior",
+    "signal",
+    "should",
+    "from",
+    "with",
+    "without",
+    "true",
+    "false",
+    "none",
+    "null",
+    "env",
+    "environment",
+    "variable",
+    "resolve",
+    "resolver",
+    "get",
+    "choose",
+    "determine",
+    "compute",
+    "select"
+  ]);
+  const candidateText = normalize([row.qualified_name, row.file_path, row.chunk_text].join(" "));
+  return rankedQueryTokens(question).filter((token) => {
+    const stem = stemToken(token);
+    return (
+      token.length >= 3 &&
+      !genericTokens.has(token) &&
+      !genericTokens.has(stem) &&
+      (symbolTokenSet.has(token) || symbolTokenSet.has(stem) || candidateText.includes(token))
+    );
+  }).length;
 }
 
 function symbolTokensCoveredByQuestion(row: CandidateRow, tokens: Set<string>): boolean {

@@ -20,6 +20,8 @@ import { runNavigationSuite } from "./core/navigation-suite.js";
 import { queryAgentIndex, queryIndex } from "./core/query.js";
 import { findRelatedTests } from "./core/related-tests.js";
 import { findSourceTests } from "./core/source-tests.js";
+import { planAgentTask, runAgentTask } from "./core/task-mode.js";
+import type { AgentTaskKind, AgentTaskResult } from "./core/task-mode.js";
 import { appendLessonTrace, appendQueryTrace, buildTraceReport, formatTraceReport } from "./core/tracing.js";
 import type {
   AgentEvalResult,
@@ -250,6 +252,73 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
         });
         const format = options.json ? "json" : parseTestNavigationFormat(options.format, "source-tests");
         io.write(formatTestNavigationResult(result, format, formatSourceTests, compactSourceTestsJson));
+      }
+    );
+
+  program
+    .command("task")
+    .argument("<kind>", "task preset: bugfix, feature, explain, find-tests, or source-to-tests")
+    .argument("[task]", "natural-language task description")
+    .requiredOption("--target <target>", "target repository or directory")
+    .option("--repo <target>", "alias for --target")
+    .option("--index-path <path>", "SQLite index path")
+    .option("--index <path>", "alias for --index-path")
+    .option("--db <path>", "alias for --index-path")
+    .option("--source <file>", "source file path for source-to-tests")
+    .option("--symbol <symbol>", "source symbol name for source-to-tests")
+    .option("--term <term>", "structured query term; repeat or comma-separate", collectOption, [])
+    .option("--kind <kind>", "symbol kind: function, method, class, module, or typealias; repeat or comma-separate", collectOption, [])
+    .option("--path <hint>", "path hint; repeat or comma-separate", collectOption, [])
+    .option("--path-filter", "treat --path values as hard file-path filters instead of ranking hints")
+    .option("--role <role>", "file role: source, test, docs, example, fixture, tool, or benchmark; repeat or comma-separate", collectOption, [])
+    .option("--expand <relation>", "graph expansion: callers, callees, imports, parents, or children; repeat or comma-separate", collectOption, [])
+    .option("--limit <limit>", "maximum results per task step", "5")
+    .option("--test-limit <limit>", "maximum related test files per source", "2")
+    .option("--mode <mode>", "query mode for symbol-context steps: symbol, fts, or hybrid", "hybrid")
+    .option("--format <format>", "task output format: compact or json", "compact")
+    .action(
+      async (
+        kind: string,
+        task: string | undefined,
+        options: {
+          target: string;
+          repo?: string;
+          indexPath?: string;
+          index?: string;
+          db?: string;
+          source?: string;
+          symbol?: string;
+          term?: string[];
+          kind?: string[];
+          path?: string[];
+          pathFilter?: boolean;
+          role?: string[];
+          expand?: string[];
+          limit: string;
+          testLimit: string;
+          mode: string;
+          format: string;
+        }
+      ) => {
+        const plan = planAgentTask(parseAgentTaskKind(kind), {
+          task,
+          source: options.source,
+          symbol: options.symbol,
+          terms: splitOptionValues(options.term),
+          kinds: parseOptionalSymbolKinds(splitOptionValues(options.kind)),
+          roles: parseOptionalFileRoles(splitOptionValues(options.role)),
+          pathHints: splitOptionValues(options.path),
+          pathMode: options.pathFilter ? "filter" : undefined,
+          expand: parseOptionalExpansions(splitOptionValues(options.expand)),
+          limit: Number.parseInt(options.limit, 10),
+          testLimit: Number.parseInt(options.testLimit, 10)
+        });
+        const result = await runAgentTask(plan, {
+          target: parseTargetPath(options.target, options.repo),
+          indexPath: parseIndexPath(options.indexPath, options.index, options.db),
+          mode: parseMode(options.mode)
+        });
+        io.write(parseTaskFormat(options.format) === "json" ? JSON.stringify(result, null, 2) : formatAgentTask(result));
       }
     );
 
@@ -656,6 +725,30 @@ function formatSourceTests(result: SourceTestsResult): string {
         `  next: ${formatOpenHint(bundle.source.file, line)}`
       ].join("\n");
     })
+    .join("\n");
+}
+
+function formatAgentTask(result: AgentTaskResult): string {
+  const lines = [`Task ${result.plan.kind}: ${result.plan.task || "(no description)"}`];
+  for (const [index, step] of result.steps.entries()) {
+    lines.push("", `Step ${index + 1} ${step.purpose} ${step.type}`);
+    if (step.type === "file-clusters") {
+      lines.push(indentBlock(formatFileClusters(step.result)));
+    } else if (step.type === "query") {
+      lines.push(indentBlock(formatQueryCompact(step.result)));
+    } else if (step.type === "source-tests") {
+      lines.push(indentBlock(formatSourceTests(step.result)));
+    } else {
+      lines.push(indentBlock(formatRelatedTests(step.result)));
+    }
+  }
+  return lines.join("\n");
+}
+
+function indentBlock(value: string): string {
+  return value
+    .split("\n")
+    .map((line) => `  ${line}`)
     .join("\n");
 }
 
@@ -1155,6 +1248,21 @@ function parseQueryFormat(format: string): "json" | "compact" {
   throw new Error(`Invalid query format: ${format}. Expected "json" or "compact".`);
 }
 
+function parseTaskFormat(format: string): "json" | "compact" {
+  if (format === "json" || format === "compact") {
+    return format;
+  }
+  throw new Error(`Invalid task format: ${format}. Expected "json" or "compact".`);
+}
+
+function parseAgentTaskKind(kind: string): AgentTaskKind {
+  const allowed: AgentTaskKind[] = ["bugfix", "feature", "explain", "find-tests", "source-to-tests"];
+  if (allowed.includes(kind as AgentTaskKind)) {
+    return kind as AgentTaskKind;
+  }
+  throw new Error(`Invalid task kind: ${kind}. Expected one of: ${allowed.join(", ")}.`);
+}
+
 function parseAutonomousCondition(value: string): AutonomousCondition {
   if (autonomousConditions.includes(value as AutonomousCondition)) {
     return value as AutonomousCondition;
@@ -1339,6 +1447,18 @@ function parseSymbolKinds(values: string[]): SymbolKind[] {
     }
     return value as SymbolKind;
   });
+}
+
+function parseOptionalSymbolKinds(values: string[]): SymbolKind[] | undefined {
+  return values.length > 0 ? parseSymbolKinds(values) : undefined;
+}
+
+function parseOptionalFileRoles(values: string[]): FileRole[] | undefined {
+  return values.length > 0 ? parseFileRoles(values) : undefined;
+}
+
+function parseOptionalExpansions(values: string[]): QueryExpansion[] | undefined {
+  return values.length > 0 ? parseExpansions(values) : undefined;
 }
 
 function parseNonNegativeNumber(value: string, flag: string): number {

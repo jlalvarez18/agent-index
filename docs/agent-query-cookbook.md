@@ -6,6 +6,53 @@ The core split is simple: the LLM does the reasoning, then `agent-index` does fa
 
 ## Query Shape
 
+For common coding-agent workflows, start with task mode. It is a map legend over
+the lower-level primitives: the agent supplies a task kind plus a natural task,
+and `agent-index` expands that into a compact multi-step workflow.
+
+```bash
+node dist/cli.js task bugfix "NO_COLOR should disable color by default" \
+  --target /path/to/repo \
+  --index-path /tmp/index.sqlite \
+  --format compact
+```
+
+Task presets:
+
+| Preset | Use it when | Workflow |
+| --- | --- | --- |
+| `bugfix` | You need likely edit locations and nearby tests for a behavior regression. | Source map -> implementation symbols/files -> related tests. |
+| `feature` | You need existing APIs/components to extend and likely tests/examples. | Source map -> nearby APIs/components -> tests/examples. |
+| `explain` | You need orientation before editing or answering. | Source map -> core symbols/files with callers, callees, imports, and parent context. |
+| `find-tests` | You have a behavior/API clue and need the tests that exercise it. | Source/test relation discovery. |
+| `source-to-tests` | You already know the source file and need direct test links. | Related-tests from `--source`. |
+
+Examples:
+
+```bash
+node dist/cli.js task explain "how response serialization works" \
+  --target /path/to/fastapi \
+  --mode hybrid
+
+node dist/cli.js task find-tests "CheckoutController submit" \
+  --target /path/to/flutter_shop \
+  --term CheckoutController \
+  --test-limit 3
+
+node dist/cli.js task source-to-tests \
+  --target /path/to/flutter_shop \
+  --source lib/src/checkout/checkout_controller.dart \
+  --term CheckoutController \
+  --term submit
+```
+
+Task mode preserves the structured query flags where they help: add `--term` for
+exact symbols or constants, `--kind` for expected symbol shapes, `--path` for
+module hints, `--role` when you need to override a preset role, and `--expand`
+when an explain/bugfix step needs different graph context. Use
+`--format json` to expose the generated `plan.steps` alongside full step
+results for benchmark artifacts or audits.
+
 Use shorthand structured flags for the primary agent path:
 
 ```bash

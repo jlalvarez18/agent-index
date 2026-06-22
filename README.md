@@ -120,6 +120,43 @@ The success message includes the index mode, for example `(mode: source-only)`, 
 
 ## Query
 
+For coding agents, the easiest first move is often task mode. It translates a
+task kind plus a natural task into a compact workflow over existing query,
+file-cluster, source-test, and related-test primitives:
+
+```bash
+npm run agent-index -- task bugfix "NO_COLOR should disable color by default" \
+  --target /path/to/python/repo \
+  --index-path /tmp/index.sqlite \
+  --format compact
+```
+
+Available presets:
+
+- `bugfix`: source map -> likely implementation symbols/files -> related tests.
+- `feature`: source map -> nearby APIs/components -> likely tests/examples.
+- `explain`: source map -> core symbols/files with callers, callees, imports, and parent context.
+- `find-tests`: source/test relation discovery from a behavior or API clue.
+- `source-to-tests`: direct related-test lookup from a known `--source` file.
+
+Task mode still accepts structured refinements such as `--term`, `--kind`,
+`--path`, `--role`, `--expand`, `--limit`, and `--test-limit`. Use
+`--format json` when benchmark tooling needs to inspect the generated
+underlying steps.
+
+```bash
+npm run agent-index -- task find-tests "CheckoutController submit" \
+  --target /path/to/flutter_shop \
+  --term CheckoutController \
+  --test-limit 3
+
+npm run agent-index -- task source-to-tests \
+  --target /path/to/flutter_shop \
+  --source lib/src/checkout/checkout_controller.dart \
+  --term CheckoutController \
+  --term submit
+```
+
 For agents, prefer shorthand structured query flags:
 
 ```bash

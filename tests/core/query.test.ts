@@ -2681,6 +2681,44 @@ class Option:
     expect(result.matches[0].why).not.toContain("entrypoint intent match");
   });
 
+  test("hybrid mode routes blind default-disabling tasks to default resolver symbols", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-default-decision-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "globals.py"),
+      `def resolve_color_default(color=None):
+    """Get the default value of the color flag from context."""
+    if color is not None:
+        return color
+    return current_context().color
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "_compat.py"),
+      `def should_strip_ansi(stream=None, color=None):
+    if color is None:
+        if os.environ.get("NO_COLOR"):
+            return True
+        return not isatty(stream)
+    return not color
+`
+    );
+    await indexTarget(root);
+
+    const result = await queryIndex("NO_COLOR should disable color by default", {
+      target: root,
+      limit: 5,
+      mode: "hybrid"
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "resolve_color_default",
+      kind: "function",
+      file: "pkg/globals.py"
+    });
+    expect(result.matches[0].why).toContain("default decision resolver intent");
+  });
+
   test("hybrid mode does not treat CliRunner helper questions as entrypoint queries", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-cli-runner-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

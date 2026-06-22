@@ -351,12 +351,26 @@ function clusterRows(rows: ClusterRow[], agentQuery: AgentQuery): FileClusterMat
       if (railsBoost > 0) {
         cluster.why.add("Rails navigation signal match");
       }
+      const defaultDecisionBoost = defaultDecisionResolverClusterBoost(cluster, queryTerms);
+      if (defaultDecisionBoost > 0) {
+        cluster.why.add("default decision resolver match");
+      }
       return {
         file: cluster.file,
         role: cluster.role,
         language: cluster.language,
         score: Number(
-          (cluster.score + Math.min(cluster.matchedChunks, 5) + coverageBoost + fileNameBoost + kotlinBoost + buildToolBoost + cythonBoost + railsBoost).toFixed(2)
+          (
+            cluster.score +
+            Math.min(cluster.matchedChunks, 5) +
+            coverageBoost +
+            fileNameBoost +
+            kotlinBoost +
+            buildToolBoost +
+            cythonBoost +
+            railsBoost +
+            defaultDecisionBoost
+          ).toFixed(2)
         ),
         matchedChunks: cluster.matchedChunks,
         contextChars: cluster.contextChars + (cluster.evidence ? cluster.evidence.length + 1 : 0),
@@ -428,6 +442,77 @@ function railsClusterBoost(cluster: MutableCluster, queryTerms: string[]): numbe
   );
   score += Math.min(evidenceTerms.length * 3, 12);
   return Math.min(score, 30);
+}
+
+function defaultDecisionResolverClusterBoost(cluster: MutableCluster, queryTerms: string[]): number {
+  const querySet = new Set(queryTerms);
+  const defaultLike = querySet.has("default") || querySet.has("defaults");
+  const behaviorLike = ["disable", "disabled", "enable", "enabled", "decide", "decides", "decision", "behavior", "signal"].some((term) =>
+    querySet.has(term)
+  );
+  if (!defaultLike || !behaviorLike || cluster.role !== "source") {
+    return 0;
+  }
+
+  const resolverTokens = new Set(["resolve", "resolver", "get", "choose", "determine", "compute", "select"]);
+  const symbolNames = cluster.symbols.map((symbol) => normalize(symbol.name));
+  const hasDefaultResolver = symbolNames.some((symbolName) => {
+    const tokens = symbolName.split(/\s+/u).filter(Boolean);
+    const tokenSet = new Set(tokens);
+    return (tokenSet.has("default") || tokenSet.has("defaults")) && tokens.some((token) => resolverTokens.has(stemToken(token)));
+  });
+  if (!hasDefaultResolver) {
+    return 0;
+  }
+
+  const haystack = normalize([cluster.file, ...cluster.symbols.map((symbol) => symbol.name), cluster.evidence ?? ""].join(" "));
+  const domainOverlap = queryTerms.filter((term) => isDefaultDecisionDomainTerm(term) && haystack.includes(term)).length;
+  if (domainOverlap === 0) {
+    return 0;
+  }
+
+  return 48 + Math.min(domainOverlap * 10, 30);
+}
+
+function isDefaultDecisionDomainTerm(term: string): boolean {
+  return (
+    term.length >= 3 &&
+    !new Set([
+      "default",
+      "defaults",
+      "disable",
+      "disabled",
+      "enable",
+      "enabled",
+      "decide",
+      "decides",
+      "decision",
+      "behavior",
+      "signal",
+      "should",
+      "from",
+      "with",
+      "without",
+      "true",
+      "false",
+      "none",
+      "null",
+      "env",
+      "environment",
+      "variable",
+      "resolve",
+      "resolver",
+      "get",
+      "choose",
+      "determine",
+      "compute",
+      "select"
+    ]).has(term)
+  );
+}
+
+function stemToken(token: string): string {
+  return token.replace(/(?:ing|ed|es|s)$/u, "");
 }
 
 function rankedClusterSymbols(cluster: MutableCluster, agentQuery: AgentQuery): FileClusterMatch["symbols"] {

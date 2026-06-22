@@ -643,6 +643,46 @@ class DefaultExecutionContext:
     );
   });
 
+  test("ranks default resolver files above adjacent literal matches for blind default-disabling tasks", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-default-decision-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "globals.py"),
+      `def resolve_color_default(color=None):
+    """Get the default value of the color flag from context."""
+    if color is not None:
+        return color
+    return current_context().color
+`
+    );
+    await writeFile(
+      path.join(root, "pkg", "_compat.py"),
+      `def should_strip_ansi(stream=None, color=None):
+    if color is None:
+        if os.environ.get("NO_COLOR"):
+            return True
+        return not isatty(stream)
+    return not color
+`
+    );
+    await indexTarget(root);
+
+    const result = findFileClusters(
+      {
+        terms: ["NO_COLOR", "should", "disable", "color", "by", "default"],
+        symbolKinds: ["function"],
+        roles: ["source"]
+      },
+      { target: root, limit: 3 }
+    );
+
+    expect(result.clusters[0]).toMatchObject({
+      file: "pkg/globals.py"
+    });
+    expect(result.clusters[0].symbols.map((symbol) => symbol.name)).toContain("resolve_color_default");
+    expect(result.clusters[0].why).toContain("default decision resolver match");
+  });
+
   test("reranks symbols for soft path-hinted clusters so late behavior helpers stay visible", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-file-clusters-soft-symbol-relevance-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

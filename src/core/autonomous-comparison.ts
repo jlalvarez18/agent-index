@@ -1,10 +1,14 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   AutonomousCondition,
+  AutonomousMetricConfidence,
   AutonomousReviewRecord,
+  AutonomousSummaryMetricMedians,
   AutonomousSummaryCondition,
   AutonomousSummaryResult,
+  AutonomousTelemetry,
+  AutonomousTelemetryMetric,
   AutonomousTaskKind,
   AutonomousTaskDefinition,
   AutonomousTaskManifest
@@ -47,6 +51,81 @@ const autonomousDependencySetupMetricFields = [
 const autonomousIndexMetricFieldSet = new Set([...autonomousIndexMetricFields, "notes"]);
 const autonomousDependencySetupMetricFieldSet = new Set([...autonomousDependencySetupMetricFields, "notes"]);
 const autonomousCoordinatorVerificationFieldSet = new Set(["tests", "command", "notes"]);
+const autonomousTelemetryFieldSet = new Set([
+  "schemaVersion",
+  "metadata",
+  "artifacts",
+  "timestamps",
+  "metrics",
+  "indexSetup",
+  "dependencySetup",
+  "testCommands"
+]);
+const autonomousTelemetryMetadataFieldSet = new Set([
+  "taskId",
+  "condition",
+  "repo",
+  "taskKind",
+  "commit",
+  "testCommand"
+]);
+const autonomousTelemetryArtifactFieldSet = new Set([
+  "runDir",
+  "promptPath",
+  "reviewTemplatePath",
+  "reviewPath",
+  "generatedPaths"
+]);
+const autonomousTelemetryTimestampFields = [
+  "preparedAt",
+  "reviewTemplateWrittenAt",
+  "reviewWrittenAt",
+  "validationStartedAt",
+  "validationCompletedAt",
+  "runStartedAt",
+  "runEndedAt"
+] as const;
+const autonomousTelemetryTimestampFieldSet = new Set(autonomousTelemetryTimestampFields);
+const autonomousTelemetryMetricFields = [
+  "wallTimeSeconds",
+  "filesOpened",
+  "contextTokens",
+  "outputTokens",
+  "agentTurns",
+  "toolCalls",
+  "commandInvocations"
+] as const;
+const autonomousTelemetryMetricFieldSet = new Set(autonomousTelemetryMetricFields);
+const autonomousTelemetrySetupMetricFields = [
+  "fullIndexWallTimeSeconds",
+  "incrementalIndexWallTimeSeconds",
+  "indexArtifactBytes",
+  "indexedFiles",
+  "indexedSymbols",
+  "indexedNodes",
+  "dependencySetupWallTimeSeconds",
+  "dependencyArtifactBytes"
+] as const;
+const autonomousTelemetrySetupMetricFieldSet = new Set(autonomousTelemetrySetupMetricFields);
+const autonomousTelemetryMetricSourceValues = ["measured", "estimated"];
+const autonomousTelemetryTestCommandFieldSet = new Set([
+  "command",
+  "outcome",
+  "exitCode",
+  "source",
+  "startedAt",
+  "endedAt",
+  "notes"
+]);
+const summaryMetricFields = [
+  "wallTimeMinutes",
+  "filesOpened",
+  "contextTokens",
+  "outputTokens",
+  "agentTurns",
+  "toolCalls"
+] as const;
+type SummaryMetricField = (typeof summaryMetricFields)[number];
 
 export async function loadAutonomousTaskManifest(manifestPath: string): Promise<AutonomousTaskManifest> {
   return validateAutonomousTaskManifest(
@@ -58,9 +137,18 @@ export async function loadAutonomousTaskManifest(manifestPath: string): Promise<
 export async function loadAutonomousReviews(artifactsDir: string): Promise<AutonomousReviewRecord[]> {
   const reviewPaths = await findReviewFiles(artifactsDir);
   const reviews = await Promise.all(
-    reviewPaths.map(async (reviewPath) =>
-      validateAutonomousReviewRecord(JSON.parse(await readFile(reviewPath, "utf8")), reviewPath)
-    )
+    reviewPaths.map(async (reviewPath) => {
+      const validationStartedAt = new Date().toISOString();
+      const [text, reviewStats] = await Promise.all([readFile(reviewPath, "utf8"), stat(reviewPath)]);
+      const review = validateAutonomousReviewRecord(JSON.parse(text), reviewPath);
+      return annotateLoadedReviewTelemetry(
+        review,
+        reviewPath,
+        reviewStats.mtime.toISOString(),
+        validationStartedAt,
+        new Date().toISOString()
+      );
+    })
   );
   return reviews;
 }
@@ -96,8 +184,17 @@ export async function prepareAutonomousRunPacket(
 
   const promptPath = path.join(runDir, "prompt.md");
   const reviewTemplatePath = path.join(runDir, "review-template.json");
+  const preparedAt = new Date().toISOString();
   await writeFile(promptPath, renderAutonomousPrompt(task, condition, options.timeLimitMinutes ?? 30));
-  await writeFile(reviewTemplatePath, `${JSON.stringify(reviewTemplate(task.id, condition), null, 2)}\n`);
+  const reviewTemplateWrittenAt = new Date().toISOString();
+  await writeFile(
+    reviewTemplatePath,
+    `${JSON.stringify(
+      reviewTemplate(task, condition, runDir, promptPath, reviewTemplatePath, preparedAt, reviewTemplateWrittenAt),
+      null,
+      2
+    )}\n`
+  );
 
   return {
     taskId: task.id,
@@ -139,7 +236,8 @@ export function renderAutonomousPrompt(
     "- Do not use internet access, credentials, or services outside the repository.",
     "- For explanation-only tasks, cite the relevant files and line numbers.",
     "- At the end, report what changed or what you found, and list tests run.",
-    "- At the end, record benchmark measurements in review.json: wallTimeMinutes, agentTurns, toolCalls, filesOpened, contextTokens, and outputTokens. Use best estimates when exact UI token counters are unavailable, and explain estimates in notes.",
+    "- At the end, record benchmark measurements in review.json. Keep legacy fields such as wallTimeMinutes, agentTurns, toolCalls, filesOpened, contextTokens, and outputTokens for compatibility.",
+    "- For each metric you can substantiate, also fill telemetry.metrics with value, source (measured or estimated), and method. Token counts may be estimates only when exact counters are unavailable; record the estimation method.",
     ""
   ].join("\n");
 }
@@ -216,6 +314,11 @@ export function validateAutonomousReviewRecord(
   } else if (isRecord(review.coordinatorVerification)) {
     validateCoordinatorVerification(review.coordinatorVerification, source, errors);
   }
+  if (review.telemetry !== undefined && !isRecord(review.telemetry)) {
+    errors.push(`${source}: telemetry must be an object`);
+  } else if (isRecord(review.telemetry)) {
+    validateTelemetry(review.telemetry, source, errors);
+  }
 
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));
@@ -263,12 +366,15 @@ function summarizeCondition(
       runs === 0 || conditionTool === null
         ? 0
         : conditionReviews.filter((review) => review.specialToolHelped === "yes").length / runs,
-    medianWallTimeMinutes: upperMedian(conditionReviews.map((review) => review.wallTimeMinutes)),
-    medianFilesOpened: upperMedian(conditionReviews.map((review) => review.filesOpened)),
-    medianContextTokens: upperMedian(conditionReviews.map((review) => review.contextTokens)),
-    medianOutputTokens: upperMedian(conditionReviews.map((review) => review.outputTokens)),
-    medianAgentTurns: upperMedian(conditionReviews.map((review) => review.agentTurns)),
-    medianToolCalls: upperMedian(conditionReviews.map((review) => review.toolCalls))
+    medianWallTimeMinutes: medianResolvedMetric(conditionReviews, "wallTimeMinutes"),
+    medianFilesOpened: medianResolvedMetric(conditionReviews, "filesOpened"),
+    medianContextTokens: medianResolvedMetric(conditionReviews, "contextTokens"),
+    medianOutputTokens: medianResolvedMetric(conditionReviews, "outputTokens"),
+    medianAgentTurns: medianResolvedMetric(conditionReviews, "agentTurns"),
+    medianToolCalls: medianResolvedMetric(conditionReviews, "toolCalls"),
+    measuredMedians: medianResolvedMetricsBySource(conditionReviews, "measured"),
+    estimatedMedians: medianResolvedMetricsBySource(conditionReviews, "estimated"),
+    metricConfidence: metricConfidence(conditionReviews)
   };
 }
 
@@ -294,6 +400,84 @@ function upperMedian(values: Array<number | undefined>): number | null {
 
 function roundToFour(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+function medianResolvedMetric(reviews: AutonomousReviewRecord[], field: SummaryMetricField): number | null {
+  return upperMedian(reviews.map((review) => resolveSummaryMetric(review, field)?.value));
+}
+
+function medianResolvedMetricsBySource(
+  reviews: AutonomousReviewRecord[],
+  source: "measured" | "estimated"
+): AutonomousSummaryMetricMedians {
+  const medians = emptySummaryMetricMedians();
+  for (const field of summaryMetricFields) {
+    medians[field] = upperMedian(
+      reviews
+        .map((review) => resolveSummaryMetric(review, field))
+        .filter((metric): metric is { value: number; source: "measured" | "estimated" } => metric?.source === source)
+        .map((metric) => metric.value)
+    );
+  }
+  return medians;
+}
+
+function metricConfidence(
+  reviews: AutonomousReviewRecord[]
+): Record<SummaryMetricField, AutonomousMetricConfidence> {
+  const confidence = Object.fromEntries(
+    summaryMetricFields.map((field) => [field, { measured: 0, estimated: 0, missing: 0 }])
+  ) as Record<SummaryMetricField, AutonomousMetricConfidence>;
+
+  for (const field of summaryMetricFields) {
+    for (const review of reviews) {
+      const metric = resolveSummaryMetric(review, field);
+      if (!metric) {
+        confidence[field].missing += 1;
+      } else {
+        confidence[field][metric.source] += 1;
+      }
+    }
+  }
+
+  return confidence;
+}
+
+function emptySummaryMetricMedians(): AutonomousSummaryMetricMedians {
+  return {
+    wallTimeMinutes: null,
+    filesOpened: null,
+    contextTokens: null,
+    outputTokens: null,
+    agentTurns: null,
+    toolCalls: null
+  };
+}
+
+function resolveSummaryMetric(
+  review: AutonomousReviewRecord,
+  field: SummaryMetricField
+): { value: number; source: "measured" | "estimated" } | undefined {
+  const telemetryMetric = telemetryMetricForSummaryField(review.telemetry, field);
+  if (telemetryMetric !== undefined) {
+    return {
+      value: field === "wallTimeMinutes" ? telemetryMetric.value / 60 : telemetryMetric.value,
+      source: telemetryMetric.source
+    };
+  }
+
+  const legacyValue = review[field];
+  return legacyValue === undefined ? undefined : { value: legacyValue, source: "estimated" };
+}
+
+function telemetryMetricForSummaryField(
+  telemetry: AutonomousTelemetry | undefined,
+  field: SummaryMetricField
+): AutonomousTelemetryMetric | undefined {
+  if (field === "wallTimeMinutes") {
+    return telemetry?.metrics?.wallTimeSeconds;
+  }
+  return telemetry?.metrics?.[field];
 }
 
 function requireString(
@@ -432,6 +616,213 @@ function validateCoordinatorVerification(
   }
   if (typeof verification.notes !== "string" || verification.notes.trim().length === 0) {
     errors.push(`${source}: coordinatorVerification.notes must be a non-empty string`);
+  }
+}
+
+function validateTelemetry(
+  telemetry: Record<string, unknown>,
+  source: string,
+  errors: string[]
+): void {
+  rejectUnknownFields(telemetry, autonomousTelemetryFieldSet, source, errors, "telemetry");
+  if (telemetry.schemaVersion !== 1) {
+    errors.push(`${source}: telemetry.schemaVersion must be 1`);
+  }
+  if (telemetry.metadata !== undefined && !isRecord(telemetry.metadata)) {
+    errors.push(`${source}: telemetry.metadata must be an object`);
+  } else if (isRecord(telemetry.metadata)) {
+    validateTelemetryMetadata(telemetry.metadata, source, errors);
+  }
+  if (telemetry.artifacts !== undefined && !isRecord(telemetry.artifacts)) {
+    errors.push(`${source}: telemetry.artifacts must be an object`);
+  } else if (isRecord(telemetry.artifacts)) {
+    validateTelemetryArtifacts(telemetry.artifacts, source, errors);
+  }
+  if (telemetry.timestamps !== undefined && !isRecord(telemetry.timestamps)) {
+    errors.push(`${source}: telemetry.timestamps must be an object`);
+  } else if (isRecord(telemetry.timestamps)) {
+    validateTelemetryTimestamps(telemetry.timestamps, source, errors, "telemetry.timestamps");
+  }
+  if (telemetry.metrics !== undefined && !isRecord(telemetry.metrics)) {
+    errors.push(`${source}: telemetry.metrics must be an object`);
+  } else if (isRecord(telemetry.metrics)) {
+    validateTelemetryMetricRecord(
+      telemetry.metrics,
+      autonomousTelemetryMetricFieldSet,
+      source,
+      errors,
+      "telemetry.metrics"
+    );
+  }
+  if (telemetry.indexSetup !== undefined && !isRecord(telemetry.indexSetup)) {
+    errors.push(`${source}: telemetry.indexSetup must be an object`);
+  } else if (isRecord(telemetry.indexSetup)) {
+    validateTelemetryMetricRecord(
+      telemetry.indexSetup,
+      autonomousTelemetrySetupMetricFieldSet,
+      source,
+      errors,
+      "telemetry.indexSetup"
+    );
+  }
+  if (telemetry.dependencySetup !== undefined && !isRecord(telemetry.dependencySetup)) {
+    errors.push(`${source}: telemetry.dependencySetup must be an object`);
+  } else if (isRecord(telemetry.dependencySetup)) {
+    validateTelemetryMetricRecord(
+      telemetry.dependencySetup,
+      autonomousTelemetrySetupMetricFieldSet,
+      source,
+      errors,
+      "telemetry.dependencySetup"
+    );
+  }
+  if (telemetry.testCommands !== undefined && !Array.isArray(telemetry.testCommands)) {
+    errors.push(`${source}: telemetry.testCommands must be an array`);
+  } else if (Array.isArray(telemetry.testCommands)) {
+    telemetry.testCommands.forEach((command, index) =>
+      validateTelemetryTestCommand(command, source, errors, `telemetry.testCommands[${index}]`)
+    );
+  }
+}
+
+function validateTelemetryMetadata(
+  metadata: Record<string, unknown>,
+  source: string,
+  errors: string[]
+): void {
+  rejectUnknownFields(metadata, autonomousTelemetryMetadataFieldSet, source, errors, "telemetry.metadata");
+  validateOptionalTelemetryString(metadata, "taskId", source, errors, "telemetry.metadata.taskId");
+  validateOptionalTelemetryString(metadata, "repo", source, errors, "telemetry.metadata.repo");
+  validateOptionalTelemetryString(metadata, "commit", source, errors, "telemetry.metadata.commit");
+  validateOptionalTelemetryString(metadata, "testCommand", source, errors, "telemetry.metadata.testCommand");
+  if (metadata.condition !== undefined && !autonomousConditions.includes(metadata.condition as AutonomousCondition)) {
+    errors.push(`${source}: telemetry.metadata.condition must be one of ${autonomousConditions.join(", ")}`);
+  }
+  if (metadata.taskKind !== undefined && !isAutonomousTaskKind(metadata.taskKind)) {
+    errors.push(`${source}: telemetry.metadata.taskKind must be one of ${autonomousTaskKinds.join(", ")}`);
+  }
+}
+
+function validateTelemetryArtifacts(
+  artifacts: Record<string, unknown>,
+  source: string,
+  errors: string[]
+): void {
+  rejectUnknownFields(artifacts, autonomousTelemetryArtifactFieldSet, source, errors, "telemetry.artifacts");
+  for (const field of ["runDir", "promptPath", "reviewTemplatePath", "reviewPath"]) {
+    validateOptionalTelemetryString(artifacts, field, source, errors, `telemetry.artifacts.${field}`);
+  }
+  if (artifacts.generatedPaths !== undefined && !isStringArray(artifacts.generatedPaths)) {
+    errors.push(`${source}: telemetry.artifacts.generatedPaths must be a string array`);
+  }
+}
+
+function validateTelemetryTimestamps(
+  timestamps: Record<string, unknown>,
+  source: string,
+  errors: string[],
+  label: string
+): void {
+  rejectUnknownFields(timestamps, autonomousTelemetryTimestampFieldSet, source, errors, label);
+  for (const field of autonomousTelemetryTimestampFields) {
+    validateOptionalTimestamp(timestamps, field, source, errors, `${label}.${field}`);
+  }
+}
+
+function validateTelemetryMetricRecord(
+  record: Record<string, unknown>,
+  allowedFields: ReadonlySet<string>,
+  source: string,
+  errors: string[],
+  label: string
+): void {
+  rejectUnknownFields(record, allowedFields, source, errors, label);
+  for (const [field, value] of Object.entries(record)) {
+    validateTelemetryMetric(value, source, errors, `${label}.${field}`);
+  }
+}
+
+function validateTelemetryMetric(
+  value: unknown,
+  source: string,
+  errors: string[],
+  label: string
+): void {
+  if (!isRecord(value)) {
+    errors.push(`${source}: ${label} must be an object`);
+    return;
+  }
+  const metricFieldSet = new Set(["value", "source", "method", "notes"]);
+  rejectUnknownFields(value, metricFieldSet, source, errors, label);
+  validateOptionalNonNegativeNumber(value, "value", source, errors, `${label}.value`);
+  if (typeof value.value !== "number") {
+    errors.push(`${source}: ${label}.value is required`);
+  }
+  if (typeof value.source !== "string" || !autonomousTelemetryMetricSourceValues.includes(value.source)) {
+    errors.push(`${source}: ${label}.source must be one of measured, estimated`);
+  }
+  if (typeof value.method !== "string" || value.method.trim().length === 0) {
+    errors.push(`${source}: ${label}.method must be a non-empty string`);
+  }
+  if (value.notes !== undefined && typeof value.notes !== "string") {
+    errors.push(`${source}: ${label}.notes must be a string`);
+  }
+}
+
+function validateTelemetryTestCommand(
+  command: unknown,
+  source: string,
+  errors: string[],
+  label: string
+): void {
+  if (!isRecord(command)) {
+    errors.push(`${source}: ${label} must be an object`);
+    return;
+  }
+  rejectUnknownFields(command, autonomousTelemetryTestCommandFieldSet, source, errors, label);
+  if (typeof command.command !== "string" || command.command.trim().length === 0) {
+    errors.push(`${source}: ${label}.command must be a non-empty string`);
+  }
+  requireEnum(command, "outcome", reviewTestValues, source, errors);
+  if (typeof command.source !== "string" || !autonomousTelemetryMetricSourceValues.includes(command.source)) {
+    errors.push(`${source}: ${label}.source must be one of measured, estimated`);
+  }
+  const exitCode = command.exitCode;
+  if (exitCode !== undefined && (typeof exitCode !== "number" || !Number.isInteger(exitCode) || exitCode < 0)) {
+    errors.push(`${source}: ${label}.exitCode must be a non-negative integer`);
+  }
+  validateOptionalTimestamp(command, "startedAt", source, errors, `${label}.startedAt`);
+  validateOptionalTimestamp(command, "endedAt", source, errors, `${label}.endedAt`);
+  if (command.notes !== undefined && typeof command.notes !== "string") {
+    errors.push(`${source}: ${label}.notes must be a string`);
+  }
+}
+
+function validateOptionalTelemetryString(
+  record: Record<string, unknown>,
+  field: string,
+  source: string,
+  errors: string[],
+  label: string
+): void {
+  if (record[field] !== undefined && typeof record[field] !== "string") {
+    errors.push(`${source}: ${label} must be a string`);
+  }
+}
+
+function validateOptionalTimestamp(
+  record: Record<string, unknown>,
+  field: string,
+  source: string,
+  errors: string[],
+  label: string
+): void {
+  const value = record[field];
+  if (value === undefined) {
+    return;
+  }
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+    errors.push(`${source}: ${label} must be an ISO timestamp string`);
   }
 }
 
@@ -576,9 +967,17 @@ function conditionInstructions(condition: AutonomousCondition): string {
   ].join("\n");
 }
 
-function reviewTemplate(taskId: string, condition: AutonomousCondition): AutonomousReviewRecord {
+function reviewTemplate(
+  task: AutonomousTaskDefinition,
+  condition: AutonomousCondition,
+  runDir: string,
+  promptPath: string,
+  reviewTemplatePath: string,
+  preparedAt: string,
+  reviewTemplateWrittenAt: string
+): AutonomousReviewRecord {
   return {
-    taskId,
+    taskId: task.id,
     condition,
     success: "fail",
     quality: 1,
@@ -589,6 +988,27 @@ function reviewTemplate(taskId: string, condition: AutonomousCondition): Autonom
     failureMode: null,
     indexing: {},
     dependencySetup: {},
+    telemetry: {
+      schemaVersion: 1,
+      metadata: {
+        taskId: task.id,
+        condition,
+        repo: task.repo,
+        taskKind: task.kind,
+        commit: task.commit,
+        testCommand: task.testCommand
+      },
+      artifacts: {
+        runDir,
+        promptPath,
+        reviewTemplatePath,
+        generatedPaths: [promptPath, reviewTemplatePath]
+      },
+      timestamps: {
+        preparedAt,
+        reviewTemplateWrittenAt
+      }
+    },
     wallTimeMinutes: undefined,
     filesOpened: undefined,
     contextTokens: undefined,
@@ -596,6 +1016,32 @@ function reviewTemplate(taskId: string, condition: AutonomousCondition): Autonom
     agentTurns: undefined,
     toolCalls: undefined,
     notes: ""
+  };
+}
+
+function annotateLoadedReviewTelemetry(
+  review: AutonomousReviewRecord,
+  reviewPath: string,
+  reviewWrittenAt: string,
+  validationStartedAt: string,
+  validationCompletedAt: string
+): AutonomousReviewRecord {
+  const telemetry = review.telemetry ?? { schemaVersion: 1 };
+  return {
+    ...review,
+    telemetry: {
+      ...telemetry,
+      artifacts: {
+        ...telemetry.artifacts,
+        reviewPath
+      },
+      timestamps: {
+        ...telemetry.timestamps,
+        reviewWrittenAt,
+        validationStartedAt,
+        validationCompletedAt
+      }
+    }
   };
 }
 

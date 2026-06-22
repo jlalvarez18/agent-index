@@ -634,6 +634,84 @@ export interface AutonomousCoordinatorVerification {
   notes: string;
 }
 
+export type AutonomousTelemetryMetricSource = "measured" | "estimated";
+
+export interface AutonomousTelemetryMetric {
+  value: number;
+  source: AutonomousTelemetryMetricSource;
+  method: string;
+  notes?: string;
+}
+
+export interface AutonomousTelemetryMetadata {
+  taskId?: string;
+  condition?: AutonomousCondition;
+  repo?: string;
+  taskKind?: AutonomousTaskKind;
+  commit?: string;
+  testCommand?: string;
+}
+
+export interface AutonomousTelemetryArtifacts {
+  runDir?: string;
+  promptPath?: string;
+  reviewTemplatePath?: string;
+  reviewPath?: string;
+  generatedPaths?: string[];
+}
+
+export interface AutonomousTelemetryTimestamps {
+  preparedAt?: string;
+  reviewTemplateWrittenAt?: string;
+  reviewWrittenAt?: string;
+  validationStartedAt?: string;
+  validationCompletedAt?: string;
+  runStartedAt?: string;
+  runEndedAt?: string;
+}
+
+export interface AutonomousTelemetryRunMetrics {
+  wallTimeSeconds?: AutonomousTelemetryMetric;
+  filesOpened?: AutonomousTelemetryMetric;
+  contextTokens?: AutonomousTelemetryMetric;
+  outputTokens?: AutonomousTelemetryMetric;
+  agentTurns?: AutonomousTelemetryMetric;
+  toolCalls?: AutonomousTelemetryMetric;
+  commandInvocations?: AutonomousTelemetryMetric;
+}
+
+export interface AutonomousTelemetrySetupMetrics {
+  fullIndexWallTimeSeconds?: AutonomousTelemetryMetric;
+  incrementalIndexWallTimeSeconds?: AutonomousTelemetryMetric;
+  indexArtifactBytes?: AutonomousTelemetryMetric;
+  indexedFiles?: AutonomousTelemetryMetric;
+  indexedSymbols?: AutonomousTelemetryMetric;
+  indexedNodes?: AutonomousTelemetryMetric;
+  dependencySetupWallTimeSeconds?: AutonomousTelemetryMetric;
+  dependencyArtifactBytes?: AutonomousTelemetryMetric;
+}
+
+export interface AutonomousTelemetryTestCommand {
+  command: string;
+  outcome: "passed" | "failed" | "not-run" | "not-applicable";
+  exitCode?: number;
+  source: AutonomousTelemetryMetricSource;
+  startedAt?: string;
+  endedAt?: string;
+  notes?: string;
+}
+
+export interface AutonomousTelemetry {
+  schemaVersion: 1;
+  metadata?: AutonomousTelemetryMetadata;
+  artifacts?: AutonomousTelemetryArtifacts;
+  timestamps?: AutonomousTelemetryTimestamps;
+  metrics?: AutonomousTelemetryRunMetrics;
+  indexSetup?: AutonomousTelemetrySetupMetrics;
+  dependencySetup?: AutonomousTelemetrySetupMetrics;
+  testCommands?: AutonomousTelemetryTestCommand[];
+}
+
 export interface AutonomousReviewRecord {
   taskId: string;
   condition: AutonomousCondition;
@@ -656,6 +734,7 @@ export interface AutonomousReviewRecord {
   indexing?: AutonomousIndexMetrics;
   dependencySetup?: AutonomousDependencySetupMetrics;
   coordinatorVerification?: AutonomousCoordinatorVerification;
+  telemetry?: AutonomousTelemetry;
   wallTimeMinutes?: number;
   filesOpened?: number;
   contextTokens?: number;
@@ -663,6 +742,21 @@ export interface AutonomousReviewRecord {
   agentTurns?: number;
   toolCalls?: number;
   notes: string;
+}
+
+export interface AutonomousMetricConfidence {
+  measured: number;
+  estimated: number;
+  missing: number;
+}
+
+export interface AutonomousSummaryMetricMedians {
+  wallTimeMinutes: number | null;
+  filesOpened: number | null;
+  contextTokens: number | null;
+  outputTokens: number | null;
+  agentTurns: number | null;
+  toolCalls: number | null;
 }
 
 export interface AutonomousSummaryCondition {
@@ -680,6 +774,9 @@ export interface AutonomousSummaryCondition {
   medianOutputTokens: number | null;
   medianAgentTurns: number | null;
   medianToolCalls: number | null;
+  measuredMedians: AutonomousSummaryMetricMedians;
+  estimatedMedians: AutonomousSummaryMetricMedians;
+  metricConfidence: Record<keyof AutonomousSummaryMetricMedians, AutonomousMetricConfidence>;
 }
 
 export interface AutonomousSummaryResult {

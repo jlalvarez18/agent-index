@@ -312,6 +312,21 @@ describe("runCli", () => {
         outputTokens: 250,
         agentTurns: 6,
         toolCalls: 14,
+        telemetry: {
+          schemaVersion: 1,
+          metrics: {
+            wallTimeSeconds: {
+              value: 720,
+              source: "measured",
+              method: "coordinator stopwatch"
+            },
+            contextTokens: {
+              value: 900,
+              source: "estimated",
+              method: "transcript chars divided by four"
+            }
+          }
+        },
         notes: "good"
       })
     );
@@ -324,6 +339,8 @@ describe("runCli", () => {
     expect(output.join("\n")).toContain("medianTurns=6");
     expect(output.join("\n")).toContain("medianToolCalls=14");
     expect(output.join("\n")).toContain("medianContextTokens=900");
+    expect(output.join("\n")).toContain("telemetry=wallTimeMinutes measured=1 estimated=0 missing=0");
+    expect(output.join("\n")).toContain("contextTokens measured=0 estimated=1 missing=0");
   });
 
   test("supports file-cluster summaries for low-token repository mapping", async () => {

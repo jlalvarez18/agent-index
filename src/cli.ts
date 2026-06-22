@@ -869,10 +869,30 @@ function formatAutonomousSummary(summary: AutonomousSummaryResult): string {
         `medianToolCalls=${formatNullableSummaryNumber(row.medianToolCalls)}`,
         `medianFilesOpened=${formatNullableSummaryNumber(row.medianFilesOpened)}`,
         `medianContextTokens=${formatNullableSummaryNumber(row.medianContextTokens)}`,
-        `medianOutputTokens=${formatNullableSummaryNumber(row.medianOutputTokens)}`
+        `medianOutputTokens=${formatNullableSummaryNumber(row.medianOutputTokens)}`,
+        `telemetry=${formatAutonomousMetricConfidence(row.metricConfidence)}`
       ].join(" ")
     )
   ].join("\n");
+}
+
+function formatAutonomousMetricConfidence(
+  confidence: AutonomousSummaryResult["byCondition"][number]["metricConfidence"]
+): string {
+  const fields: Array<keyof typeof confidence> = [
+    "wallTimeMinutes",
+    "agentTurns",
+    "toolCalls",
+    "filesOpened",
+    "contextTokens",
+    "outputTokens"
+  ];
+  return fields
+    .map((field) => {
+      const counts = confidence[field];
+      return `${field} measured=${counts.measured} estimated=${counts.estimated} missing=${counts.missing}`;
+    })
+    .join("; ");
 }
 
 function formatNullableSummaryNumber(value: number | null): string {

@@ -247,7 +247,22 @@ describe("autonomous comparison manifest", () => {
       success: "fail",
       specialToolHelped: "ignored",
       indexing: {},
-      dependencySetup: {}
+      dependencySetup: {},
+      telemetry: {
+        schemaVersion: 1,
+        metadata: {
+          taskId: "click-color-default-behavior",
+          condition: "agent-index",
+          repo: "click",
+          taskKind: "bugfix"
+        },
+        artifacts: {
+          runDir: packet.runDir,
+          promptPath: packet.promptPath,
+          reviewTemplatePath: packet.reviewTemplatePath,
+          generatedPaths: [packet.promptPath, packet.reviewTemplatePath]
+        }
+      }
     });
   });
 
@@ -336,6 +351,192 @@ describe("autonomous comparison manifest", () => {
     expect(summary.failureModes).toMatchObject({
       "test-gap": 1,
       timeout: 1
+    });
+  });
+
+  test("accepts structured telemetry with measured and estimated metric provenance", async () => {
+    const review = {
+      ...validReview(),
+      telemetry: {
+        schemaVersion: 1,
+        metadata: {
+          taskId: "task-a",
+          condition: "agent-index",
+          repo: "click",
+          taskKind: "bugfix",
+          commit: "9f4c2d1"
+        },
+        artifacts: {
+          runDir: "/tmp/autonomous/task-a/agent-index",
+          promptPath: "/tmp/autonomous/task-a/agent-index/prompt.md",
+          reviewTemplatePath: "/tmp/autonomous/task-a/agent-index/review-template.json",
+          generatedPaths: [
+            "/tmp/autonomous/task-a/agent-index/prompt.md",
+            "/tmp/autonomous/task-a/agent-index/review-template.json"
+          ]
+        },
+        timestamps: {
+          preparedAt: "2026-06-22T12:00:00.000Z",
+          reviewTemplateWrittenAt: "2026-06-22T12:00:00.500Z",
+          runStartedAt: "2026-06-22T12:05:00.000Z",
+          runEndedAt: "2026-06-22T12:17:00.000Z"
+        },
+        metrics: {
+          wallTimeSeconds: {
+            value: 720,
+            source: "measured",
+            method: "coordinator stopwatch"
+          },
+          toolCalls: {
+            value: 14,
+            source: "measured",
+            method: "tool transcript count"
+          },
+          contextTokens: {
+            value: 900,
+            source: "estimated",
+            method: "transcript chars divided by four"
+          },
+          outputTokens: {
+            value: 250,
+            source: "estimated",
+            method: "assistant output chars divided by four"
+          }
+        },
+        indexSetup: {
+          fullIndexWallTimeSeconds: {
+            value: 18,
+            source: "measured",
+            method: "time command"
+          },
+          indexArtifactBytes: {
+            value: 1048576,
+            source: "measured",
+            method: "fs.stat"
+          }
+        },
+        testCommands: [
+          {
+            command: "pytest tests/test_globals.py",
+            outcome: "passed",
+            exitCode: 0,
+            source: "measured",
+            startedAt: "2026-06-22T12:16:00.000Z",
+            endedAt: "2026-06-22T12:16:20.000Z"
+          }
+        ]
+      }
+    };
+    const root = await writeReviewArtifact(review);
+
+    const [loaded] = await loadAutonomousReviews(root);
+
+    expect(loaded.telemetry?.metrics?.wallTimeSeconds?.source).toBe("measured");
+    expect(loaded.telemetry?.metrics?.contextTokens?.method).toBe("transcript chars divided by four");
+    expect(loaded.telemetry?.artifacts?.reviewPath).toContain("review.json");
+    expect(loaded.telemetry?.timestamps?.reviewWrittenAt).toMatch(/T/);
+    expect(loaded.telemetry?.timestamps?.validationCompletedAt).toMatch(/T/);
+  });
+
+  test("rejects telemetry estimates without methods and invalid metric sources", async () => {
+    const missingMethod = {
+      ...validReview(),
+      telemetry: {
+        schemaVersion: 1,
+        metrics: {
+          contextTokens: {
+            value: 900,
+            source: "estimated"
+          }
+        }
+      }
+    };
+    const missingMethodRoot = await writeReviewArtifact(missingMethod);
+
+    await expect(loadAutonomousReviews(missingMethodRoot)).rejects.toThrow(/contextTokens\.method/i);
+
+    const invalidSource = {
+      ...validReview(),
+      telemetry: {
+        schemaVersion: 1,
+        metrics: {
+          toolCalls: {
+            value: 14,
+            source: "exact",
+            method: "tool transcript count"
+          }
+        }
+      }
+    };
+    const invalidSourceRoot = await writeReviewArtifact(invalidSource);
+
+    await expect(loadAutonomousReviews(invalidSourceRoot)).rejects.toThrow(/toolCalls\.source/i);
+  });
+
+  test("separates measured and estimated telemetry in autonomous summaries", () => {
+    const measuredReview: AutonomousReviewRecord = {
+      ...validReview(),
+      wallTimeMinutes: undefined,
+      contextTokens: undefined,
+      outputTokens: undefined,
+      toolCalls: undefined,
+      telemetry: {
+        schemaVersion: 1,
+        metrics: {
+          wallTimeSeconds: {
+            value: 600,
+            source: "measured",
+            method: "coordinator stopwatch"
+          },
+          toolCalls: {
+            value: 11,
+            source: "measured",
+            method: "tool transcript count"
+          },
+          contextTokens: {
+            value: 800,
+            source: "estimated",
+            method: "transcript chars divided by four"
+          },
+          outputTokens: {
+            value: 200,
+            source: "estimated",
+            method: "assistant output chars divided by four"
+          }
+        }
+      }
+    };
+    const legacyReview = validReview();
+
+    const summary = summarizeAutonomousReviews([measuredReview, legacyReview]);
+    const agentIndex = summary.byCondition.find((row) => row.condition === "agent-index");
+
+    expect(agentIndex?.medianWallTimeMinutes).toBe(12);
+    expect(agentIndex?.metricConfidence.wallTimeMinutes).toEqual({
+      measured: 1,
+      estimated: 1,
+      missing: 0
+    });
+    expect(agentIndex?.metricConfidence.toolCalls).toEqual({
+      measured: 1,
+      estimated: 1,
+      missing: 0
+    });
+    expect(agentIndex?.metricConfidence.contextTokens).toEqual({
+      measured: 0,
+      estimated: 2,
+      missing: 0
+    });
+    expect(agentIndex?.measuredMedians).toMatchObject({
+      wallTimeMinutes: 10,
+      toolCalls: 11,
+      contextTokens: null
+    });
+    expect(agentIndex?.estimatedMedians).toMatchObject({
+      wallTimeMinutes: 12,
+      toolCalls: 14,
+      contextTokens: 900,
+      outputTokens: 250
     });
   });
 

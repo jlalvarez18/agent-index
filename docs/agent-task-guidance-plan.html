@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Task Guidance Mode Plan</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f7f4;
+      --text: #202124;
+      --muted: #5f6368;
+      --border: #d8d6cf;
+      --panel: #ffffff;
+      --accent: #126d68;
+      --accent-soft: #e1f1ee;
+      --code: #f0efea;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 64px;
+    }
+
+    header {
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 5vw, 4rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.25rem;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: var(--code);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 14px 0 0;
+      padding: 16px;
+      border-radius: 8px;
+      background: #202124;
+      color: #f7f7f4;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .lede {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 24px 0 36px;
+    }
+
+    .summary div,
+    section {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .summary div {
+      padding: 14px;
+    }
+
+    .summary strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent);
+    }
+
+    section {
+      margin: 16px 0;
+      padding: 22px;
+    }
+
+    .reason {
+      margin-top: 14px;
+      padding: 14px;
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent-soft);
+    }
+
+    .reason strong {
+      color: var(--accent);
+    }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin: 0 8px 8px 0;
+      padding: 3px 9px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fbfbf9;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        width: min(100% - 20px, 980px);
+        padding-top: 28px;
+      }
+
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      section {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Agent Task Guidance Mode</h1>
+      <p class="lede">
+        A plan to make <code>agent-index task</code> more useful for autonomous agents by turning retrieval output into a compact, confidence-aware next-action playbook.
+      </p>
+    </header>
+
+    <div class="summary" aria-label="Plan summary">
+      <div>
+        <strong>Primary Goal</strong>
+        Increase autonomous-agent wins by making agents use agent-index earlier and more confidently.
+      </div>
+      <div>
+        <strong>Implementation Shape</strong>
+        Add opt-in guidance to the existing <code>task</code> command instead of creating a new entrypoint.
+      </div>
+      <div>
+        <strong>Compatibility</strong>
+        Preserve existing compact and JSON output unless <code>--agent-guidance</code> is passed.
+      </div>
+    </div>
+
+    <section>
+      <h2>1. Add A Guidance Data Model</h2>
+      <p>
+        Add an internal <code>AgentTaskGuidance</code> object generated after the task workflow runs. It should summarize what the agent should do next.
+      </p>
+      <span class="tag">recommendedNextAction</span>
+      <span class="tag">confidence</span>
+      <span class="tag">openFirst</span>
+      <span class="tag">why</span>
+      <span class="tag">followUpCommands</span>
+      <div class="reason">
+        <strong>Reasoning:</strong> ranking and guidance are different jobs. Retrieval finds likely code; guidance tells the agent how to act on those results without forcing another round of broad search.
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Use Deterministic Confidence Rules</h2>
+      <p>
+        Compute <code>high</code>, <code>medium</code>, or <code>low</code> confidence from existing step results.
+      </p>
+      <ul>
+        <li><strong>High:</strong> top source result exists, has evidence, and related tests or graph neighbors are present.</li>
+        <li><strong>Medium:</strong> top source result exists, but evidence or related-test support is weaker.</li>
+        <li><strong>Low:</strong> no useful source result, mostly empty steps, or weak/no evidence.</li>
+      </ul>
+      <div class="reason">
+        <strong>Reasoning:</strong> agents need a trust signal, but it must be explainable. A small deterministic rule set is easier to test, benchmark, and debug than hidden scoring magic.
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Add Guided Compact Output</h2>
+      <p>
+        When <code>--agent-guidance</code> is used with <code>--format compact</code>, prepend a short guidance block before the existing step details.
+      </p>
+      <pre><code>Guidance: open-top-result confidence=high
+  open: src/click/globals.py:54
+  why: source hit rank 1, resolver-like symbol, related tests found
+  next: inspect source before broad rg</code></pre>
+      <div class="reason">
+        <strong>Reasoning:</strong> the current compact output says where to open, but it does not strongly frame the workflow. This block gives agents permission to stop searching and inspect the top result first.
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Add JSON Guidance For Integrations</h2>
+      <p>
+        When <code>--agent-guidance</code> is used with <code>--format json</code>, include a top-level <code>guidance</code> field next to the existing <code>plan</code> and <code>steps</code>.
+      </p>
+      <div class="reason">
+        <strong>Reasoning:</strong> compact output helps humans and agents in terminals. JSON guidance gives benchmarks, harnesses, and future integrations a stable machine-readable contract.
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Keep The CLI Backward Compatible</h2>
+      <p>
+        Existing <code>agent-index task ... --format compact</code> and <code>--format json</code> behavior should remain unchanged unless the new flag is present.
+      </p>
+      <div class="reason">
+        <strong>Reasoning:</strong> current benchmark artifacts and compact-output consumers should not churn while the new guidance mode is being proven.
+      </div>
+    </section>
+
+    <section>
+      <h2>6. Test The Agent-Visible Contract</h2>
+      <p>
+        Add unit and CLI tests that verify both structured guidance decisions and the exact compact text agents see.
+      </p>
+      <ul>
+        <li>High-confidence bugfix guidance with source and related tests.</li>
+        <li>Medium-confidence source-only guidance.</li>
+        <li>Low-confidence empty or noisy result guidance.</li>
+        <li><code>source-to-tests</code> guidance opens tests first.</li>
+        <li>Compact output is unchanged without <code>--agent-guidance</code>.</li>
+        <li>Compact and JSON output include guidance with the flag.</li>
+      </ul>
+      <div class="reason">
+        <strong>Reasoning:</strong> this feature is only useful if the emitted instructions are clear and stable. Testing the text is not cosmetic here; it is part of the product behavior.
+      </div>
+    </section>
+
+    <section>
+      <h2>7. Document And Dogfood</h2>
+      <p>
+        Update the agent query cookbook with the new flag and add one dogfood note showing how the guidance block changes the agent's next move.
+      </p>
+      <div class="reason">
+        <strong>Reasoning:</strong> adoption is the whole point. Documentation and dogfood notes make the intended behavior visible before running a larger autonomous comparison.
+      </div>
+    </section>
+
+    <section>
+      <h2>Acceptance Criteria</h2>
+      <ul>
+        <li><code>agent-index task ... --format compact</code> remains unchanged by default.</li>
+        <li><code>agent-index task ... --format compact --agent-guidance</code> prints a concise guidance block.</li>
+        <li><code>agent-index task ... --format json --agent-guidance</code> emits a structured <code>guidance</code> object.</li>
+        <li>Guidance decisions are deterministic and covered by tests.</li>
+        <li>The feature gives agents a clear next action without forcing blind trust in weak results.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

@@ -35,6 +35,28 @@ async function fixtureProject() {
   return { root, benchmarkPath };
 }
 
+async function taskGuidanceFixtureProject() {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-index-cli-task-guidance-"));
+  await mkdir(path.join(root, "pkg"), { recursive: true });
+  await mkdir(path.join(root, "tests"), { recursive: true });
+  await writeFile(
+    path.join(root, "pkg", "cache.py"),
+    `def load_value(key):
+    semantic_cache = {"hit": key}
+    return semantic_cache["hit"]
+`
+  );
+  await writeFile(
+    path.join(root, "tests", "test_cache.py"),
+    `from pkg.cache import load_value
+
+def test_load_value():
+    assert load_value("ok") == "ok"
+`
+  );
+  return root;
+}
+
 async function writeGraphifyResults(root: string) {
   const graphifyResultsPath = path.join(root, "graphify-results.json");
   await writeFile(
@@ -161,6 +183,58 @@ describe("runCli", () => {
     expect(output[2]).toContain("next: open pkg/cache.py:1");
     expect(output[2]).not.toContain("neighbors");
     expect(output[2].length).toBeLessThan(output[1].length);
+  });
+
+  test("keeps compact task output unchanged unless agent guidance is requested", async () => {
+    const root = await taskGuidanceFixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["task", "bugfix", "semantic cache load regression", "--target", root, "--format", "compact"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Task bugfix: semantic cache load regression");
+    expect(output[1]).toContain("Step 1 source-map file-clusters");
+    expect(output[1]).not.toContain("Guidance:");
+  });
+
+  test("prints compact agent guidance when requested", async () => {
+    const root = await taskGuidanceFixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(
+      ["task", "bugfix", "semantic cache load regression", "--target", root, "--format", "compact", "--agent-guidance"],
+      { write: (line) => output.push(line) }
+    );
+
+    expect(output[1]).toContain("Guidance: open-top-result confidence=high");
+    expect(output[1]).toContain("open: pkg/cache.py:1");
+    expect(output[1]).toContain(
+      "why: source hit rank 1, evidence available, implementation query corroborated, related tests found"
+    );
+    expect(output[1]).toContain("next: inspect source before broad rg");
+    expect(output[1]).toContain("Task bugfix: semantic cache load regression");
+  });
+
+  test("emits structured JSON agent guidance when requested", async () => {
+    const root = await taskGuidanceFixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["task", "bugfix", "semantic cache load regression", "--target", root, "--format", "json", "--agent-guidance"], {
+      write: (line) => output.push(line)
+    });
+
+    const result = JSON.parse(output[1]);
+    expect(result.guidance).toMatchObject({
+      recommendedNextAction: "open-top-result",
+      confidence: "high",
+      openFirst: { file: "pkg/cache.py", line: 1 }
+    });
+    expect(result.plan.kind).toBe("bugfix");
+    expect(result.steps).toHaveLength(3);
   });
 
   test("lists autonomous comparison tasks", async () => {

@@ -20,8 +20,8 @@ import { runNavigationSuite } from "./core/navigation-suite.js";
 import { queryAgentIndex, queryIndex } from "./core/query.js";
 import { findRelatedTests } from "./core/related-tests.js";
 import { findSourceTests } from "./core/source-tests.js";
-import { planAgentTask, runAgentTask } from "./core/task-mode.js";
-import type { AgentTaskKind, AgentTaskResult } from "./core/task-mode.js";
+import { guideAgentTask, planAgentTask, runAgentTask } from "./core/task-mode.js";
+import type { AgentTaskGuidance, AgentTaskKind, AgentTaskResult } from "./core/task-mode.js";
 import { appendLessonTrace, appendQueryTrace, buildTraceReport, formatTraceReport } from "./core/tracing.js";
 import type {
   AgentEvalResult,
@@ -276,6 +276,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--test-limit <limit>", "maximum related test files per source", "2")
     .option("--mode <mode>", "query mode for symbol-context steps: symbol, fts, or hybrid", "hybrid")
     .option("--format <format>", "task output format: compact or json", "compact")
+    .option("--agent-guidance", "include an agent-facing next-action guidance block")
     .action(
       async (
         kind: string,
@@ -298,6 +299,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           testLimit: string;
           mode: string;
           format: string;
+          agentGuidance?: boolean;
         }
       ) => {
         const plan = planAgentTask(parseAgentTaskKind(kind), {
@@ -318,7 +320,12 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           indexPath: parseIndexPath(options.indexPath, options.index, options.db),
           mode: parseMode(options.mode)
         });
-        io.write(parseTaskFormat(options.format) === "json" ? JSON.stringify(result, null, 2) : formatAgentTask(result));
+        const guidance = options.agentGuidance ? guideAgentTask(result) : undefined;
+        io.write(
+          parseTaskFormat(options.format) === "json"
+            ? JSON.stringify(guidance ? { ...result, guidance } : result, null, 2)
+            : formatAgentTask(result, guidance)
+        );
       }
     );
 
@@ -728,8 +735,8 @@ function formatSourceTests(result: SourceTestsResult): string {
     .join("\n");
 }
 
-function formatAgentTask(result: AgentTaskResult): string {
-  const lines = [`Task ${result.plan.kind}: ${result.plan.task || "(no description)"}`];
+function formatAgentTask(result: AgentTaskResult, guidance?: AgentTaskGuidance): string {
+  const lines = guidance ? [formatAgentTaskGuidance(guidance), "", `Task ${result.plan.kind}: ${result.plan.task || "(no description)"}`] : [`Task ${result.plan.kind}: ${result.plan.task || "(no description)"}`];
   for (const [index, step] of result.steps.entries()) {
     lines.push("", `Step ${index + 1} ${step.purpose} ${step.type}`);
     if (step.type === "file-clusters") {
@@ -741,6 +748,19 @@ function formatAgentTask(result: AgentTaskResult): string {
     } else {
       lines.push(indentBlock(formatRelatedTests(step.result)));
     }
+  }
+  return lines.join("\n");
+}
+
+function formatAgentTaskGuidance(guidance: AgentTaskGuidance): string {
+  const lines = [`Guidance: ${guidance.recommendedNextAction} confidence=${guidance.confidence}`];
+  if (guidance.openFirst) {
+    lines.push(`  open: ${guidance.openFirst.file}:${guidance.openFirst.line}`);
+  }
+  lines.push(`  why: ${guidance.why.join(", ")}`);
+  lines.push(`  next: ${guidance.next}`);
+  if (guidance.followUpCommands && guidance.followUpCommands.length > 0) {
+    lines.push(`  follow-up: ${guidance.followUpCommands.join(" && ")}`);
   }
   return lines.join("\n");
 }

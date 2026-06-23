@@ -17,6 +17,22 @@ node dist/cli.js task bugfix "NO_COLOR should disable color by default" \
   --format compact
 ```
 
+For autonomous-agent runs, add `--agent-guidance` to make task mode emit a
+short next-action playbook before the step details:
+
+```bash
+node dist/cli.js task bugfix "NO_COLOR should disable color by default" \
+  --target /path/to/repo \
+  --index-path /tmp/index.sqlite \
+  --format compact \
+  --agent-guidance
+```
+
+The guidance block tells the agent whether to open the top result, inspect
+related tests, refine the query, or fall back. It also includes a confidence
+label and the first file/line to inspect. The default compact and JSON outputs
+remain unchanged unless `--agent-guidance` is present.
+
 Task presets:
 
 | Preset | Use it when | Workflow |
@@ -51,7 +67,9 @@ exact symbols or constants, `--kind` for expected symbol shapes, `--path` for
 module hints, `--role` when you need to override a preset role, and `--expand`
 when an explain/bugfix step needs different graph context. Use
 `--format json` to expose the generated `plan.steps` alongside full step
-results for benchmark artifacts or audits.
+results for benchmark artifacts or audits. With `--agent-guidance`, JSON output
+also includes a top-level `guidance` object for harnesses that should not scrape
+compact text.
 
 Use shorthand structured flags for the primary agent path:
 

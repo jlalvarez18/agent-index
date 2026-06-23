@@ -471,7 +471,7 @@ The test suite covers scanner filtering, language extraction, SQLite indexing, q
 
 ## Current Limits
 
-- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, Dart, C#, and C/C++ have first-class or active first-class navigation tracks; Cython/JSON extraction remains intentionally narrower.
+- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, C#, and C/C++ have first-class or active first-class navigation tracks; Dart includes Dart/Flutter extraction and fixture-backed navigation coverage, with a real-repository benchmark still called out as follow-up. Cython/JSON extraction remains intentionally narrower.
 - Full reindex only.
 - No embeddings.
 - No MCP server.

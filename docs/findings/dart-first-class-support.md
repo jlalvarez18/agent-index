@@ -10,6 +10,8 @@ This pass adds Dart as a first-class `agent-index` language track for ordinary D
 - Deterministic line-based Dart extraction for imports, typedefs, classes, mixins, enums, extensions, constructors, methods, getters, setters, fields, Flutter widget `build` methods, and `test`/`testWidgets` declarations.
 - Indexer dispatch, query ranking coverage, source-to-test discovery, a representative Flutter fixture, navigation eval coverage, and a live agent-style trial.
 
+Flutter is covered as part of Dart support rather than as a separate language track. The current support includes Flutter-style project roles, widget `build` methods, `testWidgets` declarations, `flutter_test` imports, and Dart package-import normalization for source-to-test discovery.
+
 ## Dogfood
 
 I used `agent-index` before broad search to map this repository:
@@ -137,3 +139,4 @@ Approximate context:
 - Dart fields and constructors are represented as `method` symbols because the shared schema currently has no `field`, `property`, or `constructor` symbol kind.
 - Querying exact owner names can make constructors rank strongly. Behavior-shaped terms such as `submit`, `authorize`, `notifyListeners`, and `receipt` produce better method navigation.
 - Related-test discovery now normalizes Dart package imports, so `package:flutter_shop/src/checkout/checkout_controller.dart` can match `lib/src/checkout/checkout_controller.dart`.
+- The navigation evidence is currently based on an authored representative Flutter fixture. The newer language-support quality bar calls for at least one real-world navigation benchmark, so Dart/Flutter should get a follow-up suite entry against a real Dart or Flutter repository before treating the track as fully complete under the current standard.

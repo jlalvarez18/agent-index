@@ -145,7 +145,11 @@ describe("planAgentTask", () => {
       confidence: "medium",
       openFirst: { file: "src/click/globals.py", line: 54 },
       why: ["source hit rank 1", "evidence available"],
-      next: "inspect source, then refine with more specific terms if needed"
+      next: "inspect briefly to confirm ownership; run the follow-up query before editing if ownership is unclear",
+      followUpCommands: [
+        "agent-index task explain 'NO_COLOR should disable color by default' --term NO_COLOR --term disable --term color --term resolve_color_default --role source --kind function --kind method --kind class --limit 5 --agent-guidance",
+        "agent-index task source-to-tests --source src/click/globals.py --term resolve_color_default"
+      ]
     });
   });
 
@@ -162,7 +166,12 @@ describe("planAgentTask", () => {
       recommendedNextAction: "open-top-result",
       confidence: "medium",
       openFirst: { file: "src/click/globals.py", line: 54 },
-      why: ["source hit rank 1", "evidence available", "implementation query corroborated", "graph neighbors found"]
+      why: ["source hit rank 1", "evidence available", "implementation query corroborated", "graph neighbors found"],
+      next: "inspect briefly to confirm ownership; run the follow-up query before editing if ownership is unclear",
+      followUpCommands: [
+        "agent-index task bugfix 'NO_COLOR should disable color by default' --term NO_COLOR --term disable --term color --term resolve_color_default --role source --kind function --kind method --kind class --limit 5 --agent-guidance",
+        "agent-index task source-to-tests --source src/click/globals.py --term resolve_color_default"
+      ]
     });
   });
 
@@ -185,7 +194,12 @@ describe("planAgentTask", () => {
       recommendedNextAction: "open-top-result",
       confidence: "medium",
       openFirst: { file: "src/click/testing.py", line: 1 },
-      why: ["source hit rank 1", "evidence available", "support/artifact path"]
+      why: ["source hit rank 1", "evidence available", "support/artifact path"],
+      next: "inspect only to rule out helper/artifact ownership; run the follow-up query before editing",
+      followUpCommands: [
+        "agent-index task bugfix 'NO_COLOR should disable color by default' --term NO_COLOR --term disable --term color --term resolve_color_default --role source --kind function --kind method --kind class --limit 5 --agent-guidance",
+        "agent-index task source-to-tests --source src/click/testing.py --term CliRunner"
+      ]
     });
   });
 
@@ -232,6 +246,11 @@ describe("planAgentTask", () => {
         "implementation query corroborated",
         "related tests found",
         "support/artifact path"
+      ],
+      next: "inspect only to rule out helper/artifact ownership; run the follow-up query before editing",
+      followUpCommands: [
+        "agent-index task bugfix 'NO_COLOR should disable color by default' --term NO_COLOR --term disable --term color --term resolve_color_default --role source --kind function --kind method --kind class --limit 5 --agent-guidance",
+        "agent-index task source-to-tests --source _artifacts/domain_map.yaml --term _artifacts/domain_map.yaml"
       ]
     });
   });
@@ -284,6 +303,11 @@ describe("planAgentTask", () => {
         "implementation query corroborated",
         "related tests found",
         "support/artifact path"
+      ],
+      next: "inspect only to rule out helper/artifact ownership; run the follow-up query before editing",
+      followUpCommands: [
+        "agent-index task bugfix 'NO_COLOR should disable color by default' --term NO_COLOR --term disable --term color --term resolve_color_default --role source --kind function --kind method --kind class --limit 5 --agent-guidance",
+        "agent-index task source-to-tests --source src/click/testing.py --term src/click/testing.py"
       ]
     });
   });

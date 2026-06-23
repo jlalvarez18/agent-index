@@ -335,9 +335,19 @@ export function guideAgentTask(result: AgentTaskResult): AgentTaskGuidance {
       line: topSource.line
     },
     why,
-    next: confidence === "high" ? "inspect source before broad rg" : "inspect source, then refine with more specific terms if needed",
-    followUpCommands: relatedTestFollowUpCommands(topSource)
+    next: guidanceNextStep(confidenceSignals),
+    followUpCommands: guidanceFollowUpCommands(result, topSource, confidence)
   };
+}
+
+function guidanceNextStep(confidenceSignals: { confidence: AgentTaskGuidanceConfidence; isSupportArtifact: boolean }): string {
+  if (confidenceSignals.confidence === "high") {
+    return "inspect source before broad rg";
+  }
+  if (confidenceSignals.isSupportArtifact) {
+    return "inspect only to rule out helper/artifact ownership; run the follow-up query before editing";
+  }
+  return "inspect briefly to confirm ownership; run the follow-up query before editing if ownership is unclear";
 }
 
 function sourceGuidanceConfidence(
@@ -457,6 +467,79 @@ function relatedTestFollowUpCommands(topSource: { file: string; symbol?: string 
   return [`agent-index task source-to-tests --source ${topSource.file} --term ${topSource.symbol}`];
 }
 
+function guidanceFollowUpCommands(
+  result: AgentTaskResult,
+  topSource: { file: string; symbol?: string },
+  confidence: AgentTaskGuidanceConfidence
+): string[] | undefined {
+  const commands = [
+    ...(confidence === "medium" ? [refineAgentTaskCommand(result, topSource)] : []),
+    ...(relatedTestFollowUpCommands(topSource) ?? [])
+  ].filter((command): command is string => Boolean(command));
+  return commands.length > 0 ? commands : undefined;
+}
+
+function refineAgentTaskCommand(result: AgentTaskResult, topSource: { file: string }): string | undefined {
+  const refinement = commandRefinement(result, topSource);
+  const terms = refinement.terms;
+  if (result.plan.kind === "source-to-tests" || terms.length === 0) {
+    return undefined;
+  }
+  const command = [
+    "agent-index",
+    "task",
+    result.plan.kind,
+    ...(result.plan.task ? [shellQuote(result.plan.task)] : []),
+    ...terms.flatMap((term) => ["--term", shellQuote(term)]),
+    ...refinement.pathHints.flatMap((hint) => ["--path", shellQuote(hint)]),
+    "--role",
+    "source",
+    "--kind",
+    "function",
+    "--kind",
+    "method",
+    "--kind",
+    "class",
+    "--limit",
+    "5",
+    "--agent-guidance"
+  ];
+  return command.join(" ");
+}
+
+function commandRefinement(result: AgentTaskResult, topSource: { file: string }): { terms: string[]; pathHints: string[] } {
+  const taskText = normalizeTaskTerm(result.plan.task);
+  const alternateMatches = queryMatches(result).filter((match) => match.file !== topSource.file);
+  const alternateSymbols = alternateMatches.filter((match) => usefulRefinementSymbol(match.symbol)).map((match) => match.symbol);
+  const terms = [...alternateSymbols.slice(0, 1), ...result.plan.steps.flatMap((step) => ("query" in step ? step.query.terms : []))];
+  const pathHints = uniqueValues(alternateMatches.map((match) => pathHintFromFile(match.file)).filter(Boolean)).slice(0, 1);
+  return {
+    terms: uniqueValues(
+      terms.map((term) => cleanCommandTerm(term)).filter((term) => {
+        const normalized = normalizeTaskTerm(term);
+        if (normalized.length < 3 || confidenceStopWords.has(normalized)) {
+          return false;
+        }
+        return taskText.includes(normalized) || /[A-Z_./]/u.test(term);
+      })
+    ).slice(0, 6),
+    pathHints
+  };
+}
+
+function cleanCommandTerm(term: string): string {
+  return term.replace(/^[^\p{L}\p{N}_./-]+/gu, "").replace(/[.,;:!?]+$/gu, "");
+}
+
+function pathHintFromFile(file: string): string {
+  const basename = file.split(/[\\/]/u).pop() ?? "";
+  return basename.replace(/\.[^.]+$/u, "");
+}
+
+function usefulRefinementSymbol(symbol: string): boolean {
+  return !symbol.includes("/") && !symbol.includes("\\") && normalizeTaskTerm(symbol).length >= 3;
+}
+
 function sourceSpecificityScore(result: AgentTaskResult, topSource: { file: string; symbol?: string; symbols?: string[] }): number {
   const terms = meaningfulTaskTerms(result);
   if (terms.length === 0) {
@@ -485,47 +568,52 @@ function hasStrongQueryCorroboration(result: AgentTaskResult, file: string): boo
   );
 }
 
-function meaningfulTaskTerms(result: AgentTaskResult): string[] {
-  const stopWords = new Set([
-    "a",
-    "an",
-    "and",
-    "are",
-    "as",
-    "be",
-    "by",
-    "behavior",
-    "core",
-    "default",
-    "defaults",
+const confidenceStopWords = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "be",
+  "by",
+  "behavior",
+  "core",
+  "decision",
+  "default",
+  "defaults",
     "feature",
+    "find",
+    "fix",
     "flow",
-    "for",
-    "from",
-    "how",
-    "in",
-    "into",
-    "is",
-    "it",
-    "query",
-    "of",
-    "or",
-    "output",
-    "path",
-    "should",
-    "source",
-    "the",
-    "then",
-    "through",
-    "to",
-    "test",
-    "tests",
-    "where",
-    "with",
-    "works"
-  ]);
+  "for",
+  "from",
+  "how",
+  "in",
+  "into",
+  "is",
+  "it",
+  "query",
+  "of",
+  "or",
+  "output",
+  "path",
+  "resolve",
+  "should",
+  "source",
+  "the",
+  "then",
+  "through",
+  "to",
+  "test",
+  "tests",
+  "where",
+  "with",
+  "works"
+]);
+
+function meaningfulTaskTerms(result: AgentTaskResult): string[] {
   const terms = result.plan.steps.flatMap((step) => ("query" in step ? step.query.terms : []));
-  return uniqueValues(terms.map((term) => normalizeTaskTerm(term)).filter((term) => term.length >= 3 && !stopWords.has(term)));
+  return uniqueValues(terms.map((term) => normalizeTaskTerm(term)).filter((term) => term.length >= 3 && !confidenceStopWords.has(term)));
 }
 
 function termMatchesNormalizedText(term: string, text: string): boolean {
@@ -554,6 +642,13 @@ function supportArtifactLike(topSource: { file: string; language?: string }): bo
     return true;
   }
   return topSource.language === "json" || topSource.language === "yaml" || topSource.language === "toml" || topSource.language === "xml";
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_./:=+-]+$/u.test(value)) {
+    return value;
+  }
+  return `'${value.replace(/'/gu, "'\\''")}'`;
 }
 
 function taskQuery(

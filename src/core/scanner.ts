@@ -140,17 +140,21 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
   const includeSupportCode = options.includeSupportCode ?? true;
   const suffixSet = new Set(suffixes);
 
-  async function visit(directory: string): Promise<void> {
+  async function visit(directory: string, inheritedIgnoreRules: GitignoreRule[] = []): Promise<void> {
+    const ignoreRules = [...inheritedIgnoreRules, ...(await readGitignoreRules(root, directory))];
     const entries = await readdir(directory, { withFileTypes: true });
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const childDirectory = path.join(directory, entry.name);
         const relativeChildDirectory = path.relative(root, childDirectory).split(path.sep).join("/");
+        if (isIgnoredByGitignore(relativeChildDirectory, true, ignoreRules)) {
+          continue;
+        }
         const isTopLevelSupportDir = TOP_LEVEL_SUPPORT_CODE_DIRS.has(relativeChildDirectory);
         const isSupportDir = SUPPORT_CODE_DIRS.has(entry.name) || isTopLevelSupportDir;
         if (!IGNORED_DIRS.has(entry.name) && (includeSupportCode || !isSupportDir)) {
-          await visit(childDirectory);
+          await visit(childDirectory, ignoreRules);
         }
         continue;
       }
@@ -166,6 +170,9 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
 
       const absolutePath = path.join(directory, entry.name);
       const relativePath = path.relative(root, absolutePath).split(path.sep).join("/");
+      if (isIgnoredByGitignore(relativePath, false, ignoreRules)) {
+        continue;
+      }
       if (isSupportArtifactFile(relativePath)) {
         continue;
       }
@@ -189,6 +196,123 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
 
   await visit(root);
   return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+}
+
+interface GitignoreRule {
+  basePath: string;
+  pattern: string;
+  directoryOnly: boolean;
+  negated: boolean;
+  anchored: boolean;
+  hasSlash: boolean;
+  regex: RegExp;
+}
+
+async function readGitignoreRules(root: string, directory: string): Promise<GitignoreRule[]> {
+  const gitignorePath = path.join(directory, ".gitignore");
+  let text: string;
+  try {
+    text = await readFile(gitignorePath, "utf8");
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return [];
+    }
+    throw error;
+  }
+  const basePath = path.relative(root, directory).split(path.sep).join("/");
+  return text.split(/\r?\n/u).flatMap((line) => parseGitignoreRule(line, basePath));
+}
+
+function parseGitignoreRule(line: string, basePath: string): GitignoreRule[] {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) {
+    return [];
+  }
+
+  const negated = trimmed.startsWith("!");
+  let pattern = negated ? trimmed.slice(1) : trimmed;
+  if (!pattern || pattern === "/") {
+    return [];
+  }
+
+  const anchored = pattern.startsWith("/");
+  if (anchored) {
+    pattern = pattern.slice(1);
+  }
+  const directoryOnly = pattern.endsWith("/");
+  if (directoryOnly) {
+    pattern = pattern.replace(/\/+$/u, "");
+  }
+  pattern = pattern.replace(/^\/+/u, "");
+  if (!pattern) {
+    return [];
+  }
+
+  return [
+    {
+      basePath,
+      pattern,
+      directoryOnly,
+      negated,
+      anchored,
+      hasSlash: pattern.includes("/"),
+      regex: gitignorePatternRegex(pattern)
+    }
+  ];
+}
+
+function isIgnoredByGitignore(relativePath: string, isDirectory: boolean, rules: GitignoreRule[]): boolean {
+  let ignored = false;
+  for (const rule of rules) {
+    if (matchesGitignoreRule(relativePath, isDirectory, rule)) {
+      ignored = !rule.negated;
+    }
+  }
+  return ignored;
+}
+
+function matchesGitignoreRule(relativePath: string, isDirectory: boolean, rule: GitignoreRule): boolean {
+  if (rule.directoryOnly && !isDirectory) {
+    return false;
+  }
+  if (rule.basePath && relativePath !== rule.basePath && !relativePath.startsWith(`${rule.basePath}/`)) {
+    return false;
+  }
+
+  const pathFromBase = rule.basePath ? relativePath.slice(rule.basePath.length + 1) : relativePath;
+  if (!pathFromBase) {
+    return false;
+  }
+  if (rule.anchored || rule.hasSlash) {
+    return rule.regex.test(pathFromBase) || (rule.directoryOnly && pathFromBase.startsWith(`${rule.pattern}/`));
+  }
+  return pathFromBase.split("/").some((segment) => rule.regex.test(segment));
+}
+
+function gitignorePatternRegex(pattern: string): RegExp {
+  const escaped = pattern
+    .split("")
+    .map((char, index, chars) => {
+      if (char === "*" && chars[index + 1] === "*") {
+        return ".*";
+      }
+      if (char === "*" && chars[index - 1] === "*") {
+        return "";
+      }
+      if (char === "*") {
+        return "[^/]*";
+      }
+      if (char === "?") {
+        return "[^/]";
+      }
+      return char.replace(/[\\^$+?.()|[\]{}]/gu, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${escaped}$`, "u");
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
 }
 
 function codeSuffix(fileName: string, suffixes: Set<string>): string | undefined {

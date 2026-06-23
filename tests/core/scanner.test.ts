@@ -39,6 +39,27 @@ describe("scanPythonFiles", () => {
     ]);
   });
 
+  test("honors gitignore files when scanning code", async () => {
+    const root = await fixtureDir();
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, ".worktrees", "old", "pkg"), { recursive: true });
+    await mkdir(path.join(root, "generated"), { recursive: true });
+    await mkdir(path.join(root, "nested", "tmp"), { recursive: true });
+    await mkdir(path.join(root, "nested", "src"), { recursive: true });
+
+    await writeFile(path.join(root, ".gitignore"), ".worktrees/\ngenerated/*.ts\n");
+    await writeFile(path.join(root, "nested", ".gitignore"), "tmp/\n");
+    await writeFile(path.join(root, "pkg", "service.ts"), "export function run() { return 1; }\n");
+    await writeFile(path.join(root, ".worktrees", "old", "pkg", "service.ts"), "export function stale() { return 1; }\n");
+    await writeFile(path.join(root, "generated", "client.ts"), "export function generated() { return 1; }\n");
+    await writeFile(path.join(root, "nested", "tmp", "scratch.ts"), "export function scratch() { return 1; }\n");
+    await writeFile(path.join(root, "nested", "src", "kept.ts"), "export function kept() { return 1; }\n");
+
+    const files = await scanCodeFiles(root);
+
+    expect(files.map((file) => file.relativePath)).toEqual(["nested/src/kept.ts", "pkg/service.ts"]);
+  });
+
   test("classifies file roles from path segments", () => {
     expect(classifyFileRole("pkg/service.py")).toBe("source");
     expect(classifyFileRole("tests/test_service.py")).toBe("test");

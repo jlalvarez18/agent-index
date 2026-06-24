@@ -1,8 +1,15 @@
 [
   {
     "id": "firebase-firestore-remote-store-cpp-watch",
-    "task": "Trace how Firestore RemoteStore starts a watch listen and sends watch requests for target data.",
-    "kind": "component-navigation",
+    "task": "Bug fix: RemoteStore watch listens should start the watch stream and send watch requests for target data. Trace the implementation before editing.",
+    "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 300,
+      "maxCompletionContextTokens": 300
+    },
     "agentIndexSteps": [
       {
         "type": "query",

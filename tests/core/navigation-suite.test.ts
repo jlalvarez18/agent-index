@@ -213,7 +213,13 @@ describe("runNavigationSuite", () => {
     const entries = manifest.filter((entry) => tsJsRepos.has(entry.name));
     const cases = (
       await Promise.all(
-        entries.map(async (entry) => JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as Array<{ kind?: string }>)
+        entries.map(
+          async (entry) =>
+            JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as Array<{
+              kind?: string;
+              agentToolUse?: unknown;
+            }>
+        )
       )
     ).flat();
 
@@ -240,6 +246,7 @@ describe("runNavigationSuite", () => {
         "feature"
       ])
     );
+    expect(cases.filter((navigationCase) => navigationCase.agentToolUse).length).toBeGreaterThanOrEqual(1);
   });
 
   test("navigation manifest includes broad Go benchmark coverage", async () => {

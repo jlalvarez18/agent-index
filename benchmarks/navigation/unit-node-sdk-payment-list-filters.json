@@ -3,6 +3,13 @@
     "id": "unit-node-sdk-payment-list-array-filters",
     "task": "Investigate why Unit Node SDK payment list filters serialize array-valued status, type, and direction parameters inconsistently across resource methods. Find the payment resource implementation, list parameter type surface, and existing payment tests.",
     "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 100,
+      "maxCompletionContextTokens": 200
+    },
     "agentIndexSteps": [
       {
         "type": "source-tests",

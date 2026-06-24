@@ -3,6 +3,13 @@
     "id": "curl-http-request-c",
     "task": "Navigate curl's HTTP request setup and completion flow from protocol entrypoints to request header/body handling.",
     "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 2,
+      "maxFirstUsefulContextTokens": 800,
+      "maxCompletionContextTokens": 900
+    },
     "agentIndexSteps": [
       {
         "type": "file-clusters",

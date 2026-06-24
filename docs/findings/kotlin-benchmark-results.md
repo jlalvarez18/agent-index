@@ -391,7 +391,71 @@ Interpretation:
 - The Kotlin subset now has aggregate completion across KotlinPoet, kotlinx.coroutines, Ktor, Koin, Now in Android, Gradle version catalog, Kotlin Maven plugin, and JetBrains/Kotlin stdlib multiplatform.
 - `agent-index` completed every case and won every head-to-head comparison against both broad and optimized `rg`.
 
+## 2026-06-24 Authored Kotlin Tool-Use Evidence
+
+The Now in Android source-to-test workflow now includes an `agentToolUse` expectation:
+
+- Case: `nowinandroid-viewmodel-test-flow`
+- Kind: `test-discovery`
+- Workflow: `source-tests` over `ForYouViewModel`, `onboardingUiState`, `StateFlow`, `collect`, and repository clues, followed by source query expansion.
+- Expectation: `agent-index-first`, first useful command <= 1, completion command <= 1, first-useful context <= 600 tokens, completion context <= 900 tokens.
+
+This turns the existing Kotlin source/test benchmark into an explicit authored coding-agent contract: the workflow should start with agent-index and surface bounded context before an edit or deeper investigation. The expectation is calibrated against the existing 2026-06-17 Now in Android pass, where `agent-index` found `ForYouViewModel.kt` at rank 1 and completed the source/test discovery workflow with 469 completion context tokens.
+
+Focused validation:
+
+```bash
+npm test -- tests/core/navigation-suite.test.ts
+npm run build
+```
+
+Result:
+
+- `tests/core/navigation-suite.test.ts`: 11 tests passed.
+- `npm run build`: TypeScript build completed successfully.
+
+Note: a fresh local `nav-suite --repo nowinandroid --reindex` run on 2026-06-24 was not used as evidence because `/private/tmp/agent-index-kotlin-repos/nowinandroid` was present but empty; the run indexed 0 files and produced no useful results. The fixture/test change was validated through the manifest/fairness test above rather than counted as a new benchmark result.
+
+## 2026-06-24 Kotlin Live-Agent Fixture Trial
+
+A worker subagent performed a Kotlin bugfix trial in an isolated fixture at `/private/tmp/agent-index-kotlin-live-trial`.
+
+Task:
+
+- Fix `CartPricing.loyaltyDiscountedTotalCents` so a 10% loyalty rate on a 2500-cent subtotal returns 2250 cents.
+
+Setup:
+
+- Prebuilt index: `/private/tmp/agent-index-kotlin-live-trial/index.sqlite`
+- Indexed: 3 files, 9 symbols, 9 chunks, 21 edges
+- Verification command: `node test-cart-pricing.mjs`
+- Initial failure: the implementation divided the percentage discount by 10 instead of 100.
+
+Observed agent behavior:
+
+- First command used: `pwd` to verify workspace.
+- First navigation tool: `agent-index`.
+- First useful hit: `com.acme.pricing.CartPricing.loyaltyDiscountedTotalCents` in `src/main/kotlin/com/acme/pricing/CartPricing.kt`.
+- Files inspected: `src/main/kotlin/com/acme/pricing/CartPricing.kt`, `src/test/kotlin/com/acme/pricing/CartPricingTest.kt`.
+- Files edited: `src/main/kotlin/com/acme/pricing/CartPricing.kt`.
+- Broad `rg` fallback: none.
+
+Independent verification after the subagent completed:
+
+```text
+CartPricing loyalty discount verification passed
+```
+
+Independent agent-index source/test check:
+
+```text
+1 src/main/kotlin/com/acme/pricing/CartPricing.kt:14 com.acme.pricing.CartPricing.loyaltyDiscountedTotalCents -> src/test/kotlin/com/acme/pricing/CartPricingTest.kt:1
+```
+
+This is a small fixture trial, not a mature real-repository Kotlin live-agent run. It does prove that an autonomous worker chose agent-index before broad search or editing on a realistic Kotlin bugfix loop, found the implementation and related test, made a scoped edit, and passed verification.
+
 ## Remaining Kotlin Proof Gaps
 
+- Run and document a mature real-repository Kotlin live-agent trial, ideally in Now in Android, Ktor, KotlinPoet, or kotlinx.coroutines once a populated local checkout is available.
 - Keep adding real-world Kotlin cases for expect/actual declaration tracing, Compose UI, and Android Gradle Plugin projects.
 - Capture any misses as targeted extractor/ranking fixes rather than weakening benchmark expectations.

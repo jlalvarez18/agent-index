@@ -424,6 +424,15 @@ describe("runNavigationSuite", () => {
         "gradle-version-catalog-kotlin-wiring"
       ])
     );
+    const toolUseCases = cases.filter((navigationCase) => navigationCase.agentToolUse);
+    expect(toolUseCases.map((navigationCase) => navigationCase.id)).toEqual(expect.arrayContaining(["nowinandroid-viewmodel-test-flow"]));
+    expect(cases.find((navigationCase) => navigationCase.id === "nowinandroid-viewmodel-test-flow")?.agentToolUse).toEqual({
+      expected: "agent-index-first",
+      maxFirstUsefulCommand: 1,
+      maxCompletionCommand: 1,
+      maxFirstUsefulContextTokens: 600,
+      maxCompletionContextTokens: 900
+    });
     expect(() => validateNavigationEvalCases(cases, "Kotlin navigation benchmarks")).not.toThrow();
   });
 

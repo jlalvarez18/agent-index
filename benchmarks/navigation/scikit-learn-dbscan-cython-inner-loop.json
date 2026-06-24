@@ -3,6 +3,11 @@
     "id": "sklearn-dbscan-cython-inner-loop-mixed-language",
     "task": "Investigate how DBSCAN expands clusters from core samples into neighborhood labels and where weighted/core-sample behavior is tested, without naming the Cython inner-loop function. Find the public estimator flow, the low-level Cython backend loop, and the related DBSCAN tests.",
     "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionContextTokens": 300
+    },
     "agentIndexSteps": [
       {
         "type": "file-clusters",

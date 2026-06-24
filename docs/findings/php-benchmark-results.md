@@ -1,6 +1,6 @@
 # PHP Benchmark Results
 
-Date: 2026-06-18
+Date: 2026-06-23
 
 ## Scope
 
@@ -10,7 +10,7 @@ The PHP benchmark track now validates navigation against three framework-heavy r
 - `symfony-console-php`: command lifecycle source, command synopsis/definition behavior, and PHPUnit command tests.
 - `symfony-dependency-injection-php-config`: Symfony service wiring across PHP, YAML, and XML fixtures plus PHP loader/dumper tests.
 
-Repositories were shallow-cloned into `/tmp/agent-index-php-repos` from the `repoUrl` entries in `benchmarks/navigation/suite.json`. The Laravel and Symfony Console cases were run on 2026-06-17; the Symfony DependencyInjection config-wiring case was added and run on 2026-06-18 after YAML/XML service extraction was expanded.
+Repositories were shallow-cloned into `/tmp/agent-index-php-repos` from the `repoUrl` entries in `benchmarks/navigation/suite.json`. The Laravel and Symfony Console cases were first run on 2026-06-17; the Symfony DependencyInjection config-wiring case was added on 2026-06-18 after YAML/XML service extraction was expanded. The PHP slice was refreshed on 2026-06-23 after replacing stale `/tmp` checkout symlinks with fresh clones.
 
 ## Command
 
@@ -21,19 +21,7 @@ node dist/cli.js nav-suite benchmarks/navigation/suite.json \
   --artifacts-dir /tmp/agent-index-php-artifacts \
   --repo laravel-framework-php \
   --repo symfony-console-php \
-  --reindex \
-  --repos
-```
-
-Additional config-wiring run:
-
-```bash
-node dist/cli.js nav-suite benchmarks/navigation/suite.json \
-  --repo-root /tmp/agent-index-php-repos \
-  --index-root /tmp/agent-index-indexes \
-  --artifacts-dir /tmp/agent-index-php-artifacts \
   --repo symfony-dependency-injection-php-config \
-  --case symfony-dependency-injection-service-config-php-yaml-xml \
   --reindex \
   --repos
 ```
@@ -42,36 +30,43 @@ node dist/cli.js nav-suite benchmarks/navigation/suite.json \
 
 | Suite entry | Files | Symbols | Edges |
 | --- | ---: | ---: | ---: |
-| `laravel-framework-php` | 3,008 | 39,689 | 176,439 |
-| `symfony-console-php` | 406 | 4,048 | 16,990 |
+| `laravel-framework-php` | 3,071 | 40,278 | 184,086 |
+| `symfony-console-php` | 406 | 4,048 | 19,520 |
 | `symfony-dependency-injection-php-config` | 861 | 6,147 | 28,606 |
 
 ## Result
 
 | Metric | agent-index | broad rg | optimized rg |
 | --- | ---: | ---: | ---: |
-| Useful rate | 1.00 | 1.00 | 0.50 |
+| Useful rate | 1.00 | 1.00 | 0.67 |
 | Completion rate | 1.00 | 0.00 | 0.00 |
-| Commands | 2 | 2 | 4 |
-| Context tokens | 331 | 543,632 | 1,826 |
-| Completion context tokens | 331 | 0 | 0 |
-| Wins | 2 | 0 | 0 |
+| Commands | 2.33 | 2.00 | 4.00 |
+| Latency | 2,099 ms | 136 ms | 21 ms |
+| Context tokens | 433 | 409,021 | 2,446 |
+| First useful context tokens | 186 | 129,122 | 97 |
+| Completion context tokens | 433 | 0 | 0 |
+| Wins | 3 | 0 | 0 |
 
-Average savings were 543,301 tokens versus broad `rg` and 1,495 tokens versus optimized `rg`.
+Average savings were 408,588 tokens versus broad `rg` and 2,013 tokens versus optimized `rg`.
 
-### Symfony DependencyInjection Config Run
+## Agent Tool-Use Measurement
 
-| Metric | agent-index | broad rg | optimized rg |
-| --- | ---: | ---: | ---: |
-| Useful rate | 1.00 | 1.00 | 1.00 |
-| Completion rate | 1.00 | 0.00 | 0.00 |
-| Commands | 3 | 2 | 4 |
-| Context tokens | 635 | 137,172 | 3,570 |
-| First useful context tokens | 43 | 88,701 | 237 |
-| Completion context tokens | 635 | 0 | 0 |
-| Wins | 1 | 0 | 0 |
+The Laravel and Symfony Console source-to-test workflows now include `agentToolUse` expectations. These assert that the authored coding-agent workflow starts with agent-index, reaches a useful result on command 1, and completes within a bounded context budget.
 
-The config case saved 136,537 tokens versus broad `rg` and 2,935 tokens versus optimized `rg`.
+| Metric | Result |
+| --- | ---: |
+| Tool-use cases | 2 |
+| Tool-use satisfied rate | 1.00 |
+| Average first-useful latency | 152 ms |
+| Average completion context tokens | 331 |
+
+## Per-Repository Result
+
+| Suite entry | agent complete | tool-use satisfied | agent tokens | broad rg tokens | optimized rg tokens |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `laravel-framework-php` | 1.00 | 1.00 | 329 | 916,909 | 739 |
+| `symfony-console-php` | 1.00 | 1.00 | 332 | 172,982 | 2,912 |
+| `symfony-dependency-injection-php-config` | 1.00 | n/a | 637 | 137,172 | 3,686 |
 
 ## Cases
 
@@ -84,7 +79,7 @@ agent-index completed the task in two steps:
 1. `file-clusters` returned `src/Illuminate/Routing/ControllerDispatcher.php` at rank 1, with the class and `dispatch`, `resolveParameters`, and `getMiddleware` methods.
 2. `related-tests` returned `tests/Routing/RoutingRouteTest.php` at rank 1, including `Illuminate\Tests\Routing\RoutingRouteTest::testControllerCallActionMethodParameters`.
 
-Broad `rg` found useful files but produced 914k context tokens and did not supply the required method-level completion evidence. The optimized `rg` plan stayed compact but did not complete the task.
+Broad `rg` found useful files but produced 916,909 context tokens and did not supply the required method-level completion evidence. The optimized `rg` plan stayed compact at 739 tokens but did not complete the task.
 
 ### `symfony-console-command-php-lifecycle`
 
@@ -107,7 +102,38 @@ agent-index completed the task in three steps:
 2. `file-clusters` returned `Tests/Fixtures/xml/services9.xml` at rank 1, including the same config-level service symbols.
 3. `file-clusters` returned `Tests/Loader/YamlFileLoaderTest.php`, `Tests/Dumper/YamlDumperTest.php`, and `Tests/Dumper/XmlDumperTest.php`, including `testParsesIteratorArgument` and `testTaggedArguments`.
 
-Broad `rg` found useful files, but it could not provide config-level service symbols and emitted 137,172 context tokens. The optimized `rg` plan was more compact at 3,570 tokens but still did not complete the symbol-level task.
+Broad `rg` found useful files, but it could not provide config-level service symbols and emitted 137,172 context tokens. The optimized `rg` plan was more compact at 3,686 tokens but still did not complete the symbol-level task.
+
+## Live-Agent PHP Trial
+
+A worker subagent performed a small PHP bugfix/navigation trial in an isolated fixture at `/tmp/agent-index-php-live-trial`.
+
+Task:
+
+- Fix a redirect-safety bug where external redirect targets should fall back to `/dashboard` while local absolute paths such as `/account` still pass through.
+
+Setup:
+
+- Prebuilt index: `/tmp/agent-index-php-live-trial/index.sqlite`
+- Target source: `/tmp/agent-index-php-live-trial/app/Services/RedirectDecision.php`
+- Target test: `/tmp/agent-index-php-live-trial/tests/Feature/RedirectDecisionTest.php`
+
+Observed agent behavior:
+
+- First target navigation command: `agent-index query --target /tmp/agent-index-php-live-trial --index /tmp/agent-index-php-live-trial/index.sqlite --mode hybrid --term redirect --term dashboard --kind function --role source`
+- First useful hit: `App\Services\RedirectDecision::target` in `app/Services/RedirectDecision.php`.
+- Files inspected: implementation and feature test.
+- Files edited: `app/Services/RedirectDecision.php`.
+- Broad `rg` fallback: none.
+
+The subagent used agent-index before broad search or editing, then changed `RedirectDecision::target` to allow only non-empty local absolute paths and reject URL schemes and protocol-relative URLs. Runtime verification could not run because this environment does not have `php` or `composer` installed:
+
+```text
+php -l app/Services/RedirectDecision.php
+zsh:1: command not found: php
+```
+
+This is a useful live-agent tool-choice signal, but it remains weaker than a mature-repo PHP coding trial because it used a small fixture and could not execute PHP tests in this environment.
 
 ## Notes
 

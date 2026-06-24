@@ -3,6 +3,11 @@
     "id": "laravel-controller-dispatcher-php-routing",
     "task": "Trace how Laravel dispatches controller actions that may define callAction, resolves controller method parameters, gathers controller middleware, and locate the related routing tests.",
     "kind": "component-navigation",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionContextTokens": 800
+    },
     "agentIndexSteps": [
       {
         "type": "file-clusters",

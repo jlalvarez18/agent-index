@@ -3,6 +3,11 @@
     "id": "symfony-console-command-php-lifecycle",
     "task": "Trace how Symfony Console runs a command, merges application definitions, builds command synopsis text, and locate the command lifecycle tests.",
     "kind": "component-navigation",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionContextTokens": 800
+    },
     "agentIndexSteps": [
       {
         "type": "file-clusters",

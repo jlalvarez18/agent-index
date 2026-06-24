@@ -3,6 +3,12 @@
     "id": "dapper-queryfirst-csharp-row-flow",
     "task": "Trace Dapper QueryFirst row-selection behavior through SqlMapper and locate the xUnit coverage for QueryFirst correctness.",
     "kind": "component-navigation",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 2,
+      "maxCompletionContextTokens": 800
+    },
     "agentIndexSteps": [
       {
         "type": "query",

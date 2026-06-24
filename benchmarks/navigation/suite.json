@@ -126,6 +126,13 @@
     "mode": "hybrid"
   },
   {
+    "name": "json-serializable-dart",
+    "evalPath": "json-serializable-dart-enum-fallback.json",
+    "target": "json_serializable.dart",
+    "repoUrl": "https://github.com/google/json_serializable.dart.git",
+    "mode": "hybrid"
+  },
+  {
     "name": "celery",
     "evalPath": "celery-canvas-chain-group.json",
     "target": "celery",

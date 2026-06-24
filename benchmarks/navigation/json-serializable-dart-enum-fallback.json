@@ -1,0 +1,80 @@
+[
+  {
+    "id": "json-serializable-dart-enum-unknown-value-fallback",
+    "task": "Find the enum decoding helper that handles unknown enum values, nullable fallback behavior, and the generator test input that proves the emitted fallback.",
+    "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 2,
+      "maxFirstUsefulContextTokens": 900,
+      "maxCompletionContextTokens": 1800
+    },
+    "agentIndexSteps": [
+      {
+        "type": "query",
+        "query": {
+          "terms": ["unknownEnumValue", "enum", "decode", "fallback", "nullable"],
+          "symbolKinds": ["class"],
+          "roles": ["source"],
+          "pathHints": ["json_serializable/lib/src/type_helpers"],
+          "expand": ["children", "callees"]
+        },
+        "limit": 8
+      },
+      {
+        "type": "related-tests",
+        "sourceFromStep": 1,
+        "sourceLimit": 1,
+        "terms": ["unknownEnumValue", "unknownValue", "fallback"],
+        "limit": 8
+      }
+    ],
+    "rgQueries": [
+      ["unknownEnumValue", "enum", "decode", "fallback", "nullable"],
+      ["unknownEnumValue", "unknownValue", "ShouldGenerate"]
+    ],
+    "rgOptimizedPlan": {
+      "version": 2,
+      "steps": [
+        {
+          "type": "search-files",
+          "terms": ["unknownEnumValue", "enum", "decode", "nullable"],
+          "scope": "source",
+          "paths": ["json_serializable/lib"],
+          "globs": ["*.dart"],
+          "limit": 25
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["unknownEnumValue", "unknownValue", "nullable"],
+          "fromStep": 1,
+          "before": 6,
+          "after": 18,
+          "limit": 8
+        },
+        {
+          "type": "search-files-from-snippets",
+          "fromStep": 2,
+          "includeTerms": ["unknownEnumValue", "unknownValue"],
+          "scope": "test",
+          "paths": ["json_serializable/test"],
+          "globs": ["*.dart"],
+          "limit": 25
+        }
+      ]
+    },
+    "expected": {
+      "files": [
+        "json_serializable/lib/src/type_helpers/enum_helper.dart",
+        "json_serializable/test/src/unknown_enum_value_test_input.dart"
+      ],
+      "symbols": ["EnumHelper", "UnknownEnumValue"],
+      "requiredFiles": [
+        "json_serializable/lib/src/type_helpers/enum_helper.dart",
+        "json_serializable/test/src/unknown_enum_value_test_input.dart"
+      ],
+      "requiredSymbols": ["EnumHelper"]
+    }
+  }
+]

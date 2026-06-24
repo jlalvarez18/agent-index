@@ -3,6 +3,12 @@
     "id": "alamofire-bugfix-result-error-flow",
     "task": "Find Alamofire request serialization and validation paths for a bug where AFError should preserve the underlying Result failure.",
     "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 2,
+      "maxCompletionContextTokens": 500
+    },
     "agentIndexSteps": [
       {
         "type": "file-clusters",

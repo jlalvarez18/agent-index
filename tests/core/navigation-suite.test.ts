@@ -306,9 +306,17 @@ describe("runNavigationSuite", () => {
     const entries = manifest.filter((entry) => swiftRepos.has(entry.name));
     const cases = (
       await Promise.all(
-        entries.map(async (entry) => JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as Array<{ kind?: string; id: string }>)
+        entries.map(
+          async (entry) =>
+            JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as Array<{
+              kind?: string;
+              id: string;
+              agentToolUse?: unknown;
+            }>
+        )
       )
     ).flat();
+    const agentToolUseCases = cases.filter((navigationCase) => navigationCase.agentToolUse);
 
     expect(entries.map((entry) => entry.name)).toEqual([
       "swift-argument-parser",
@@ -340,6 +348,17 @@ describe("runNavigationSuite", () => {
         "alamofire-bugfix-result-error-flow",
         "swift-package-manager-module-boundary",
         "swift-exact-string-audit"
+      ])
+    );
+    expect(agentToolUseCases).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "alamofire-bugfix-result-error-flow",
+          kind: "bugfix",
+          agentToolUse: expect.objectContaining({
+            expected: "agent-index-first"
+          })
+        })
       ])
     );
   });

@@ -3,6 +3,12 @@
     "id": "prometheus-error-flow",
     "task": "Trace Prometheus scrape error handling from scrape loop failure paths into sample append/reporting behavior and related scrape tests.",
     "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 2,
+      "maxCompletionContextTokens": 800
+    },
     "agentIndexSteps": [
       {
         "type": "source-tests",
@@ -15,6 +21,16 @@
         "limit": 5,
         "testLimit": 3,
         "testFanoutLimit": 2
+      },
+      {
+        "type": "query",
+        "query": {
+          "terms": ["scrapeLoop", "run", "scrape", "error"],
+          "symbolKinds": ["method"],
+          "roles": ["source"],
+          "pathHints": ["scrape/scrape.go"]
+        },
+        "limit": 3
       }
     ],
     "rgQueries": [["scrape", "append", "error", "sample", "target"], ["scrape", "error", "test"]],

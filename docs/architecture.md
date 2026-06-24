@@ -83,9 +83,15 @@ interface ExtractionResult {
 Current extractors include:
 
 - Python via Tree-sitter.
-- TypeScript/JavaScript line-based extraction.
-- Go, Rust, Swift, Cython, Kotlin line-based extraction.
-- JSON, TOML, and XML structured-file extraction for build/config metadata.
+- Line-based source extraction for Go, Rust, Cython, C, C++, TypeScript/JavaScript, Dart, Swift, Kotlin, Java, Ruby, PHP, and C#.
+- Structured build/config extraction for JSON, XML, TOML, and YAML.
+
+Language support is not all the same shape:
+
+- First-class or active first-class tracks have scanner support, extractor dispatch, role detection, tests, and real-repo navigation coverage. Current tracks include Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, and C++.
+- Dart has Dart/Flutter extraction and fixture-backed navigation coverage, but the findings still call out a real-repository benchmark as follow-up before the track is considered complete under the current quality bar.
+- Config/build-file support is intentionally narrower. JSON, XML, TOML, and YAML extract ownership and wiring signals for package/build/service metadata; they are not full document-semantic parsers.
+- Most non-Python extractors are deterministic and line-based. First-class support means useful navigation for common agent tasks, not complete compiler semantics.
 
 Extractor output should be stable and compact. A good extractor does not need to fully compile the language. It should capture the code objects agents navigate to and enough edges to orient follow-up queries.
 

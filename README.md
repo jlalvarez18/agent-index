@@ -2,7 +2,7 @@
 
 `agent-index` is a TypeScript/Node prototype for local, symbol-first code search by LLM agents.
 
-The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, Rust and several other languages use deterministic line-based extraction, results are stored in a local SQLite/FTS5 index, queried with lexical, symbol, or hybrid ranking, and evaluated with golden benchmark cases. The product model is that the LLM translates user intent into explicit search terms and constraints; `agent-index` is the fast code map, not an embedded LLM.
+The v1 scope is intentionally narrow: Python files are scanned with Tree-sitter, while Go, Rust, Cython, C, C++, TypeScript/JavaScript, Dart, Swift, Kotlin, Java, Ruby, PHP, and C# use deterministic line-based extraction. JSON, XML, TOML, and YAML are indexed for structured build/config metadata rather than arbitrary document understanding. Results are stored in a local SQLite/FTS5 index, queried with lexical, symbol, or hybrid ranking, and evaluated with golden benchmark cases. The product model is that the LLM translates user intent into explicit search terms and constraints; `agent-index` is the fast code map, not an embedded LLM.
 
 Think of it as a library catalog for code. Plain text search finds pages with matching words; `agent-index` tries to return the function, class, file, and nearby code relationships that make those pages useful to a coding agent.
 
@@ -381,7 +381,7 @@ npm run nav:suite -- \
   --reindex
 ```
 
-`nav:prepare` clones missing repositories declared with `repoUrl` in the suite manifest and skips existing directories. The Swift entries in `benchmarks/navigation/suite.json` cover ArgumentParser, Collections, NIO, The Composable Architecture, Alamofire, SwiftPM, and the Swift compiler checkout. The Dart entry uses an authored Flutter-style fixture under `benchmarks/fixtures/flutter_shop` so it can run without network or cloned-repo setup.
+`nav:prepare` clones missing repositories declared with `repoUrl` in the suite manifest and skips existing directories. The suite includes real-repo navigation entries for Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, and C++, plus build/config ownership cases that exercise JSON, XML, TOML, and YAML extraction. The Dart entry uses an authored Flutter-style fixture under `benchmarks/fixtures/flutter_shop` so it can run without network or cloned-repo setup; a real Dart/Flutter repository remains follow-up evidence before calling that track complete under the current language-support bar.
 
 To fail CI when a new run regresses completion, wins, or context-token budget, compare artifact summaries:
 
@@ -471,7 +471,10 @@ The test suite covers scanner filtering, language extraction, SQLite indexing, q
 
 ## Current Limits
 
-- Python, TypeScript/JavaScript, Go, Rust, Swift, Kotlin, Java, C#, and C/C++ have first-class or active first-class navigation tracks; Dart includes Dart/Flutter extraction and fixture-backed navigation coverage, with a real-repository benchmark still called out as follow-up. Cython/JSON extraction remains intentionally narrower.
+- First-class or active first-class navigation tracks now cover Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, and C++ through extractor/indexer support plus real-repo navigation evidence.
+- Dart has Dart/Flutter extraction, source/test handling, fixture-backed navigation coverage, and a live agent-style trial, but still needs a real-repository benchmark follow-up before treating the track as fully complete under the current quality bar.
+- JSON, XML, TOML, and YAML support is intentionally narrower: it targets build/config ownership such as package metadata, Gradle/Cargo/Maven/Symfony service wiring, and version catalogs, not full general-purpose document semantics.
+- Most non-Python extractors are line-based and dependency-light. They aim for useful navigation symbols, chunks, and edges rather than compiler-grade parsing.
 - Full reindex only.
 - No embeddings.
 - No MCP server.
@@ -507,6 +510,14 @@ The running lab notebook lives in:
 - `docs/findings/wsproto-benchmark-results.md`
 - `docs/findings/trio-benchmark-results.md`
 - `docs/findings/urllib3-benchmark-results.md`
+- `docs/findings/cython-first-class-support.md`
 - `docs/findings/rust-benchmark-results.md`
+- `docs/findings/kotlin-benchmark-results.md`
+- `docs/findings/java-benchmark-results.md`
+- `docs/findings/ruby-benchmark-results.md`
+- `docs/findings/php-benchmark-results.md`
+- `docs/findings/csharp-benchmark-results.md`
+- `docs/findings/c-benchmark-results.md`
+- `docs/findings/cpp-benchmark-results.md`
 - `docs/findings/agent-index-readiness.md`
 - `docs/findings/publishing-outline.md`

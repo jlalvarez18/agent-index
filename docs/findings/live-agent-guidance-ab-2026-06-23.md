@@ -73,6 +73,49 @@ are missing or agent-estimated rather than measured. Treat the token data as
 insufficient for a claim; use files inspected, tool calls, command invocations,
 and wall-clock estimates as the stronger telemetry for this slice.
 
+## Authored Workflow Follow-Up
+
+The live slice proves whether autonomous agents chose agent-index under three
+conditions. It does not give a stable CI contract for the first-class Python
+quality bar, so the validated Click and HTTPX behavior tasks now also have
+authored `agentToolUse` expectations:
+
+- `benchmarks/navigation/click-no-color.json`:
+  `click-color-env-default-behavior-only`
+- `benchmarks/navigation/httpx-redirect-history.json`:
+  `httpx-manual-redirect-history-behavior-only`
+
+Both cases use behavior-shaped prompts and avoid exact target-symbol leakage in
+their agent-index and rg baselines. The expectations require `agent-index-first`,
+a useful result on command 1, task completion on command 1, and bounded context
+before an edit would happen.
+
+Focused validation on the local checkouts:
+
+```bash
+npm run agent-index -- nav-eval benchmarks/navigation/click-no-color.json \
+  --target /Users/juan/Repos/click \
+  --index-path /tmp/agent-index-click-nav-6a6a.sqlite \
+  --mode hybrid --json
+
+npm run agent-index -- nav-eval benchmarks/navigation/httpx-redirect-history.json \
+  --target /Users/juan/Repos/httpx \
+  --index-path /tmp/agent-index-httpx-nav-6a6a.sqlite \
+  --mode hybrid --json
+```
+
+Results:
+
+| Fixture | Agent tool-use cases | Satisfied rate | First useful context | Completion context |
+| --- | ---: | ---: | ---: | ---: |
+| Click NO_COLOR | 1 | 1.00 | 194 tokens | 194 tokens |
+| HTTPX redirect history | 1 | 1.00 | 116 tokens | 116 tokens |
+
+This closes the Python evidence gap in the authored navigation fixtures while
+preserving the live-agent caveat: scripted `agentToolUse` shows that the intended
+workflow starts with compact agent-index context, but only live trials show
+whether autonomous agents actually choose and use that workflow well.
+
 ## Raw Artifacts
 
 Aggregate JSON: `/tmp/agent-index-live-guidance-ab/summary.json`

@@ -137,6 +137,13 @@
     "id": "click-color-env-default-behavior-only",
     "task": "Find where Click decides the default color behavior from environment state, without using the constant or function name.",
     "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 250,
+      "maxCompletionContextTokens": 250
+    },
     "agentIndexSteps": [
       {
         "type": "file-clusters",

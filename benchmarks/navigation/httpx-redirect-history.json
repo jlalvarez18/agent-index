@@ -130,6 +130,13 @@
     "id": "httpx-manual-redirect-history-behavior-only",
     "task": "Find where manual redirects preserve prior response history and the tests that cover it, without using the internal request attribute name.",
     "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 200,
+      "maxCompletionContextTokens": 200
+    },
     "agentIndexSteps": [
       {
         "type": "source-tests",

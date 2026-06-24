@@ -3,6 +3,13 @@
     "id": "spring-petclinic-owner-controller-java-flow",
     "task": "Trace the Spring MVC owner request path from controller methods through repository calls and locate the controller tests.",
     "kind": "component-navigation",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 800,
+      "maxCompletionContextTokens": 900
+    },
     "agentIndexSteps": [
       {
         "type": "source-tests",

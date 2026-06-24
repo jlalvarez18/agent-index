@@ -427,6 +427,60 @@ describe("runNavigationSuite", () => {
     expect(() => validateNavigationEvalCases(cases, "Kotlin navigation benchmarks")).not.toThrow();
   });
 
+  test("navigation manifest includes broad Java benchmark coverage and tool-use evidence", async () => {
+    const manifestPath = path.resolve("benchmarks/navigation/suite.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Array<{ name: string; evalPath: string; repoUrl?: string }>;
+    const javaRepos = new Set([
+      "spring-petclinic-java",
+      "spring-framework-java-di",
+      "guava-java",
+      "junit5-java",
+      "gradle-java",
+      "android-architecture-components-java"
+    ]);
+    const entries = manifest.filter((entry) => javaRepos.has(entry.name));
+    const cases = (
+      await Promise.all(
+        entries.map(async (entry) => JSON.parse(await readFile(path.join(path.dirname(manifestPath), entry.evalPath), "utf8")) as NavigationEvalCase[])
+      )
+    ).flat();
+
+    expect(entries.map((entry) => entry.name)).toEqual([
+      "spring-petclinic-java",
+      "spring-framework-java-di",
+      "guava-java",
+      "junit5-java",
+      "gradle-java",
+      "android-architecture-components-java"
+    ]);
+    expect(entries.map((entry) => entry.repoUrl)).toEqual([
+      "https://github.com/spring-projects/spring-petclinic.git",
+      "https://github.com/spring-projects/spring-framework.git",
+      "https://github.com/google/guava.git",
+      "https://github.com/junit-team/junit5.git",
+      "https://github.com/gradle/gradle.git",
+      "https://github.com/android/architecture-components-samples.git"
+    ]);
+    expect(new Set(cases.map((navigationCase) => navigationCase.kind))).toEqual(
+      new Set(["component-navigation", "config-build"])
+    );
+    expect(cases.map((navigationCase) => navigationCase.id)).toEqual(
+      expect.arrayContaining([
+        "spring-petclinic-owner-controller-java-flow",
+        "spring-framework-autowired-bean-post-processor-java-di",
+        "guava-listenable-future-interface-java-implementation",
+        "junit5-test-engine-java-discovery",
+        "gradle-java-plugin-ownership",
+        "android-architecture-components-java-room-path"
+      ])
+    );
+    expect(cases.filter((navigationCase) => navigationCase.agentToolUse).map((navigationCase) => navigationCase.id)).toEqual([
+      "spring-petclinic-owner-controller-java-flow",
+      "android-architecture-components-java-room-path"
+    ]);
+    expect(() => validateNavigationEvalCases(cases, "Java navigation benchmarks")).not.toThrow();
+  });
+
   test("navigation repo preparation script dry-runs clone commands from manifest metadata", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-navigation-prepare-"));
     const suitePath = path.join(root, "suite.json");

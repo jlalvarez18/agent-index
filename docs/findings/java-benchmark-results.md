@@ -68,6 +68,83 @@ Average savings were 520,677 tokens versus broad `rg` and 1,132 tokens versus op
 | `gradle-java` | 1.00 | 1.00 | 1.00 | 879 | 2,423,295 | 1,003 |
 | `android-architecture-components-java` | 1.00 | 0.00 | 0.00 | 488 | 29,629 | 734 |
 
+## Agent Tool-Use Follow-Up
+
+Date: 2026-06-24
+
+Two Java component-navigation fixtures now include `agentToolUse` expectations:
+
+- `spring-petclinic-owner-controller-java-flow`
+- `android-architecture-components-java-room-path`
+
+These expectations measure whether the authored coding-agent workflow calls agent-index first, reaches a useful result on command 1, and completes inside bounded context before an edit would happen.
+
+The original `/tmp/agent-index-java-repos` directories were no longer usable for fresh validation because the Spring Petclinic and Android sample checkouts had become skeletal directories with no Java files. The two follow-up repositories were shallow-cloned again:
+
+```bash
+node scripts/prepare-navigation-repos.mjs benchmarks/navigation/suite.json \
+  --repo-root /tmp/agent-index-java-repos-live \
+  --repo spring-petclinic-java \
+  --repo android-architecture-components-java
+```
+
+Fresh validation command:
+
+```bash
+node dist/cli.js nav-suite benchmarks/navigation/suite.json \
+  --repo-root /tmp/agent-index-java-repos-live \
+  --index-root /tmp/agent-index-java-indexes-tooluse-live \
+  --artifacts-dir /tmp/agent-index-java-artifacts-tooluse-live \
+  --repo spring-petclinic-java \
+  --repo android-architecture-components-java \
+  --reindex \
+  --repos
+```
+
+Follow-up result:
+
+| Metric | agent-index | broad rg | optimized rg |
+| --- | ---: | ---: | ---: |
+| Useful rate | 1.00 | 1.00 | 1.00 |
+| Completion rate | 1.00 | 0.00 | 0.00 |
+| Tool-use cases | 2 | n/a | n/a |
+| Tool-use satisfied rate | 1.00 | n/a | n/a |
+| Average first-useful latency | 91 ms | 46 ms | 14 ms |
+| Average context tokens | 551 | 16,253 | 951 |
+| Average completion context tokens | 420 | 0 | 0 |
+| Wins | 2 | 0 | 0 |
+
+Per-case tool-use result:
+
+| Suite entry | indexed files | indexed symbols | tool-use satisfied | first useful command | completion command | completion context tokens |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `spring-petclinic-java` | 59 | 389 | 1.00 | 1 | 1 | 356 |
+| `android-architecture-components-java` | 550 | 2,060 | 1.00 | 1 | 1 | 484 |
+
+The authored Java tool-use cases are still benchmark workflows, not autonomous LLM simulations. They now provide stable CI-style evidence that realistic Java component navigation starts with agent-index and reaches bounded edit context.
+
+## Live-Agent Java Trial
+
+A live subagent also performed a navigation-only Java trial against the fresh Spring Petclinic checkout at `/tmp/agent-index-java-repos-live/spring-petclinic`.
+
+Task:
+
+- Owner search by last-name prefix in Spring Petclinic is returning the wrong result path. Locate the Spring MVC owner controller code path and related controller tests before editing.
+
+Observed agent behavior:
+
+- First command: `node dist/cli.js index /tmp/agent-index-java-repos-live/spring-petclinic --index-path /tmp/agent-index-spring-petclinic-live-trial.sqlite`
+- Index result: 59 files, 389 symbols, 389 chunks, 2,287 edges.
+- Agent-index before broad `rg`: yes.
+- First useful source symbol: `OwnerController.processFindForm` in `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java`.
+- Supporting source symbols: `OwnerController.findPaginatedForOwnersLastName` and `OwnerRepository.findByLastNameStartingWith`.
+- Related tests found: `OwnerControllerTests.processFindFormSuccess`, `OwnerControllerTests.processFindFormByLastName`, and `OwnerControllerTests.processFindFormNoOwnersFound`.
+- Files inspected: `OwnerController.java`, `OwnerRepository.java`, and `OwnerControllerTests.java`.
+- Files edited: none.
+- Tests run: none; this was a navigation-only trial.
+- Broad `rg` fallback: none.
+- Outcome: enough context found to proceed with an edit around the single-owner redirect branch in `OwnerController.processFindForm` and the matching controller tests.
+
 ## Corrections Made During The Run
 
 - Updated the JUnit 5 test path from `junit-jupiter-engine/src/test/java` to `jupiter-tests/src/test/java`.

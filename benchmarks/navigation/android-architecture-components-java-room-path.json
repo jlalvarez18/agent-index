@@ -3,6 +3,13 @@
     "id": "android-architecture-components-java-room-path",
     "task": "Navigate Android Java UI/data flow from ProductFragment through ViewModel and Room-backed repository tests.",
     "kind": "component-navigation",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 700,
+      "maxCompletionContextTokens": 800
+    },
     "agentIndexSteps": [
       {
         "type": "source-tests",

@@ -1,33 +1,63 @@
 [
   {
     "id": "tokio-runtime-builder-rust",
-    "task": "Navigate Tokio runtime builder configuration from scheduler selection through worker-thread and blocking-pool options.",
-    "kind": "maintenance",
+    "task": "Bugfix: preserve explicit blocking-pool limits while reviewing Tokio multi-thread worker scheduler options. Use code navigation before editing.",
+    "kind": "bugfix",
+    "agentToolUse": {
+      "expected": "agent-index-first",
+      "maxFirstUsefulCommand": 1,
+      "maxCompletionCommand": 1,
+      "maxFirstUsefulContextTokens": 500,
+      "maxCompletionContextTokens": 500
+    },
     "agentIndexSteps": [
       {
-        "type": "file-clusters",
+        "type": "source-tests",
         "query": {
-          "terms": ["Builder", "new_multi_thread", "worker_threads", "max_blocking_threads", "runtime"],
+          "terms": ["Builder", "worker_threads", "max_blocking_threads", "panic", "threaded"],
           "symbolKinds": ["class", "method", "function"],
-          "roles": ["source"],
-          "pathHints": ["tokio/src/runtime", "runtime builder"]
+          "roles": ["source", "test"],
+          "pathHints": ["runtime", "builder"]
         },
-        "limit": 8
+        "limit": 5,
+        "testLimit": 8
       }
     ],
-    "rgQueries": [["Builder", "new_multi_thread", "worker_threads", "max_blocking_threads"], ["runtime", "builder", "scheduler", "blocking"]],
+    "rgQueries": [
+      ["Builder", "worker_threads", "max_blocking_threads", "panic", "threaded"],
+      ["runtime", "builder", "scheduler", "blocking", "rt_threaded"]
+    ],
     "rgOptimizedPlan": {
       "version": 2,
       "steps": [
-        { "type": "search-files", "terms": ["Builder", "worker_threads", "max_blocking_threads"], "paths": ["tokio/src/runtime"], "globs": ["*.rs"], "limit": 40 },
-        { "type": "read-snippets", "terms": ["Builder", "worker_threads", "max_blocking_threads"], "fromStep": 1, "before": 8, "after": 14, "limit": 10 }
+        {
+          "type": "search-files",
+          "terms": ["Builder", "worker_threads", "max_blocking_threads", "panic", "threaded"],
+          "paths": ["tokio/src/runtime", "tokio/tests"],
+          "globs": ["*.rs"],
+          "limit": 40
+        },
+        {
+          "type": "read-snippets",
+          "terms": ["Builder", "worker_threads", "max_blocking_threads"],
+          "fromStep": 1,
+          "before": 8,
+          "after": 14,
+          "limit": 10
+        }
       ]
     },
     "expected": {
-      "files": ["tokio/src/runtime/builder.rs"],
-      "symbols": ["runtime.builder.Builder", "runtime.builder.Builder.worker_threads", "runtime.builder.Builder.max_blocking_threads"],
-      "requiredFiles": ["tokio/src/runtime/builder.rs"],
-      "requiredSymbols": ["runtime.builder.Builder.worker_threads"]
+      "files": ["tokio/src/runtime/builder.rs", "tokio/tests/rt_threaded.rs", "tokio/tests/rt_panic.rs"],
+      "symbols": [
+        "runtime.builder.Builder",
+        "runtime.builder.Builder.worker_threads",
+        "runtime.builder.Builder.max_blocking_threads",
+        "tokio.tests.rt_threaded.max_blocking_threads",
+        "tokio.tests.rt_panic.builder_max_blocking_threads_panic_caller"
+      ],
+      "requiredFiles": ["tokio/src/runtime/builder.rs", "tokio/tests/rt_threaded.rs", "tokio/tests/rt_panic.rs"],
+      "requiredSymbols": ["runtime.builder.Builder.max_blocking_threads", "tokio.tests.rt_threaded.max_blocking_threads"]
     }
   }
 ]

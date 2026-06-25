@@ -381,7 +381,7 @@ npm run nav:suite -- \
   --reindex
 ```
 
-`nav:prepare` clones missing repositories declared with `repoUrl` in the suite manifest and skips existing directories. The suite includes real-repo navigation entries for Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, and C++, plus build/config ownership cases that exercise JSON, XML, TOML, and YAML extraction. The Dart entry uses an authored Flutter-style fixture under `benchmarks/fixtures/flutter_shop` so it can run without network or cloned-repo setup; a real Dart/Flutter repository remains follow-up evidence before calling that track complete under the current language-support bar.
+`nav:prepare` clones missing repositories declared with `repoUrl` in the suite manifest and skips existing directories. The suite includes real-repo navigation entries for Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, C++, and Dart, plus build/config ownership cases that exercise JSON, XML, TOML, and YAML extraction. Dart also keeps an authored Flutter-style fixture under `benchmarks/fixtures/flutter_shop` so fixture-backed Flutter flows can run without network or cloned-repo setup.
 
 To fail CI when a new run regresses completion, wins, or context-token budget, compare artifact summaries:
 
@@ -471,8 +471,8 @@ The test suite covers scanner filtering, language extraction, SQLite indexing, q
 
 ## Current Limits
 
-- First-class or active first-class navigation tracks now cover Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, and C++ through extractor/indexer support plus real-repo navigation evidence.
-- Dart has Dart/Flutter extraction, source/test handling, fixture-backed navigation coverage, and a live agent-style trial, but still needs a real-repository benchmark follow-up before treating the track as fully complete under the current quality bar.
+- First-class or active first-class navigation tracks now cover Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, C++, and Dart through extractor/indexer support plus real-repo navigation evidence.
+- Dart has Dart/Flutter extraction, source/test handling, fixture-backed Flutter coverage, a public `json_serializable.dart` real-repository benchmark, and a live agent-style trial. Larger Flutter application benchmarks remain useful follow-up if Flutter-specific ranking grows beyond ordinary Dart symbols and widget `build` methods.
 - JSON, XML, TOML, and YAML support is intentionally narrower: it targets build/config ownership such as package metadata, Gradle/Cargo/Maven/Symfony service wiring, and version catalogs, not full general-purpose document semantics.
 - Most non-Python extractors are line-based and dependency-light. They aim for useful navigation symbols, chunks, and edges rather than compiler-grade parsing.
 - Full reindex only.

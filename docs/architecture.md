@@ -88,8 +88,8 @@ Current extractors include:
 
 Language support is not all the same shape:
 
-- First-class or active first-class tracks have scanner support, extractor dispatch, role detection, tests, and real-repo navigation coverage. Current tracks include Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, and C++.
-- Dart has Dart/Flutter extraction and fixture-backed navigation coverage, but the findings still call out a real-repository benchmark as follow-up before the track is considered complete under the current quality bar.
+- First-class or active first-class tracks have scanner support, extractor dispatch, role detection, tests, and real-repo navigation coverage. Current tracks include Python, TypeScript/JavaScript, Go, Rust, Cython, Swift, Kotlin, Java, Ruby, PHP, C#, C, C++, and Dart.
+- Dart has Dart/Flutter extraction, fixture-backed Flutter navigation coverage, a public `json_serializable.dart` real-repository benchmark, and a live agent-style trial. Larger Flutter application benchmarks remain useful future evidence if Flutter-specific ranking grows beyond ordinary Dart symbols and widget `build` methods.
 - Config/build-file support is intentionally narrower. JSON, XML, TOML, and YAML extract ownership and wiring signals for package/build/service metadata; they are not full document-semantic parsers.
 - Most non-Python extractors are deterministic and line-based. First-class support means useful navigation for common agent tasks, not complete compiler semantics.
 

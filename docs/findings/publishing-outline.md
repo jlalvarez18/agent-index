@@ -44,6 +44,7 @@ Agents do not only need more text search. They need search results tied to code 
 32. wsproto blind repo check: WebSocket protocol code stresses handshakes, extension negotiation, and frame-to-event conversion. Initial hybrid gets Symbol Hit@1 `0.58`, Hit@5 `1.00`; guarded owner-action, handshake, extension, and event-conversion rules move it to Symbol/File Hit@1/Hit@5 `1.00/1.00`.
 33. wsproto same-corpus comparison: Graphify reduces context by `3.9x`, but its query traversal mentions expected symbols/files at `0.00`/`0.75`; `agent-index` reaches ranked Symbol/File Hit@1/Hit@5 `1.00/1.00`.
 34. urllib3 structured-agent and Graphify comparison: HTTP transport code validates the agent-query cookbook around pools, retries, proxies, SSL, URLs, multipart forms, and streaming. The same-corpus Graphify comparison shows `7.0x` token reduction, Graphify symbol/file mentions at `0.17`/`0.67`, and structured `agent-index` ranked Symbol/File Hit@1/Hit@5 `1.00/1.00`.
+35. Language-support readiness check: newer findings extend the quality bar beyond Python, including Dart's move from fixture-backed Flutter coverage to a public `json_serializable.dart` real-repository benchmark. The article should avoid stale "fixture-only" wording when summarizing language coverage.
 
 ## Current Baseline Comparison
 
@@ -194,7 +195,7 @@ Agents do not only need more text search. They need search results tied to code 
 - The urllib3 Graphify section should include the harness lesson: comparing against Graphify must run `agent-index` in structured-agent mode, because question-text mode measures the old interface rather than the product contract.
 - The urllib3 Graphify section should include the metric-boundary lesson: Graphify's `7.0x` token reduction is real and valuable, but it is not the same as returning the exact symbol/file/function an agent should inspect first.
 - The readiness section should include the packaging lesson: a tool can have strong benchmark numbers and still fail local use if help exits nonzero or the built bin path is wrong.
-- The readiness section should distinguish implementation-ready package hygiene from owner decisions: `files`, `engines`, and `npm pack --dry-run` can be done now; public license and repository URL should be chosen deliberately.
+- The readiness section should distinguish implementation-ready package hygiene from owner decisions: `files`, `engines`, and `npm pack --dry-run` can be done now; license, repository URL, npm access, and any `private: true` policy should be chosen deliberately.
 
 ## Evidence To Include Later
 

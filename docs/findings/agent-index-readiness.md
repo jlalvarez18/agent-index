@@ -2,7 +2,7 @@
 
 This backlog tracks whether the prototype is close to real local use, not just whether one benchmark number improved.
 
-Last audit: 2026-06-13
+Last audit: 2026-06-25
 
 ## Current Evidence
 
@@ -14,6 +14,7 @@ Last audit: 2026-06-13
 - Query ergonomics finding: a warm-index Click rerun still lost time because the agent guessed `--index` at the root command and used the wrong JSON shape before falling back to `rg`. The query surface now supports shorthand flags on `query` and keeps JSON as the advanced path.
 - `git diff --check`: passes.
 - `npm pack --dry-run --cache /tmp/agent-index-npm-cache`: passes and includes README, benchmark JSON, docs, built `dist` files, and package metadata. Plain `npm pack --dry-run` hit a local `/Users/juan/.npm` cache permission issue unrelated to package contents.
+- Package metadata is intentionally conservative for local tarball/private dogfood use: `license` is `UNLICENSED`, no `repository` URL is declared, and the package allowlist plus `engines.node` are set. Public registry publishing still needs an owner decision on license, repository URL, and whether the package should remain unpublished/private or be published publicly.
 - Hybrid Graphify benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `69ms`.
 - Hybrid HTTPX benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `20ms`.
 - Hybrid Click benchmark: Symbol Hit@1 `1.00`, Symbol Hit@5 `1.00`, File Hit@5 `1.00`, avg `26ms`.
@@ -149,7 +150,7 @@ Last audit: 2026-06-13
 
 | Priority | Area | Gap | Why It Matters | Suggested Next Move |
 | --- | --- | --- | --- | --- |
-| High | Packaging/release hygiene | Public `license` and `repository` metadata still need owner decisions. | `UNLICENSED` is honest for local dogfood, but public publishing should not guess legal terms or remote URLs. | Choose a license and add repository metadata once the project has an intended public home. |
+| High | Packaging/release hygiene | Public/private distribution path and public metadata still need owner decisions. | `UNLICENSED` and absent `repository` metadata are honest for local tarball/private dogfood use, but public publishing should not guess legal terms, remote URLs, npm access, or whether accidental registry publication should be blocked with `private: true`. | Choose the intended path: keep local/private distribution and optionally set `private: true`, or choose a license plus repository metadata before public npm publishing. |
 | High | Retrieval quality | Structured agent queries currently have twenty-two real-repo measured baselines. | Graphify, HTTPX, Click, Rich, Pytest, FastAPI, Pydantic, Poetry, NetworkX, SQLAlchemy, Scikit-learn, Django, Django adversarial, Celery, Celery adversarial, Black, Jinja, attrs, h11, wsproto, Trio, and urllib3 all show strong structured-agent results against the rg-style file baseline, but Click, Pytest, Poetry, NetworkX, Scikit-learn, Django, Django adversarial, Black, attrs, wsproto, Trio, and urllib3 showed that broad or adjacent terms can hide exact symbols until the query is sharpened or ranking is fixed, and Rich needed a source-backed answer-key correction. h11, wsproto, Trio, and urllib3 add protocol/state-machine/async-runtime/HTTP-transport evidence; wsproto, Django adversarial, Trio, and urllib3 also show that adjacent helper symbols belong in graph expansion or context, not necessarily primary `terms`. | Use `docs/agent-query-cookbook.md` as the agent-facing contract, then expand to another adversarial set or a fresh repo and rerun against the rg-style baseline. |
 | High | Benchmark/test coverage | Golden sets are still hand-built and relatively small, even when source-audited. | Small green benchmarks are easy to overfit. Black, Jinja, attrs, h11, wsproto, and urllib3 add fresh blind evidence plus same-corpus Graphify comparisons where available, but the expanded matrix is still built from curated questions. | Add larger generated-but-source-audited benchmark slices or another fresh repo after broad preservation reruns. |
 | Medium | Retrieval quality | Some intent reasons can still appear on nearby but non-winning candidates, such as route decorator methods receiving response-serialization context. | The top results are correct, but explanation quality matters for agent trust and debugging. | Audit intent explanations and consider requiring stronger symbol-name matches before attaching broad reasons. |
@@ -158,6 +159,6 @@ Last audit: 2026-06-13
 
 ## Dogfood Readiness Assessment
 
-The prototype is close to local dogfood use for Python repositories. The package can be built, packed, installed from a tarball, and used for help, indexing, structured querying, benchmarking, and Graphify comparison. The current evidence should still be framed as benchmark coverage rather than general proof. The main remaining readiness gaps are fresh-corpus validation, explanation polish, and public-publishing decisions.
+The prototype is close to local dogfood use for Python repositories. The package can be built, packed, installed from a tarball, and used for help, indexing, structured querying, benchmarking, and Graphify comparison. The current package metadata is suitable for local tarball/private dogfood distribution, but public npm readiness is blocked on owner decisions about license, repository URL, and publish/private policy. The current retrieval evidence should still be framed as benchmark coverage rather than general proof. The main remaining readiness gaps are fresh-corpus validation, explanation polish, and public-publishing decisions.
 
 The current system is strongest when the agent needs a ranked starting point with file, symbol, line range, and nearby context. Graphify, HTTPX, Click, Rich, Pytest, FastAPI, Pydantic, Poetry, NetworkX, SQLAlchemy, Scikit-learn, Django, Celery, Black, Jinja, attrs, h11, wsproto, Trio, and urllib3 are currently green in this worktree, including NetworkX, SQLAlchemy, Scikit-learn, Django, and Celery adversarial sets. attrs, h11, wsproto, Trio, Click structured-agent, Rich structured-agent, Pytest structured-agent, FastAPI structured-agent, Pydantic structured-agent, Poetry structured-agent, NetworkX structured-agent, SQLAlchemy structured-agent, Scikit-learn structured-agent, Django structured-agent, Django adversarial structured-agent, Celery structured-agent, Celery adversarial structured-agent, Black structured-agent, Jinja structured-agent, attrs structured-agent, h11 structured-agent, wsproto structured-agent, Trio structured-agent, and urllib3 structured-agent are especially useful because they preserve the progression from honest misses to source-audited fixes, answer-key corrections, query refinements, or clean structured-agent baselines.

@@ -30,6 +30,19 @@ Guidance: open-top-result confidence=high
   next: inspect source before broad rg
 ```
 
+Medium-confidence compact guidance is more directive. It keeps the top result
+available for a quick ownership check, then tells the agent not to edit yet and
+prints the refine command to run before broad search:
+
+```text
+Guidance: open-top-result confidence=medium
+  open: src/click/testing.py:1
+  why: source hit rank 1, evidence available, support/artifact path
+  next: inspect only to rule out helper/artifact ownership; run the follow-up query before editing
+  before-edit: do not edit this support/artifact result yet; run the refine command to find the owning source file before broad rg
+  follow-up: agent-index task bugfix 'NO_COLOR should disable color by default' --term resolve_color_default --term NO_COLOR --term disable --term color --path src/click/globals --role source --kind function --kind method --kind class --expand callers --expand callees --expand parents --limit 5 --agent-guidance --target /path/to/click --index-path /tmp/click.sqlite --mode hybrid
+```
+
 ## Expected Agent Behavior Change
 
 Without guidance, an agent sees useful ranked files but must infer the workflow.
@@ -87,3 +100,16 @@ Interpretation: guidance is now better calibrated. It still recommends the same
 first file, but it reserves `high` for cases with stronger path/symbol/query
 corroboration and same-source test evidence. Remaining wrong first opens are
 ranking work, not confidence work.
+
+Follow-up update: medium-confidence results now carry explicit before-edit
+instructions and refine commands with caller, callee, and parent expansion.
+Support/artifact-looking hits no longer suggest a direct source-to-tests command,
+because that can anchor the agent on the helper instead of pushing it toward the
+owning implementation. Refine commands also include the active target, index
+path when one was supplied, and mode, and support/artifact refinements use the
+next ranked non-support source candidate as the path/term anchor.
+
+Redux Toolkit smoke check: the known `_artifacts/domain_map.yaml` medium case now
+emits a refine command anchored on `packages/toolkit/src/createSlice`. Running
+that command moves the top result to `packages/toolkit/src/createSlice.ts` with
+high confidence and related `createSlice` tests.

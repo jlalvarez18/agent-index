@@ -57,6 +57,23 @@ def test_load_value():
   return root;
 }
 
+async function mediumTaskGuidanceFixtureProject() {
+  const root = await mkdtemp(path.join(tmpdir(), "agent-index-cli-medium-task-guidance-"));
+  await mkdir(path.join(root, "pkg"), { recursive: true });
+  await writeFile(
+    path.join(root, "pkg", "testing.py"),
+    `class CliRunner:
+    pass
+
+def resolve_color_default(color=None):
+    if color is not None:
+        return color
+    return "NO_COLOR" not in {}
+`
+  );
+  return root;
+}
+
 async function writeGraphifyResults(root: string) {
   const graphifyResultsPath = path.join(root, "graphify-results.json");
   await writeFile(
@@ -263,6 +280,89 @@ describe("runCli", () => {
     });
     expect(result.plan.kind).toBe("bugfix");
     expect(result.steps).toHaveLength(3);
+  });
+
+  test("prints actionable compact guidance for medium-confidence helper results", async () => {
+    const root = await mediumTaskGuidanceFixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(
+      [
+        "task",
+        "bugfix",
+        "NO_COLOR should disable color by default",
+        "--target",
+        root,
+        "--format",
+        "compact",
+        "--agent-guidance"
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    expect(output[1]).toContain("Guidance: open-top-result confidence=medium");
+    expect(output[1]).toContain("open: pkg/testing.py:");
+    expect(output[1]).toContain("why: source hit rank 1");
+    expect(output[1]).toContain("support/artifact path");
+    expect(output[1]).toContain("before-edit: do not edit this support/artifact result yet");
+    expect(output[1]).toContain("run the refine command to find the owning source file before broad rg");
+    expect(output[1]).toContain("--expand callers --expand callees --expand parents");
+    expect(output[1]).toContain(`--target ${root}`);
+    expect(output[1]).toContain("--mode hybrid");
+    expect(output[1]).not.toContain("task source-to-tests --source pkg/testing.py");
+  });
+
+  test("keeps JSON task output unchanged unless agent guidance is requested", async () => {
+    const root = await mediumTaskGuidanceFixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["task", "bugfix", "NO_COLOR should disable color by default", "--target", root, "--format", "json"], {
+      write: (line) => output.push(line)
+    });
+
+    const result = JSON.parse(output[1]);
+    expect(result).not.toHaveProperty("guidance");
+    expect(JSON.stringify(result)).not.toContain("beforeEditing");
+  });
+
+  test("emits structured medium-confidence JSON guidance before editing", async () => {
+    const root = await mediumTaskGuidanceFixtureProject();
+    const indexPath = path.join(root, "task-guidance.sqlite");
+    const output: string[] = [];
+
+    await runCli(["index", root, "--index-path", indexPath], { write: (line) => output.push(line) });
+    await runCli(
+      [
+        "task",
+        "bugfix",
+        "NO_COLOR should disable color by default",
+        "--target",
+        root,
+        "--index-path",
+        indexPath,
+        "--format",
+        "json",
+        "--agent-guidance"
+      ],
+      { write: (line) => output.push(line) }
+    );
+
+    const result = JSON.parse(output[1]);
+    expect(result.guidance).toMatchObject({
+      recommendedNextAction: "open-top-result",
+      confidence: "medium",
+      beforeEditing: [
+        "do not edit this support/artifact result yet",
+        "run the refine command to find the owning source file before broad rg"
+      ]
+    });
+    expect(result.guidance.followUpCommands[0]).toContain("--expand callers --expand callees --expand parents");
+    expect(result.guidance.followUpCommands[0]).toContain(`--target ${root}`);
+    expect(result.guidance.followUpCommands[0]).toContain(`--index-path ${indexPath}`);
+    expect(result.guidance.followUpCommands[0]).toContain("--mode hybrid");
+    expect(result.guidance.followUpCommands.join("\n")).not.toContain("task source-to-tests --source pkg/testing.py");
   });
 
   test("lists autonomous comparison tasks", async () => {

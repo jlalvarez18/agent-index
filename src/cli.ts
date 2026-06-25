@@ -316,12 +316,15 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           limit: Number.parseInt(options.limit, 10),
           testLimit: Number.parseInt(options.testLimit, 10)
         });
+        const target = parseTargetPath(options.target, options.repo);
+        const indexPath = parseIndexPath(options.indexPath, options.index, options.db);
+        const mode = parseMode(options.mode);
         const result = await runAgentTask(plan, {
-          target: parseTargetPath(options.target, options.repo),
-          indexPath: parseIndexPath(options.indexPath, options.index, options.db),
-          mode: parseMode(options.mode)
+          target,
+          indexPath,
+          mode
         });
-        const guidance = options.agentGuidance ? guideAgentTask(result) : undefined;
+        const guidance = options.agentGuidance ? guideAgentTask(result, { target, indexPath, mode }) : undefined;
         io.write(
           parseTaskFormat(options.format) === "json"
             ? JSON.stringify(guidance ? { ...result, guidance } : result, null, 2)
@@ -775,6 +778,9 @@ function formatAgentTaskGuidance(guidance: AgentTaskGuidance): string {
   }
   lines.push(`  why: ${guidance.why.join(", ")}`);
   lines.push(`  next: ${guidance.next}`);
+  if (guidance.beforeEditing && guidance.beforeEditing.length > 0) {
+    lines.push(`  before-edit: ${guidance.beforeEditing.join("; ")}`);
+  }
   if (guidance.followUpCommands && guidance.followUpCommands.length > 0) {
     lines.push(`  follow-up: ${guidance.followUpCommands.join(" && ")}`);
   }

@@ -33,6 +33,16 @@ related tests, refine the query, or fall back. It also includes a confidence
 label and the first file/line to inspect. The default compact and JSON outputs
 remain unchanged unless `--agent-guidance` is present.
 
+Medium-confidence guidance is intentionally more cautious than high-confidence
+guidance. It may still name the top file to inspect, but it also emits
+`before-edit` instructions and a specific follow-up command. Treat those as the
+next navigation step before editing or falling back to broad `rg`, especially
+when the top hit looks like a testing helper, generated artifact, fixture, or
+domain-map file. Follow-up commands include the active `--target`, `--index-path`
+when provided, and `--mode`, so an agent can rerun them directly in the same
+repository context. For support/artifact hits, the refine command is shaped from
+the next ranked non-support source candidate instead of the artifact path itself.
+
 Task presets:
 
 | Preset | Use it when | Workflow |

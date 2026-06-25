@@ -95,6 +95,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
     .option("--mode <mode>", "query mode: symbol, fts, or hybrid", "symbol")
     .option("--format <format>", "query output format: json or compact", "json")
     .option("--debug", "include ranking diagnostics in query JSON")
+    .option("--profile", "include query phase timing diagnostics in query JSON")
     .option("--trace <path>", "append a dogfood trace event to a JSONL file")
     .option("--trace-task <id>", "dogfood trace task id")
     .action(
@@ -118,6 +119,7 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
           mode: string;
           format: string;
           debug?: boolean;
+          profile?: boolean;
           trace?: string;
           traceTask?: string;
         }
@@ -130,7 +132,8 @@ export async function runCli(argv: string[], io: CliIO = { write: console.log })
         indexPath: parseIndexPath(options.indexPath, options.index, options.db),
         limit: Number.parseInt(options.limit, 10),
         mode,
-        debug: Boolean(options.debug)
+        debug: Boolean(options.debug),
+        profile: Boolean(options.profile || options.debug)
       };
       const shorthandQuery = parseShorthandAgentQuery(query, options);
       const agentQuery = options.agentQuery ? parseAgentQueryWithoutShorthand(options.agentQuery, shorthandQuery) : shorthandQuery;

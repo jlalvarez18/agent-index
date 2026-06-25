@@ -1601,6 +1601,29 @@ def test_captured_stdout_stderr_setup_call_teardown():
     });
   });
 
+  test("supports query profile diagnostics in JSON output", async () => {
+    const { root } = await fixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root], { write: (line) => output.push(line) });
+    await runCli(["query", "where is semantic cache loaded?", "--target", root, "--mode", "hybrid", "--profile"], {
+      write: (line) => output.push(line)
+    });
+
+    const queryJson = JSON.parse(output[1]);
+    expect(queryJson.matches[0].debug).toBeUndefined();
+    expect(queryJson.profile).toMatchObject({
+      phases: {
+        fts: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        exactSymbol: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        pathHints: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        intentCandidates: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        ranking: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        expansion: { durationMs: expect.any(Number), rowCount: expect.any(Number) }
+      }
+    });
+  });
+
   test("appends a trace event for query without changing JSON stdout", async () => {
     const { root } = await fixtureProject();
     const tracePath = path.join(root, "trace.jsonl");

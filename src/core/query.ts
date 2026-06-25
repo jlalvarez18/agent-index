@@ -1,11 +1,13 @@
 import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
+import { performance } from "node:perf_hooks";
 import path from "node:path";
 import { compactEvidenceLine } from "./evidence.js";
 import { indexWarningsForDatabase } from "./index-metadata.js";
 import type {
   AgentQuery,
   FileRole,
+  QueryProfile,
   QueryExpansion,
   QueryMatch,
   QueryMatchDebug,
@@ -21,6 +23,7 @@ export interface QueryOptions {
   limit?: number;
   mode?: QueryMode;
   debug?: boolean;
+  profile?: boolean;
   expand?: QueryExpansion[];
 }
 
@@ -63,6 +66,16 @@ interface IntentRuleRegistration {
   createRule: (context: IntentRuleContext) => IntentRule;
 }
 
+type QueryProfilePhaseName = keyof QueryProfile["phases"];
+
+interface MutableQueryProfile extends QueryProfile {
+  startedAt: number;
+}
+
+const INTENT_CANDIDATE_SCAN_LIMIT = 300;
+const INTENT_FTS_TERM_LIMIT = 80;
+const INTENT_SEED_LIMIT = 120;
+
 export async function queryIndex(question: string, options: QueryOptions): Promise<QueryResponse> {
   return queryWithText(question, options);
 }
@@ -92,24 +105,122 @@ async function queryWithText(
   validateIndexDatabase(dbPath, options.target);
   const db = new Database(dbPath, { readonly: true });
   const mode = options.mode ?? "symbol";
+  const profile = options.profile ? createQueryProfile() : undefined;
   try {
     const warnings = indexWarningsForDatabase(db, options.target, agentQuery?.roles ?? []);
-    const ftsRows = searchCandidates(db, question, agentQuery);
+    const ftsRows = measureQueryPhase(profile, "fts", () => searchCandidates(db, question, agentQuery));
+    const exactSymbolRows =
+      mode === "fts" ? [] : measureQueryPhase(profile, "exactSymbol", () => searchExactSymbolCandidates(db, agentQuery));
+    const pathHintRows =
+      mode === "fts" ? [] : measureQueryPhase(profile, "pathHints", () => searchPathHintCandidates(db, agentQuery));
+    const intentRows =
+      mode === "fts"
+        ? []
+        : measureQueryPhase(profile, "intentCandidates", () => searchIntentCandidates(db, scoringQuestion, agentQuery, profile));
     const candidateRows =
       mode === "fts"
         ? ftsRows
         : mergeCandidateRows([
-            ...searchExactSymbolCandidates(db, agentQuery),
-            ...searchPathHintCandidates(db, agentQuery),
-            ...searchIntentCandidates(db, scoringQuestion, agentQuery),
+            ...exactSymbolRows,
+            ...pathHintRows,
+            ...intentRows,
             ...ftsRows
           ]);
     const rows = applyAgentQueryFilters(candidateRows, agentQuery);
-    const matches = rankRows(db, rows, scoringQuestion, mode, options.limit ?? 5, options.debug ?? false, agentQuery);
-    return { query: question, mode, matches, ...(warnings.length > 0 ? { warnings } : {}) };
+    const matches = measureQueryPhase(profile, "ranking", () =>
+      rankRows(db, rows, scoringQuestion, mode, options.limit ?? 5, options.debug ?? false, agentQuery, profile)
+    );
+    if (profile) {
+      profile.phases.ranking.rowCount = rows.length;
+    }
+    return {
+      query: question,
+      mode,
+      matches,
+      ...(warnings.length > 0 ? { warnings } : {}),
+      ...(profile ? { profile: finalizeQueryProfile(profile) } : {})
+    };
   } finally {
     db.close();
   }
+}
+
+function createQueryProfile(): MutableQueryProfile {
+  return {
+    startedAt: performance.now(),
+    totalDurationMs: 0,
+    phases: {
+      fts: emptyQueryProfilePhase(),
+      exactSymbol: emptyQueryProfilePhase(),
+      pathHints: emptyQueryProfilePhase(),
+      intentCandidates: emptyQueryProfilePhase(),
+      ranking: emptyQueryProfilePhase(),
+      expansion: emptyQueryProfilePhase()
+    }
+  };
+}
+
+function emptyQueryProfilePhase(): QueryProfile["phases"][QueryProfilePhaseName] {
+  return { durationMs: 0, rowCount: 0 };
+}
+
+function measureQueryPhase<T extends unknown[]>(
+  profile: MutableQueryProfile | undefined,
+  phase: QueryProfilePhaseName,
+  run: () => T
+): T {
+  if (!profile) {
+    return run();
+  }
+
+  const startedAt = performance.now();
+  const result = run();
+  profile.phases[phase].durationMs += elapsedMs(startedAt);
+  profile.phases[phase].rowCount = result.length;
+  return result;
+}
+
+function addQueryPhaseTiming(
+  profile: MutableQueryProfile | undefined,
+  phase: QueryProfilePhaseName,
+  startedAt: number,
+  rowCount: number
+): void {
+  if (!profile) {
+    return;
+  }
+  profile.phases[phase].durationMs += elapsedMs(startedAt);
+  profile.phases[phase].rowCount += rowCount;
+}
+
+function setQueryPhaseScannedRows(
+  profile: MutableQueryProfile | undefined,
+  phase: QueryProfilePhaseName,
+  scannedRows: number
+): void {
+  if (!profile) {
+    return;
+  }
+  profile.phases[phase].scannedRows = scannedRows;
+}
+
+function finalizeQueryProfile(profile: MutableQueryProfile): QueryProfile {
+  return {
+    totalDurationMs: Number(elapsedMs(profile.startedAt).toFixed(3)),
+    phases: Object.fromEntries(
+      Object.entries(profile.phases).map(([phase, value]) => [
+        phase,
+        {
+          ...value,
+          durationMs: Number(value.durationMs.toFixed(3))
+        }
+      ])
+    ) as QueryProfile["phases"]
+  };
+}
+
+function elapsedMs(startedAt: number): number {
+  return Math.max(0, performance.now() - startedAt);
 }
 
 function agentQueryTermsText(agentQuery: AgentQuery): string {
@@ -181,7 +292,8 @@ function rankRows(
   mode: QueryMode,
   limit: number,
   debug: boolean,
-  agentQuery?: AgentQuery
+  agentQuery?: AgentQuery,
+  profile?: MutableQueryProfile
 ): QueryMatch[] {
   if (mode === "fts") {
     return uniqueMatches(rows.map((row) => toPlainFtsMatch(row, question, debug))).slice(0, limit);
@@ -190,7 +302,7 @@ function rankRows(
   if (mode === "hybrid") {
     return rankHybridMatches(
       rows.map((row, index) => ({
-        match: toMatch(db, row, question, debug, agentQuery),
+        match: toMatch(db, row, question, debug, agentQuery, profile),
         ftsPosition: row.ftsPosition,
         inputIndex: index
       })),
@@ -199,7 +311,7 @@ function rankRows(
   }
 
   return rows
-    .map((row) => toMatch(db, row, question, debug, agentQuery))
+    .map((row) => toMatch(db, row, question, debug, agentQuery, profile))
     .sort((a, b) => b.score - a.score)
     .filter(uniqueMatchFilter())
     .slice(0, limit);
@@ -351,20 +463,91 @@ function searchExactSymbolCandidates(db: Database.Database, agentQuery: AgentQue
   }));
 }
 
-function searchIntentCandidates(db: Database.Database, question: string, agentQuery?: AgentQuery): CandidateRow[] {
+function searchIntentCandidates(
+  db: Database.Database,
+  question: string,
+  agentQuery?: AgentQuery,
+  profile?: MutableQueryProfile
+): CandidateRow[] {
   if (agentQuery?.roles?.includes("test")) {
+    setQueryPhaseScannedRows(profile, "intentCandidates", 0);
     return [];
   }
 
   const rules = intentRulesForQuestion(question);
   if (rules.length === 0) {
+    setQueryPhaseScannedRows(profile, "intentCandidates", 0);
     return [];
   }
   const filter = candidateSqlFilter(agentQuery);
+  const pool = intentCandidatePoolSql(question, filter);
 
   const rows = db
-    .prepare(
-      `
+    .prepare(pool.sql)
+    .all(pool.params) as CandidateRow[];
+
+  setQueryPhaseScannedRows(profile, "intentCandidates", rows.length);
+
+  return rows
+    .filter((row) => row.kind !== "module")
+    .map((row) => scoreIntentRow(row, rules))
+    .filter((row): row is CandidateRow => row !== undefined)
+    .sort((a, b) => (b.intentBoost ?? 0) - (a.intentBoost ?? 0))
+    .slice(0, 12);
+}
+
+function intentCandidatePoolSql(
+  question: string,
+  filter: { sql: string; params: Record<string, unknown> }
+): { sql: string; params: Record<string, unknown> } {
+  const terms = rankedQueryTokens(question).filter((term) => term.length >= 3).slice(0, 8);
+  const seedTerms = intentSeedTermsForQuestion(question).slice(0, 12);
+  const params: Record<string, unknown> = { ...filter.params };
+  const branches: string[] = [];
+
+  for (const [index, term] of terms.entries()) {
+    const key = `intentFtsTerm${index}`;
+    params[key] = ftsMatchQuery(term) || `"${term}"`;
+    branches.push(`
+            select chunk_id, rank, source_rank
+            from (
+              select chunk_fts.chunk_id as chunk_id, bm25(chunk_fts) as rank, ${index} as source_rank
+              from chunk_fts
+              where chunk_fts match @${key}
+              order by rank
+              limit ${INTENT_FTS_TERM_LIMIT}
+            )`);
+  }
+
+  for (const [index, seed] of seedTerms.entries()) {
+    const exactKey = `intentSeedExact${index}`;
+    const likeKey = `intentSeedLike${index}`;
+    params[exactKey] = seed;
+    params[likeKey] = `%${seed}%`;
+    branches.push(`
+            select chunk_id, rank, source_rank
+            from (
+              select c.id as chunk_id, 0 as rank, ${terms.length + index} as source_rank
+              from chunks c
+              join symbols s on s.id = c.symbol_id
+              join files f on f.id = c.file_id
+              where (
+                lower(s.name) = @${exactKey}
+                or lower(s.qualified_name) like @${likeKey}
+                or lower(f.path) like @${likeKey}
+              )
+                ${filter.sql}
+              order by
+                case when lower(s.name) = @${exactKey} then 0 else 1 end,
+                f.path,
+                s.start_line
+              limit ${INTENT_SEED_LIMIT}
+            )`);
+  }
+
+  if (branches.length === 0) {
+    return {
+      sql: `
       select
         c.id as chunk_id,
         c.text as chunk_text,
@@ -382,19 +565,86 @@ function searchIntentCandidates(db: Database.Database, question: string, agentQu
       from chunks c
       join symbols s on s.id = c.symbol_id
       join files f on f.id = c.file_id
+      where 1 = 0
+      `,
+      params
+    };
+  }
+
+  return {
+    sql: `
+      with candidate_chunks(chunk_id, rank, source_rank) as (
+        select chunk_id, min(rank) as rank, min(source_rank) as source_rank
+        from (
+          ${branches.join("\n          union all\n")}
+        )
+        group by chunk_id
+      )
+      select
+        c.id as chunk_id,
+        c.text as chunk_text,
+        c.start_line as chunk_start_line,
+        c.end_line as chunk_end_line,
+        s.id as symbol_id,
+        s.name as symbol_name,
+        s.qualified_name as qualified_name,
+        s.kind as kind,
+        s.start_line as symbol_start_line,
+        s.end_line as symbol_end_line,
+        f.path as file_path,
+        f.role as file_role,
+        candidate_chunks.rank as rank
+      from candidate_chunks
+      join chunks c on c.id = candidate_chunks.chunk_id
+      join symbols s on s.id = c.symbol_id
+      join files f on f.id = c.file_id
       where 1 = 1
         ${filter.sql}
-      order by f.path, s.start_line
-      `
-    )
-    .all(filter.params) as CandidateRow[];
+      order by candidate_chunks.source_rank, candidate_chunks.rank, f.path, s.start_line
+      limit ${INTENT_CANDIDATE_SCAN_LIMIT}
+      `,
+    params
+  };
+}
 
-  return rows
-    .filter((row) => row.kind !== "module")
-    .map((row) => scoreIntentRow(row, rules))
-    .filter((row): row is CandidateRow => row !== undefined)
-    .sort((a, b) => (b.intentBoost ?? 0) - (a.intentBoost ?? 0))
-    .slice(0, 12);
+function intentSeedTermsForQuestion(question: string): string[] {
+  const normalizedQuestion = normalize(question);
+  const tokens = new Set(queryTokens(question).flatMap((token) => [token, stemToken(token)]));
+  const seeds: string[] = [];
+
+  if (isEntrypointQuestion(normalizedQuestion, tokens)) {
+    seeds.push("main", "_main", "__main__", "cli", "console");
+  }
+
+  for (const reference of dottedApiReferences(question)) {
+    if (reference.member.length >= 3) {
+      seeds.push(reference.member.toLowerCase());
+    }
+  }
+
+  if (tokens.has("export") && tokens.has("json")) {
+    seeds.push("to_json", "json", "export");
+  }
+  if (isReportGenerationQuestion(tokens)) {
+    seeds.push("generate", "report");
+  }
+  if (tokens.has("community") && (tokens.has("detection") || tokens.has("detect") || tokens.has("cluster"))) {
+    seeds.push("cluster", "community", "partition");
+  }
+  if (tokens.has("mcp") && tokens.has("server")) {
+    seeds.push("serve", "server");
+  }
+  if (tokens.has("extract") || tokens.has("extraction")) {
+    seeds.push("extract", "extract_python", "python");
+  }
+  if (isBuildConstructionQuestion(tokens)) {
+    seeds.push("build");
+  }
+  if ((tokens.has("seed") || tokens.has("seeds")) && (tokens.has("query") || tokens.has("select") || tokens.has("selected"))) {
+    seeds.push("seed", "_pick_seeds", "_score_nodes");
+  }
+
+  return uniqueValues(seeds);
 }
 
 function candidateSqlFilter(agentQuery: AgentQuery | undefined): { sql: string; params: Record<string, unknown> } {
@@ -674,7 +924,8 @@ function toMatch(
   row: CandidateRow,
   question: string,
   debug: boolean,
-  agentQuery?: AgentQuery
+  agentQuery?: AgentQuery,
+  profile?: MutableQueryProfile
 ): QueryMatch {
   const why: string[] = ["matched source text"];
   let score = 1;
@@ -835,7 +1086,7 @@ function toMatch(
     addWhy(why, shortFlag.reason);
   }
 
-  const neighbors = shouldExpandNeighbors(agentQuery) ? expandNeighbors(db, row.symbol_id) : [];
+  const neighbors = shouldExpandNeighbors(agentQuery) ? expandNeighborsWithProfile(db, row.symbol_id, profile) : [];
   if (neighbors.length > 0) {
     score += 0.5;
     addWhy(why, "nearby graph edge");
@@ -898,6 +1149,17 @@ function inferredCandidateSources(row: CandidateRow): Array<"fts" | "intent"> {
 
 function uniqueCandidateSources(sources: Array<"fts" | "intent">): Array<"fts" | "intent"> {
   return sources.filter((source, index) => sources.indexOf(source) === index);
+}
+
+function expandNeighborsWithProfile(
+  db: Database.Database,
+  symbolId: number,
+  profile: MutableQueryProfile | undefined
+): QueryNeighbor[] {
+  const startedAt = performance.now();
+  const neighbors = expandNeighbors(db, symbolId);
+  addQueryPhaseTiming(profile, "expansion", startedAt, neighbors.length);
+  return neighbors;
 }
 
 function expandNeighbors(db: Database.Database, symbolId: number): QueryNeighbor[] {

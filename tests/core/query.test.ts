@@ -2693,6 +2693,72 @@ def run_app():
     expect(hybrid.matches[0].why).toContain("entrypoint intent match");
   });
 
+  test("can report query phase timings for profiling", async () => {
+    const root = await fixtureProject();
+    await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      {
+        terms: ["semantic", "cache", "loaded"],
+        symbolKinds: ["function"],
+        roles: ["source"],
+        pathHints: ["pkg/cache.py"],
+        expand: ["callers"]
+      },
+      { target: root, mode: "hybrid", limit: 5, profile: true }
+    );
+
+    expect(result.profile).toMatchObject({
+      phases: {
+        fts: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        exactSymbol: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        pathHints: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        intentCandidates: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        ranking: { durationMs: expect.any(Number), rowCount: expect.any(Number) },
+        expansion: { durationMs: expect.any(Number), rowCount: expect.any(Number) }
+      }
+    });
+    expect(result.profile?.totalDurationMs).toBeGreaterThanOrEqual(0);
+    expect(result.profile?.phases.expansion.rowCount).toBeGreaterThan(0);
+  });
+
+  test("bounds intent candidate scoring while preserving non-FTS entrypoint ranking", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-bounded-intent-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(
+      path.join(root, "pkg", "__main__.py"),
+      `def main():
+    return run_app()
+
+def run_app():
+    return "ok"
+`
+    );
+    const distractors = Array.from(
+      { length: 600 },
+      (_, index) => `def describe_command_line_entrypoint_${index}():
+    command_line_entrypoint_notes = "documentation only"
+    return command_line_entrypoint_notes
+`
+    ).join("\n");
+    await writeFile(path.join(root, "pkg", "notes.py"), distractors);
+    await indexTarget(root);
+
+    const result = await queryIndex("where is the command line entrypoint?", {
+      target: root,
+      limit: 5,
+      mode: "hybrid",
+      profile: true
+    });
+
+    expect(result.matches[0]).toMatchObject({
+      symbol: "main",
+      file: "pkg/__main__.py"
+    });
+    expect(result.matches[0].why).toContain("entrypoint intent match");
+    expect(result.profile?.phases.intentCandidates.scannedRows).toBeLessThan(600);
+  });
+
   test("hybrid mode does not treat command line value handling as an entrypoint query", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-command-line-values-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

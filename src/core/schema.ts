@@ -136,11 +136,30 @@ export interface QueryMatch {
   debug?: QueryMatchDebug;
 }
 
+export interface QueryProfilePhase {
+  durationMs: number;
+  rowCount: number;
+  scannedRows?: number;
+}
+
+export interface QueryProfile {
+  totalDurationMs: number;
+  phases: {
+    fts: QueryProfilePhase;
+    exactSymbol: QueryProfilePhase;
+    pathHints: QueryProfilePhase;
+    intentCandidates: QueryProfilePhase;
+    ranking: QueryProfilePhase;
+    expansion: QueryProfilePhase;
+  };
+}
+
 export interface QueryResponse {
   query: string;
   mode: QueryMode;
   matches: QueryMatch[];
   warnings?: IndexWarning[];
+  profile?: QueryProfile;
 }
 
 export type QueryMode = "symbol" | "fts" | "hybrid";

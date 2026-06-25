@@ -60,6 +60,39 @@ describe("scanPythonFiles", () => {
     expect(files.map((file) => file.relativePath)).toEqual(["nested/src/kept.ts", "pkg/service.ts"]);
   });
 
+  test("skips worktree directories by default while keeping canonical files", async () => {
+    const root = await fixtureDir();
+    await mkdir(path.join(root, "src", "core"), { recursive: true });
+    await mkdir(path.join(root, ".worktrees", "split-language-support", "src", "core"), { recursive: true });
+
+    await writeFile(path.join(root, "src", "core", "scanner.ts"), "export function canonical() { return 1; }\n");
+    await writeFile(
+      path.join(root, ".worktrees", "split-language-support", "src", "core", "scanner.ts"),
+      "export function stale() { return 1; }\n"
+    );
+
+    const files = await scanCodeFiles(root);
+
+    expect(files.map((file) => file.relativePath)).toEqual(["src/core/scanner.ts"]);
+  });
+
+  test("skips linked git worktrees without hiding submodule-like directories", async () => {
+    const root = await fixtureDir();
+    await mkdir(path.join(root, "app"), { recursive: true });
+    await mkdir(path.join(root, "scratch-copy", "app"), { recursive: true });
+    await mkdir(path.join(root, "vendor", "dependency", "src"), { recursive: true });
+
+    await writeFile(path.join(root, "app", "service.ts"), "export function canonical() { return 1; }\n");
+    await writeFile(path.join(root, "scratch-copy", ".git"), "gitdir: ../.git/worktrees/scratch-copy\n");
+    await writeFile(path.join(root, "scratch-copy", "app", "service.ts"), "export function stale() { return 1; }\n");
+    await writeFile(path.join(root, "vendor", "dependency", ".git"), "gitdir: ../../.git/modules/dependency\n");
+    await writeFile(path.join(root, "vendor", "dependency", "src", "index.ts"), "export function dependency() { return 1; }\n");
+
+    const files = await scanCodeFiles(root);
+
+    expect(files.map((file) => file.relativePath)).toEqual(["app/service.ts", "vendor/dependency/src/index.ts"]);
+  });
+
   test("classifies file roles from path segments", () => {
     expect(classifyFileRole("pkg/service.py")).toBe("source");
     expect(classifyFileRole("tests/test_service.py")).toBe("test");

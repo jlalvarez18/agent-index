@@ -1,9 +1,10 @@
-import { readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { FileRole, Language, SourceFile } from "./schema.js";
 
 const IGNORED_DIRS = new Set([
   ".git",
+  ".worktrees",
   ".hg",
   ".svn",
   ".venv",
@@ -151,9 +152,12 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
         if (isIgnoredByGitignore(relativeChildDirectory, true, ignoreRules)) {
           continue;
         }
+        if (IGNORED_DIRS.has(entry.name) || (await isLinkedGitWorktreeDirectory(childDirectory))) {
+          continue;
+        }
         const isTopLevelSupportDir = TOP_LEVEL_SUPPORT_CODE_DIRS.has(relativeChildDirectory);
         const isSupportDir = SUPPORT_CODE_DIRS.has(entry.name) || isTopLevelSupportDir;
-        if (!IGNORED_DIRS.has(entry.name) && (includeSupportCode || !isSupportDir)) {
+        if (includeSupportCode || !isSupportDir) {
           await visit(childDirectory, ignoreRules);
         }
         continue;
@@ -196,6 +200,30 @@ async function scanFiles(target: string, options: ScanOptions, suffixes: string[
 
   await visit(root);
   return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+}
+
+async function isLinkedGitWorktreeDirectory(directory: string): Promise<boolean> {
+  const gitFilePath = path.join(directory, ".git");
+  let gitFileStat;
+  try {
+    gitFileStat = await lstat(gitFilePath);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return false;
+    }
+    throw error;
+  }
+  if (!gitFileStat.isFile()) {
+    return false;
+  }
+
+  const text = await readFile(gitFilePath, "utf8");
+  const gitdirLine = text.split(/\r?\n/u).find((line) => line.startsWith("gitdir:"));
+  if (!gitdirLine) {
+    return false;
+  }
+  const gitdir = gitdirLine.slice("gitdir:".length).trim().replace(/\\/gu, "/");
+  return /(?:^|\/)\.git\/worktrees(?:\/|$)/u.test(gitdir);
 }
 
 interface GitignoreRule {

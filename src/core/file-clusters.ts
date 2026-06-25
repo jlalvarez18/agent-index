@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { compactEvidenceLine } from "./evidence.js";
+import { indexWarningsForDatabase } from "./index-metadata.js";
 import type { AgentQuery, FileClusterMatch, FileClusterResult, FileRole, Language, SymbolKind } from "./schema.js";
 
 export interface FileClusterOptions {
@@ -52,13 +53,13 @@ export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOpt
   }
 
   const queryText = agentQuery.terms.map((term) => term.trim()).filter(Boolean).join(" ");
-  const match = ftsMatchQuery(queryText);
-  if (!match) {
-    return { query: queryText, clusters: [] };
-  }
-
   const db = new Database(dbPath, { readonly: true });
   try {
+    const warnings = indexWarningsForDatabase(db, options.target, agentQuery.roles ?? []);
+    const match = ftsMatchQuery(queryText);
+    if (!match) {
+      return { query: queryText, clusters: [], ...(warnings.length > 0 ? { warnings } : {}) };
+    }
     const plan = fileClusterSqlPlan(agentQuery, match, options.limit);
     let rows = db.prepare(plan.sql).all(plan.params) as ClusterRow[];
     let clusters = clusterRows(rows, agentQuery);
@@ -69,7 +70,8 @@ export function findFileClusters(agentQuery: AgentQuery, options: FileClusterOpt
 
     return {
       query: queryText,
-      clusters: clusters.slice(0, options.limit ?? 8)
+      clusters: clusters.slice(0, options.limit ?? 8),
+      ...(warnings.length > 0 ? { warnings } : {})
     };
   } finally {
     db.close();

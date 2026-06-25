@@ -199,6 +199,34 @@ describe("runCli", () => {
     expect(output[1]).not.toContain("Guidance:");
   });
 
+  test("prints task warnings when test discovery runs against a source-only index", async () => {
+    const root = await taskGuidanceFixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root, "--source-only"], { write: (line) => output.push(line) });
+    await runCli(["task", "bugfix", "semantic cache load regression", "--target", root, "--format", "compact"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Warning: source-only index");
+    expect(output[1]).toContain("Warning: index has no test-role files");
+    expect(output[1]).toContain("Task bugfix: semantic cache load regression");
+  });
+
+  test("prints source-test warnings when test role files are missing from the index", async () => {
+    const root = await taskGuidanceFixtureProject();
+    const output: string[] = [];
+
+    await runCli(["index", root, "--source-only"], { write: (line) => output.push(line) });
+    await runCli(["source-tests", "--target", root, "--term", "semantic", "--term", "cache", "--role", "source"], {
+      write: (line) => output.push(line)
+    });
+
+    expect(output[1]).toContain("Warning: source-only index");
+    expect(output[1]).toContain("Warning: index has no test-role files");
+    expect(output[1]).toContain("1 pkg/cache.py:1");
+  });
+
   test("prints compact agent guidance when requested", async () => {
     const root = await taskGuidanceFixtureProject();
     const output: string[] = [];

@@ -1,4 +1,5 @@
 import { findFileClusters } from "./file-clusters.js";
+import { mergeIndexWarnings } from "./index-metadata.js";
 import { queryAgentIndex } from "./query.js";
 import { findRelatedTests } from "./related-tests.js";
 import { findSourceTests } from "./source-tests.js";
@@ -9,6 +10,7 @@ import type {
   QueryExpansion,
   QueryMode,
   QueryResponse,
+  IndexWarning,
   SourceTestsResult,
   SymbolKind
 } from "./schema.js";
@@ -96,6 +98,7 @@ export type AgentTaskStepResult =
 export interface AgentTaskResult {
   plan: AgentTaskPlan;
   steps: AgentTaskStepResult[];
+  warnings?: IndexWarning[];
 }
 
 export type AgentTaskGuidanceAction = "open-top-result" | "inspect-related-tests" | "refine-query" | "fallback-search";
@@ -291,7 +294,18 @@ export async function runAgentTask(plan: AgentTaskPlan, options: RunAgentTaskOpt
       });
     }
   }
-  return { plan, steps };
+  return { plan, steps, warnings: taskWarnings(steps) };
+}
+
+function taskWarnings(steps: AgentTaskStepResult[]): IndexWarning[] | undefined {
+  return mergeIndexWarnings(
+    ...steps.map((step) => {
+      if (step.type === "file-clusters" || step.type === "query" || step.type === "source-tests" || step.type === "related-tests") {
+        return step.result.warnings;
+      }
+      return undefined;
+    })
+  );
 }
 
 export function guideAgentTask(result: AgentTaskResult): AgentTaskGuidance {

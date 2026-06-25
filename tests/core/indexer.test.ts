@@ -63,6 +63,56 @@ describe("indexTarget", () => {
     ]);
   });
 
+  test("persists index metadata with root, schema version, mode, creation time, and role counts", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-metadata-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "cache.py"), "def load_value():\n    return 1\n");
+    await writeFile(path.join(root, "tests", "test_cache.py"), "def test_load_value():\n    return 1\n");
+
+    const stats = await indexTarget(root);
+
+    expect(stats.mode).toBe("all-files");
+    expect(stats.root).toBe(path.resolve(root));
+    expect(stats.roleCounts).toMatchObject({ source: 1, test: 1 });
+
+    const db = new Database(stats.indexPath);
+    const rows = db.prepare("select key, value from index_metadata order by key").all() as Array<{ key: string; value: string }>;
+    db.close();
+    const metadata = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+
+    expect(metadata.root).toBe(path.resolve(root));
+    expect(metadata.schema_version).toBe("1");
+    expect(metadata.index_mode).toBe("all-files");
+    expect(Date.parse(metadata.created_at)).not.toBeNaN();
+    expect(JSON.parse(metadata.role_counts)).toMatchObject({ source: 1, test: 1 });
+  });
+
+  test("persists source-only index metadata with zero test-role files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-source-only-metadata-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "cache.py"), "def load_value():\n    return 1\n");
+    await writeFile(path.join(root, "tests", "test_cache.py"), "def test_load_value():\n    return 1\n");
+
+    const stats = await indexTarget(root, { includeSupportCode: false });
+
+    expect(stats.mode).toBe("source-only");
+    expect(stats.roleCounts).toMatchObject({ source: 1, test: 0 });
+
+    const db = new Database(stats.indexPath);
+    const metadata = Object.fromEntries(
+      (db.prepare("select key, value from index_metadata").all() as Array<{ key: string; value: string }>).map((row) => [
+        row.key,
+        row.value
+      ])
+    );
+    db.close();
+
+    expect(metadata.index_mode).toBe("source-only");
+    expect(JSON.parse(metadata.role_counts)).toMatchObject({ source: 1, test: 0 });
+  });
+
   test("writes file roles into the local index", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-indexer-roles-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

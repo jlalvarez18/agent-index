@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { compactEvidenceLine } from "./evidence.js";
+import { indexWarningsForDatabase } from "./index-metadata.js";
 import type {
   AgentQuery,
   FileRole,
@@ -79,6 +80,7 @@ async function queryWithText(
   const db = new Database(dbPath, { readonly: true });
   const mode = options.mode ?? "symbol";
   try {
+    const warnings = indexWarningsForDatabase(db, options.target, agentQuery?.roles ?? []);
     const ftsRows = searchCandidates(db, question, agentQuery);
     const candidateRows =
       mode === "fts"
@@ -91,7 +93,7 @@ async function queryWithText(
           ]);
     const rows = applyAgentQueryFilters(candidateRows, agentQuery);
     const matches = rankRows(db, rows, scoringQuestion, mode, options.limit ?? 5, options.debug ?? false, agentQuery);
-    return { query: question, mode, matches };
+    return { query: question, mode, matches, ...(warnings.length > 0 ? { warnings } : {}) };
   } finally {
     db.close();
   }

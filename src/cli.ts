@@ -31,6 +31,7 @@ import type {
   BenchmarkQueryStyle,
   FileClusterResult,
   FileRole,
+  IndexWarning,
   NavigationEvalResult,
   NavigationSuiteResult,
   QueryMatch,
@@ -678,12 +679,24 @@ function formatBenchmark(result: Awaited<ReturnType<typeof runBenchmark>>, inclu
   return lines.join("\n");
 }
 
+function prependWarnings(body: string, warnings: IndexWarning[] | undefined): string {
+  const lines = formatIndexWarnings(warnings);
+  if (lines.length === 0) {
+    return body;
+  }
+  return [...lines, "", body].join("\n");
+}
+
+function formatIndexWarnings(warnings: IndexWarning[] | undefined): string[] {
+  return (warnings ?? []).map((warning) => `Warning: ${warning.message}`);
+}
+
 function formatQueryCompact(response: QueryResponse): string {
   if (response.matches.length === 0) {
-    return "No matches";
+    return prependWarnings("No matches", response.warnings);
   }
 
-  return response.matches
+  return prependWarnings(response.matches
     .map((match, index) =>
       [
         `${index + 1} ${match.file}:${match.lines[0]}-${match.lines[1]} ${match.kind} ${match.symbol}${formatEvidence(match.evidence)}`,
@@ -694,15 +707,15 @@ function formatQueryCompact(response: QueryResponse): string {
         .filter((line): line is string => line !== undefined)
         .join("\n")
     )
-    .join("\n");
+    .join("\n"), response.warnings);
 }
 
 function formatFileClusters(result: FileClusterResult): string {
   if (result.clusters.length === 0) {
-    return "No file clusters";
+    return prependWarnings("No file clusters", result.warnings);
   }
 
-  return result.clusters
+  return prependWarnings(result.clusters
     .map((cluster, index) => {
       const symbols = cluster.symbols.slice(0, 1).map((symbol) => `${symbol.kind} ${symbol.name}:${symbol.lines[0]}`).join("; ");
       const line = cluster.symbols[0]?.lines[0] ?? 1;
@@ -712,15 +725,15 @@ function formatFileClusters(result: FileClusterResult): string {
         `  next: ${formatOpenHint(cluster.file, line)}`
       ].join("\n");
     })
-    .join("\n");
+    .join("\n"), result.warnings);
 }
 
 function formatSourceTests(result: SourceTestsResult): string {
   if (result.bundles.length === 0) {
-    return "No source/test bundles";
+    return prependWarnings("No source/test bundles", result.warnings);
   }
 
-  return result.bundles
+  return prependWarnings(result.bundles
     .map((bundle, index) => {
       const sourceSymbol = bundle.source.symbols[0];
       const source = sourceSymbol ? `${bundle.source.file}:${sourceSymbol.lines[0]} ${sourceSymbol.name}` : bundle.source.file;
@@ -735,7 +748,7 @@ function formatSourceTests(result: SourceTestsResult): string {
         `  next: ${formatOpenHint(bundle.source.file, line)}`
       ].join("\n");
     })
-    .join("\n");
+    .join("\n"), result.warnings);
 }
 
 function formatAgentTask(result: AgentTaskResult, guidance?: AgentTaskGuidance): string {
@@ -752,7 +765,7 @@ function formatAgentTask(result: AgentTaskResult, guidance?: AgentTaskGuidance):
       lines.push(indentBlock(formatRelatedTests(step.result)));
     }
   }
-  return lines.join("\n");
+  return prependWarnings(lines.join("\n"), result.warnings);
 }
 
 function formatAgentTaskGuidance(guidance: AgentTaskGuidance): string {
@@ -795,6 +808,7 @@ function formatTestNavigationResult<T>(
 function compactSourceTestsJson(result: SourceTestsResult): unknown {
   return {
     query: result.query,
+    warnings: result.warnings,
     bundles: result.bundles.map((bundle) => {
       const sourceSymbol = bundle.source.symbols[0];
       return {
@@ -1122,10 +1136,10 @@ function formatNavigationArtifactComparison(result: NavigationArtifactCompareRes
 
 function formatRelatedTests(result: ReturnType<typeof findRelatedTests>): string {
   if (result.matches.length === 0) {
-    return `No related tests found for ${result.sourceFile}`;
+    return prependWarnings(`No related tests found for ${result.sourceFile}`, result.warnings);
   }
 
-  return result.matches
+  return prependWarnings(result.matches
     .map((match, index) => {
       const line = match.firstLine === null ? "" : `:${match.firstLine}`;
       return [
@@ -1134,7 +1148,7 @@ function formatRelatedTests(result: ReturnType<typeof findRelatedTests>): string
         `  next: ${formatOpenHint(match.file, match.firstLine)}`
       ].join("\n");
     })
-    .join("\n");
+    .join("\n"), result.warnings);
 }
 
 function compactRelatedTestsJson(result: ReturnType<typeof findRelatedTests>): unknown {
@@ -1142,6 +1156,7 @@ function compactRelatedTestsJson(result: ReturnType<typeof findRelatedTests>): u
     sourceFile: result.sourceFile,
     sourceFiles: result.sourceFiles,
     symbol: result.symbol,
+    warnings: result.warnings,
     matches: result.matches.map((match) => ({
       file: match.file,
       firstLine: match.firstLine,

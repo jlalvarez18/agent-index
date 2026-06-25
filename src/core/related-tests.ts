@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import path from "node:path";
+import { indexWarningsForDatabase } from "./index-metadata.js";
 import type { RelatedTestMatch, RelatedTestsResult } from "./schema.js";
 
 export interface RelatedTestsOptions {
@@ -59,10 +60,11 @@ export function findRelatedTests(options: RelatedTestsOptions): RelatedTestsResu
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
   try {
+    const warnings = indexWarningsForDatabase(db, options.target, ["test"], { requiresTestRole: true });
     if (sourceFiles.length > 1) {
-      return findRelatedTestsForSources(db, options, sourceFiles);
+      return withWarnings(findRelatedTestsForSources(db, options, sourceFiles), warnings);
     }
-    return runRelatedTestsWithDb(db, options).result;
+    return withWarnings(runRelatedTestsWithDb(db, options).result, warnings);
   } finally {
     db.close();
   }
@@ -72,10 +74,15 @@ export function findRelatedTestsBatch(options: RelatedTestsBatchOptions): Relate
   const dbPath = options.indexPath ?? path.join(path.resolve(options.target), ".codeindex", "index.sqlite");
   const db = new Database(dbPath, { readonly: true });
   try {
-    return runRelatedTestsBatchWithDb(db, options);
+    const warnings = indexWarningsForDatabase(db, options.target, ["test"], { requiresTestRole: true });
+    return runRelatedTestsBatchWithDb(db, options).map((result) => withWarnings(result, warnings));
   } finally {
     db.close();
   }
+}
+
+function withWarnings(result: RelatedTestsResult, warnings: ReturnType<typeof indexWarningsForDatabase>): RelatedTestsResult {
+  return warnings.length > 0 ? { ...result, warnings } : result;
 }
 
 function runRelatedTestsBatchWithDb(db: Database.Database, options: RelatedTestsBatchOptions): RelatedTestsResult[] {

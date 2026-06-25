@@ -1,5 +1,6 @@
 import type { AgentQuery, FileClusterMatch, SourceTestBundle, SourceTestsResult } from "./schema.js";
 import { findFileClusters } from "./file-clusters.js";
+import { indexWarningsForPath, mergeIndexWarnings } from "./index-metadata.js";
 import { findRelatedTestsBatch } from "./related-tests.js";
 
 export interface SourceTestsOptions {
@@ -13,6 +14,7 @@ export interface SourceTestsOptions {
 export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOptions): SourceTestsResult {
   const sourceLimit = options.limit ?? agentQuery.limit ?? 5;
   const testLimit = options.testLimit ?? 2;
+  const warnings = indexWarningsForPath(options.target, options.indexPath, agentQuery.roles ?? [], { requiresTestRole: true });
   const sourceResult = findFileClusters(sourceCandidateQuery(agentQuery), {
     target: options.target,
     indexPath: options.indexPath,
@@ -45,7 +47,8 @@ export function findSourceTests(agentQuery: AgentQuery, options: SourceTestsOpti
 
   return {
     query: sourceResult.query,
-    bundles: bundles.sort((a, b) => b.score - a.score || a.source.file.localeCompare(b.source.file))
+    bundles: bundles.sort((a, b) => b.score - a.score || a.source.file.localeCompare(b.source.file)),
+    warnings: mergeIndexWarnings(warnings, sourceResult.warnings, ...relatedResults.map((result) => result.warnings))
   };
 }
 

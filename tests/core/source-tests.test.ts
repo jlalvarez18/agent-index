@@ -6,6 +6,36 @@ import { indexTarget } from "../../src/core/indexer.js";
 import { findSourceTests } from "../../src/core/source-tests.js";
 
 describe("findSourceTests", () => {
+  test("warns when source/test discovery uses a source-only index with no test-role files", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-source-only-warning-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "cache.py"), "def load_value():\n    return 1\n");
+    await writeFile(path.join(root, "tests", "test_cache.py"), "def test_load_value():\n    return 1\n");
+    await indexTarget(root, { includeSupportCode: false });
+
+    const result = findSourceTests(
+      {
+        terms: ["load_value"],
+        roles: ["source"]
+      },
+      { target: root, limit: 1, testLimit: 1 }
+    );
+
+    expect(result.bundles[0]?.source.file).toBe("pkg/cache.py");
+    expect(result.bundles[0]?.tests).toEqual([]);
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        code: "source-only-index",
+        message: expect.stringContaining("source-only")
+      }),
+      expect.objectContaining({
+        code: "missing-role",
+        message: expect.stringContaining("test")
+      })
+    ]);
+  });
+
   test("prefers source/test pairs with matching behavior evidence over source-only term density", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-source-tests-pair-ranking-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

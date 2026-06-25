@@ -78,6 +78,29 @@ export interface IndexStats {
   chunks: number;
   edges: number;
   indexPath: string;
+  root: string;
+  createdAt: string;
+  mode: IndexMode;
+  roleCounts: IndexRoleCounts;
+}
+
+export type IndexMode = "all-files" | "source-only";
+
+export type IndexRoleCounts = Record<FileRole, number>;
+
+export interface IndexMetadata {
+  schemaVersion: number;
+  root: string;
+  createdAt: string;
+  mode: IndexMode;
+  roleCounts: IndexRoleCounts;
+}
+
+export type IndexWarningCode = "legacy-index-metadata" | "target-mismatch" | "source-only-index" | "missing-role";
+
+export interface IndexWarning {
+  code: IndexWarningCode;
+  message: string;
 }
 
 export interface QueryNeighbor {
@@ -117,6 +140,7 @@ export interface QueryResponse {
   query: string;
   mode: QueryMode;
   matches: QueryMatch[];
+  warnings?: IndexWarning[];
 }
 
 export type QueryMode = "symbol" | "fts" | "hybrid";
@@ -799,6 +823,7 @@ export interface RelatedTestsResult {
   symbol?: string;
   candidateFilesScored: number;
   matches: RelatedTestMatch[];
+  warnings?: IndexWarning[];
 }
 
 export interface SourceTestBundle {
@@ -812,6 +837,7 @@ export interface SourceTestBundle {
 export interface SourceTestsResult {
   query: string;
   bundles: SourceTestBundle[];
+  warnings?: IndexWarning[];
 }
 
 export interface FileClusterMatch {
@@ -834,6 +860,7 @@ export interface FileClusterMatch {
 export interface FileClusterResult {
   query: string;
   clusters: FileClusterMatch[];
+  warnings?: IndexWarning[];
 }
 
 export type DogfoodTraceEventType = "agent-index-query" | "rg-fallback" | "code-change" | "verification" | "lesson";

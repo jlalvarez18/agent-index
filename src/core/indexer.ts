@@ -20,6 +20,7 @@ import { extractToml } from "./extractors/toml.js";
 import { extractTypeScript } from "./extractors/typescript.js";
 import { extractXml } from "./extractors/xml.js";
 import { extractYaml } from "./extractors/yaml.js";
+import { countFileRoles, INDEX_SCHEMA_VERSION, writeIndexMetadata } from "./index-metadata.js";
 import { scanCodeFiles } from "./scanner.js";
 import type { CodeEdge, CodeSymbol, ExtractionResult, IndexStats } from "./schema.js";
 
@@ -39,6 +40,8 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
   try {
     createSchema(db);
     const files = await scanCodeFiles(root, { includeSupportCode: options.includeSupportCode });
+    const mode = options.includeSupportCode === false ? "source-only" : "all-files";
+    const roleCounts = countFileRoles(files.map((file) => file.role));
     const extractions = files.map((file) => {
       if (file.language === "rust") {
         return extractRust(file);
@@ -94,7 +97,15 @@ export async function indexTarget(target: string, options: IndexOptions = {}): P
       return extractPython(file);
     });
     const stats = writeExtractions(db, extractions);
-    return { ...stats, indexPath };
+    const createdAt = new Date().toISOString();
+    writeIndexMetadata(db, {
+      schemaVersion: INDEX_SCHEMA_VERSION,
+      root,
+      createdAt,
+      mode,
+      roleCounts
+    });
+    return { ...stats, indexPath, root, createdAt, mode, roleCounts };
   } finally {
     db.close();
   }
@@ -153,6 +164,11 @@ export function createSchema(db: Database.Database): void {
       confidence text not null
     );
 
+    create table index_metadata(
+      key text primary key,
+      value text not null
+    );
+
     create virtual table chunk_fts using fts5(
       chunk_id unindexed,
       text,
@@ -170,7 +186,7 @@ export function createSchema(db: Database.Database): void {
   `);
 }
 
-function writeExtractions(db: Database.Database, extractions: ExtractionResult[]): Omit<IndexStats, "indexPath"> {
+function writeExtractions(db: Database.Database, extractions: ExtractionResult[]): Pick<IndexStats, "files" | "symbols" | "chunks" | "edges"> {
   const insertFile = db.prepare(`
     insert into files(path, hash, language, role)
     values (@path, @hash, @language, @role)

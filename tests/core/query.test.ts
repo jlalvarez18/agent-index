@@ -1269,6 +1269,53 @@ def dbscan_inner(const uint8_t[::1] is_core, object[:] neighborhoods, intp_t[::1
     ]);
   });
 
+  test("warns when a test-role query uses a source-only index", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-source-only-warning-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await mkdir(path.join(root, "tests"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "cache.py"), "def load_value():\n    return 1\n");
+    await writeFile(path.join(root, "tests", "test_cache.py"), "def test_load_value():\n    return 1\n");
+    await indexTarget(root, { includeSupportCode: false });
+
+    const result = await queryAgentIndex(
+      { terms: ["load_value"], symbolKinds: ["function"], roles: ["test"] },
+      { target: root, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches).toEqual([]);
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        code: "source-only-index",
+        message: expect.stringContaining("source-only")
+      }),
+      expect.objectContaining({
+        code: "missing-role",
+        message: expect.stringContaining("test")
+      })
+    ]);
+  });
+
+  test("warns when the requested target differs from the indexed root", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-target-metadata-"));
+    const otherRoot = await mkdtemp(path.join(tmpdir(), "agent-index-query-target-other-"));
+    await mkdir(path.join(root, "pkg"), { recursive: true });
+    await writeFile(path.join(root, "pkg", "cache.py"), "def load_value():\n    return 1\n");
+    const stats = await indexTarget(root);
+
+    const result = await queryAgentIndex(
+      { terms: ["load_value"], symbolKinds: ["function"], roles: ["source"] },
+      { target: otherRoot, indexPath: stats.indexPath, mode: "hybrid", limit: 5 }
+    );
+
+    expect(result.matches[0]?.file).toBe("pkg/cache.py");
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        code: "target-mismatch",
+        message: expect.stringContaining(path.resolve(root))
+      })
+    ]);
+  });
+
   test("keeps excludeSupportCode behavior using stored source roles", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "agent-index-query-exclude-support-"));
     await mkdir(path.join(root, "pkg"), { recursive: true });

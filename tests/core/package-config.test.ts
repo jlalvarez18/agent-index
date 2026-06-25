@@ -30,14 +30,14 @@ describe("package configuration", () => {
     expect(chmodScript).toContain("0o755");
   });
 
-  test("declares repeatable navigation suite and dominance guard scripts", async () => {
+  test("declares repeatable navigation suite and workflow guard scripts", async () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 
     expect(packageJson.scripts["nav:suite"]).toBe(
       "node dist/cli.js nav-suite benchmarks/navigation/suite.json --repos"
     );
     expect(packageJson.scripts["nav:compare"]).toBe(
-      "node dist/cli.js nav-compare --require-agent-dominance"
+      "node dist/cli.js nav-compare --require-agent-dominance --require-agent-tool-use"
     );
   });
 
@@ -45,7 +45,7 @@ describe("package configuration", () => {
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
 
     expect(packageJson.scripts["nav:compare:strict"]).toBe(
-      "node dist/cli.js nav-compare --require-agent-dominance --max-agent-latency-increase-percent 25"
+      "node dist/cli.js nav-compare --require-agent-dominance --require-agent-tool-use --max-agent-latency-increase-percent 25"
     );
   });
 

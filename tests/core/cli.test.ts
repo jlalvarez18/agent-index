@@ -852,6 +852,12 @@ def test_load_value():
       agentIndexCompletionRate: 1,
       rgCompletionRate: 0,
       rgOptimizedCompletionRate: 0,
+      agentToolUseCases: 1,
+      agentToolUseSatisfiedRate: 1,
+      agentToolUseAvgFirstUsefulLatencyMs: 8,
+      agentToolUseAvgCompletionLatencyMs: 10,
+      agentToolUseAvgFirstUsefulContextTokens: 80,
+      agentToolUseAvgCompletionContextTokens: 100,
       agentIndexAvgCommands: 1,
       rgAvgCommands: 1,
       rgOptimizedAvgCommands: 2,
@@ -912,6 +918,13 @@ def test_load_value():
       "Navigation artifact comparison failed"
     );
     expect(output.at(-1)).toContain("dominance.agentIndexWinsVsOptimizedRg");
+
+    await writeFile(path.join(baseline, "summary.json"), JSON.stringify({ ...summary, agentToolUseCases: 0, agentToolUseSatisfiedRate: 0 }));
+    await writeFile(path.join(current, "summary.json"), JSON.stringify({ ...summary, agentToolUseCases: 0, agentToolUseSatisfiedRate: 0 }));
+    await expect(runCli(["nav-compare", baseline, current, "--require-agent-tool-use"], { write: (line) => output.push(line) })).rejects.toThrow(
+      "Navigation artifact comparison failed"
+    );
+    expect(output.at(-1)).toContain("agentToolUseCases");
   });
 
   test("supports related test discovery from a source file and symbol", async () => {

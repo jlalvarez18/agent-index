@@ -64,8 +64,9 @@ npm run nav:compare -- /path/to/baseline-artifacts /tmp/agent-index-nav-artifact
 ```
 
 The comparison fails when agent-index completion or win counts drop, or when average agent-index context tokens rise beyond the configured absolute or percentage allowance. Token budgets guard both total agent-index context and context to first useful hit. Latency checks are opt-in because runtime noise depends on the machine; use `--max-agent-latency-increase-ms` or `--max-agent-latency-increase-percent` when comparing artifacts from a stable environment. Those latency budgets guard both total agent-index latency and time to first useful hit. `nav:compare` includes `--require-agent-dominance`, the release/CI gate that proves the current artifact still beats broad and optimized `rg` on completion, case wins, and average context-token payload.
+It also includes `--require-agent-tool-use`, which fails unless the current suite contains authored `agentToolUse` expectations and satisfies all of them. When a baseline already has tool-use cases, `nav-compare` also prevents tool-use case-count or satisfied-rate drops and applies the same token and optional latency budgets to first-useful and completion tool-use metrics.
 
-For local benchmark machines with stable enough timing, `npm run nav:compare:strict -- baseline current` adds a 25% latency-regression budget on top of the dominance gate. Use it for development slices that are expected to improve retrieval speed or preserve existing latency while shrinking context.
+For local benchmark machines with stable enough timing, `npm run nav:compare:strict -- baseline current` adds a 25% latency-regression budget on top of the dominance and tool-use gates. Use it for development slices that are expected to improve retrieval speed or preserve existing latency while shrinking context.
 
 Relative `evalPath`, `target`, and `indexPath` values resolve relative to the manifest file.
 

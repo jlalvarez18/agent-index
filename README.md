@@ -387,10 +387,10 @@ To fail CI when a new run regresses completion, wins, or context-token budget, c
 
 ```bash
 npm run nav:compare -- /path/to/baseline-artifacts /tmp/agent-index-nav-artifacts \
-  --max-agent-token-increase-percent 5 \
+  --max-agent-token-increase-percent 5
 ```
 
-`nav:compare` always includes `--require-agent-dominance`, which fails when the current artifact no longer beats broad and optimized `rg` on task completion, case wins, and average context-token payload.
+`nav:compare` always includes `--require-agent-dominance` and `--require-agent-tool-use`. The release gate fails when the current artifact no longer beats broad and optimized `rg` on task completion, case wins, and average context-token payload, or when authored `agentToolUse` expectations are missing, newly unsatisfied, or regress on bounded context. Use `npm run nav:compare:strict -- baseline current` on stable benchmark machines to add a 25% latency-regression budget.
 
 When the agent needs a low-token map before choosing a symbol, use file clusters:
 

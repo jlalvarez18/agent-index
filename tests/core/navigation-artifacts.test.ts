@@ -15,6 +15,12 @@ function suiteResult(overrides: Partial<NavigationSuiteResult> = {}): Navigation
     agentIndexCompletionRate: 1,
     rgCompletionRate: 0.5,
     rgOptimizedCompletionRate: 0,
+    agentToolUseCases: 1,
+    agentToolUseSatisfiedRate: 1,
+    agentToolUseAvgFirstUsefulLatencyMs: 25,
+    agentToolUseAvgCompletionLatencyMs: 45,
+    agentToolUseAvgFirstUsefulContextTokens: 30,
+    agentToolUseAvgCompletionContextTokens: 90,
     agentIndexAvgCommands: 2,
     rgAvgCommands: 2,
     rgOptimizedAvgCommands: 4,
@@ -54,6 +60,12 @@ function suiteResult(overrides: Partial<NavigationSuiteResult> = {}): Navigation
           agentIndexCompletionRate: 1,
           rgCompletionRate: 0.5,
           rgOptimizedCompletionRate: 0,
+          agentToolUseCases: 1,
+          agentToolUseSatisfiedRate: 1,
+          agentToolUseAvgFirstUsefulLatencyMs: 25,
+          agentToolUseAvgCompletionLatencyMs: 45,
+          agentToolUseAvgFirstUsefulContextTokens: 30,
+          agentToolUseAvgCompletionContextTokens: 90,
           agentIndexAvgCommands: 2,
           rgAvgCommands: 2,
           rgOptimizedAvgCommands: 4,
@@ -217,6 +229,53 @@ describe("compareNavigationArtifacts", () => {
           metric: "agentIndexAvgFirstUsefulLatencyMs"
         })
       ]
+    });
+  });
+
+  test("fails agent tool-use regressions and budget increases", async () => {
+    const baseline = await writeSummary(suiteResult());
+    const current = await writeSummary(
+      suiteResult({
+        agentToolUseCases: 0,
+        agentToolUseSatisfiedRate: 0,
+        agentToolUseAvgFirstUsefulContextTokens: 41,
+        agentToolUseAvgCompletionContextTokens: 100
+      })
+    );
+
+    const result = await compareNavigationArtifacts(baseline, current);
+
+    expect(result).toMatchObject({
+      passed: false,
+      regressions: expect.arrayContaining([
+        expect.objectContaining({ metric: "agentToolUseCases" }),
+        expect.objectContaining({ metric: "agentToolUseSatisfiedRate" }),
+        expect.objectContaining({ metric: "agentToolUseAvgFirstUsefulContextTokens" }),
+        expect.objectContaining({ metric: "agentToolUseAvgCompletionContextTokens" })
+      ])
+    });
+  });
+
+  test("requires current artifacts to include fully satisfied agent tool-use cases when requested", async () => {
+    const baseline = await writeSummary(suiteResult({ agentToolUseCases: 0, agentToolUseSatisfiedRate: 0 }));
+    const noToolUseCurrent = await writeSummary(suiteResult({ agentToolUseCases: 0, agentToolUseSatisfiedRate: 0 }));
+    const unsatisfiedCurrent = await writeSummary(suiteResult({ agentToolUseCases: 1, agentToolUseSatisfiedRate: 0.5 }));
+
+    await expect(compareNavigationArtifacts(baseline, noToolUseCurrent, { requireAgentToolUse: true })).resolves.toMatchObject({
+      passed: false,
+      regressions: [
+        expect.objectContaining({
+          metric: "agentToolUseCases"
+        })
+      ]
+    });
+    await expect(compareNavigationArtifacts(baseline, unsatisfiedCurrent, { requireAgentToolUse: true })).resolves.toMatchObject({
+      passed: false,
+      regressions: expect.arrayContaining([
+        expect.objectContaining({
+          metric: "agentToolUseSatisfiedRate"
+        })
+      ])
     });
   });
 

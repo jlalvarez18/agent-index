@@ -8,6 +8,7 @@ export interface NavigationArtifactCompareOptions {
   maxAgentLatencyIncreaseMs?: number;
   maxAgentLatencyIncreasePercent?: number;
   requireAgentDominance?: boolean;
+  requireAgentToolUse?: boolean;
 }
 
 export interface NavigationArtifactRegression {
@@ -83,6 +84,7 @@ function findNavigationRegressions(
     options,
     "agentIndexAvgFirstUsefulLatencyMs"
   );
+  compareAgentToolUse(regressions, baseline, current, options);
   if (options.requireAgentDominance) {
     compareAgentDominance(regressions, current);
   }
@@ -149,10 +151,86 @@ function compareRepoResults(
       options,
       `repo.${baselineRepo.name}.agentIndexAvgFirstUsefulLatencyMs`
     );
+    compareAgentToolUse(
+      regressions,
+      baselineRepo.result,
+      currentRepo.result,
+      { ...options, requireAgentToolUse: false },
+      `repo.${baselineRepo.name}.`
+    );
     if (options.requireAgentDominance) {
       compareAgentDominance(regressions, currentRepo.result, `repo.${baselineRepo.name}.`);
     }
   }
+}
+
+function compareAgentToolUse(
+  regressions: NavigationArtifactRegression[],
+  baseline: NavigationSuiteResult | NavigationSuiteRepoResult["result"],
+  current: NavigationSuiteResult | NavigationSuiteRepoResult["result"],
+  options: NavigationArtifactCompareOptions,
+  prefix = ""
+): void {
+  const baselineCases = metricNumber(baseline.agentToolUseCases);
+  const currentCases = metricNumber(current.agentToolUseCases);
+  if (options.requireAgentToolUse && currentCases <= 0) {
+    regressions.push({
+      metric: `${prefix}agentToolUseCases`,
+      baseline: 1,
+      current: currentCases,
+      message: `${prefix}agentToolUseCases is ${currentCases}, below required authored tool-use case count 1`
+    });
+    return;
+  }
+
+  if (baselineCases === 0 && currentCases === 0) {
+    return;
+  }
+
+  compareNonDecreasing(regressions, `${prefix}agentToolUseCases`, baselineCases, currentCases);
+  compareNonDecreasing(
+    regressions,
+    `${prefix}agentToolUseSatisfiedRate`,
+    metricNumber(baseline.agentToolUseSatisfiedRate),
+    metricNumber(current.agentToolUseSatisfiedRate)
+  );
+  if (options.requireAgentToolUse) {
+    compareAtLeast(
+      regressions,
+      `${prefix}agentToolUseSatisfiedRate`,
+      1,
+      metricNumber(current.agentToolUseSatisfiedRate),
+      "fully satisfied tool-use rate"
+    );
+  }
+  compareTokenBudget(
+    regressions,
+    baseline.agentToolUseAvgFirstUsefulContextTokens,
+    current.agentToolUseAvgFirstUsefulContextTokens,
+    options,
+    `${prefix}agentToolUseAvgFirstUsefulContextTokens`
+  );
+  compareTokenBudget(
+    regressions,
+    baseline.agentToolUseAvgCompletionContextTokens,
+    current.agentToolUseAvgCompletionContextTokens,
+    options,
+    `${prefix}agentToolUseAvgCompletionContextTokens`
+  );
+  compareLatencyBudget(
+    regressions,
+    baseline.agentToolUseAvgFirstUsefulLatencyMs,
+    current.agentToolUseAvgFirstUsefulLatencyMs,
+    options,
+    `${prefix}agentToolUseAvgFirstUsefulLatencyMs`
+  );
+  compareLatencyBudget(
+    regressions,
+    baseline.agentToolUseAvgCompletionLatencyMs,
+    current.agentToolUseAvgCompletionLatencyMs,
+    options,
+    `${prefix}agentToolUseAvgCompletionLatencyMs`
+  );
 }
 
 function compareAgentDominance(
@@ -232,6 +310,10 @@ function navigationCaseResults(current: NavigationSuiteResult | NavigationSuiteR
     return current.caseResults;
   }
   return current.repoResults.flatMap((repo) => repo.result.caseResults);
+}
+
+function metricNumber(value: number | undefined): number {
+  return typeof value === "number" ? value : 0;
 }
 
 function compareAtLeast(

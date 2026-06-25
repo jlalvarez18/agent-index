@@ -2880,10 +2880,10 @@ def mcp_server_notes():
     );
     await indexTarget(root);
 
-    await expectTopHybridSymbol(root, "where is graph json export handled?", "to_json");
-    await expectTopHybridSymbol(root, "where is report generation?", "generate");
-    await expectTopHybridSymbol(root, "where is community detection?", "cluster_communities");
-    await expectTopHybridSymbol(root, "where is mcp server?", "serve");
+    await expectTopHybridSymbol(root, "where is graph json export handled?", "to_json", "json export intent");
+    await expectTopHybridSymbol(root, "where is report generation?", "generate", "report generation intent");
+    await expectTopHybridSymbol(root, "where is community detection?", "cluster_communities", "community detection intent");
+    await expectTopHybridSymbol(root, "where is mcp server?", "serve", "mcp server intent");
   });
 
   test("hybrid mode expands generic action aliases for remaining implementation queries", async () => {
@@ -2921,9 +2921,9 @@ def query_seed_selection_notes():
     );
     await indexTarget(root);
 
-    await expectTopHybridSymbol(root, "where does code extraction happen?", "extract_python");
-    await expectTopHybridSymbol(root, "where is the graph built?", "build");
-    await expectTopHybridSymbol(root, "where are query seeds selected?", "_pick_seeds");
+    await expectTopHybridSymbol(root, "where does code extraction happen?", "extract_python", "code extraction intent");
+    await expectTopHybridSymbol(root, "where is the graph built?", "build", "graph build intent");
+    await expectTopHybridSymbol(root, "where are query seeds selected?", "_pick_seeds", "query seed selection intent");
   });
 
   test("hybrid mode routes domain module questions to matching file stems", async () => {
@@ -3563,7 +3563,7 @@ def attrs(cls=None, these=None):
       file: "pkg/assertion/util.py"
     });
     expect(result.matches.find((match) => match.symbol === "TerminalReporter.build_summary_stats_line")?.why).not.toContain(
-      "query intent match"
+      "graph build intent"
     );
   });
 
@@ -3599,7 +3599,7 @@ def attrs(cls=None, these=None):
       file: "pkg/dependencies/utils.py"
     });
     expect(result.matches.find((match) => match.symbol === "FastAPI.build_middleware_stack")?.why).not.toContain(
-      "query intent match"
+      "graph build intent"
     );
   });
 
@@ -3650,7 +3650,7 @@ def normalized_laplacian_matrix(graph):
       file: "pkg/linalg/laplacianmatrix.py"
     });
     expect(result.matches.find((match) => match.symbol === "build_residual_network")?.why).not.toContain(
-      "query intent match"
+      "graph build intent"
     );
     expect(result.matches.find((match) => match.symbol === "generate_graphml")?.why).not.toContain(
       "create object factory intent"
@@ -4692,8 +4692,8 @@ def _split_community(graph):
     );
     await indexTarget(root);
 
-    await expectTopHybridSymbol(root, "where does code extraction happen?", "extract_python");
-    await expectTopHybridSymbol(root, "where does community detection run?", "cluster");
+    await expectTopHybridSymbol(root, "where does code extraction happen?", "extract_python", "code extraction intent");
+    await expectTopHybridSymbol(root, "where does community detection run?", "cluster", "community detection intent");
   });
 
   test("hybrid mode treats stem-equivalent file names as core implementation symbols", async () => {
@@ -4752,7 +4752,12 @@ def save_manifest(files):
     );
     await indexTarget(root);
 
-    await expectTopHybridSymbol(root, "where does incremental indexing decide what changed?", "detect_incremental");
+    await expectTopHybridSymbol(
+      root,
+      "where does incremental indexing decide what changed?",
+      "detect_incremental",
+      "incremental indexing intent"
+    );
   });
 
   test("symbol mode adds exact dotted API references as candidates", async () => {
@@ -7570,11 +7575,16 @@ def _body_framing(event):
   });
 });
 
-async function expectTopHybridSymbol(root: string, question: string, symbol: string): Promise<void> {
+async function expectTopHybridSymbol(
+  root: string,
+  question: string,
+  symbol: string,
+  reason = "query intent match"
+): Promise<void> {
   const result = await queryIndex(question, { target: root, limit: 5, mode: "hybrid" });
 
   expect(result.matches[0].symbol).toBe(symbol);
-  expect(result.matches[0].why).toContain("query intent match");
+  expect(result.matches[0].why).toContain(reason);
 }
 
 function match(symbol: string, kind: QueryMatch["kind"], score: number): QueryMatch {

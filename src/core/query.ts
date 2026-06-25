@@ -50,6 +50,19 @@ interface IntentRule {
   score: (row: CandidateRow) => number;
 }
 
+interface IntentRuleContext {
+  question: string;
+  normalizedQuestion: string;
+  tokens: Set<string>;
+  dottedReferences: ReturnType<typeof dottedApiReferences>;
+}
+
+interface IntentRuleRegistration {
+  id: string;
+  applies: (context: IntentRuleContext) => boolean;
+  createRule: (context: IntentRuleContext) => IntentRule;
+}
+
 export async function queryIndex(question: string, options: QueryOptions): Promise<QueryResponse> {
   return queryWithText(question, options);
 }
@@ -1829,6 +1842,7 @@ function intentRulesForQuestion(question: string): IntentRule[] {
   const tokens = new Set(queryTokens(question).flatMap((token) => [token, stemToken(token)]));
   const rules: IntentRule[] = [];
   const dottedReferences = dottedApiReferences(question);
+  const context: IntentRuleContext = { question, normalizedQuestion, tokens, dottedReferences };
 
   if (hasOwnerMethodQuestionSignal(question)) {
     rules.push({
@@ -3239,80 +3253,7 @@ function intentRulesForQuestion(question: string): IntentRule[] {
     });
   }
 
-  if (tokens.has("export") && tokens.has("json")) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        let score = 0;
-        if (row.symbol_name === "to_json") score += 20;
-        if (normalize(row.qualified_name).includes("to json")) score += 16;
-        if (row.file_path.endsWith("export.py")) score += 10;
-        if (normalize(row.qualified_name).includes("json")) score += 8;
-        return score;
-      }
-    });
-  }
-
-  if (isReportGenerationQuestion(tokens)) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        let score = 0;
-        if (row.symbol_name === "generate") score += 18;
-        if (row.file_path.endsWith("report.py")) score += 12;
-        if (normalize(row.qualified_name).includes("report")) score += 8;
-        return score;
-      }
-    });
-  }
-
-  if (tokens.has("community") && (tokens.has("detection") || tokens.has("detect") || tokens.has("cluster"))) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        const symbol = normalize(row.qualified_name);
-        let score = 0;
-        if (row.file_path.endsWith("cluster.py")) score += 12;
-        if (symbol.includes("community")) score += 12;
-        if (symbol.includes("cluster")) score += 10;
-        if (symbol.includes("partition")) score += 8;
-        return score;
-      }
-    });
-  }
-
-  if (tokens.has("mcp") && tokens.has("server")) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        const symbol = normalize(row.qualified_name);
-        let score = 0;
-        if (row.symbol_name === "serve") score += 18;
-        if (row.file_path.endsWith("serve.py")) score += 12;
-        if (symbol.includes("server")) score += 8;
-        return score;
-      }
-    });
-  }
-
-  if (tokens.has("extract") || tokens.has("extraction")) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        const symbol = normalize(row.qualified_name);
-        let score = 0;
-        if (row.file_path.endsWith("extract.py")) score += 12;
-        if (symbol.includes("extract")) score += 14;
-        if (symbol.includes("python") && (tokens.has("code") || tokens.has("source"))) score += 4;
-        return score;
-      }
-    });
-  }
+  appendIntentRules(rules, context, genericIntentRuleRegistry);
 
   if (isDependencyGraphQuestion(tokens)) {
     rules.push({
@@ -3563,21 +3504,7 @@ function intentRulesForQuestion(question: string): IntentRule[] {
     });
   }
 
-  if (isBuildConstructionQuestion(tokens)) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        const symbol = normalize(row.qualified_name);
-        let score = 0;
-        if (row.file_path.endsWith("build.py")) score += 12;
-        if (row.symbol_name === "build") score += 16;
-        if (symbol.includes("build")) score += 10;
-        if (symbol.includes("from json") && tokens.has("graph")) score += 6;
-        return score;
-      }
-    });
-  }
+  appendIntentRules(rules, context, graphBuildIntentRuleRegistry);
 
   if (isBidirectionalDijkstraQuestion(tokens)) {
     rules.push({
@@ -3695,42 +3622,180 @@ function intentRulesForQuestion(question: string): IntentRule[] {
     });
   }
 
-  if ((tokens.has("seed") || tokens.has("seeds")) && (tokens.has("query") || tokens.has("select") || tokens.has("selected"))) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        const symbol = normalize(row.qualified_name);
-        let score = 0;
-        if (row.symbol_name === "_pick_seeds") score += 18;
-        if (row.symbol_name === "_score_nodes") score += 12;
-        if (symbol.includes("seed")) score += 12;
-        if (row.file_path.endsWith("serve.py")) score += 8;
-        return score;
-      }
-    });
-  }
-
-  if (
-    tokens.has("incremental") &&
-    (tokens.has("changed") || tokens.has("change") || tokens.has("indexing") || tokens.has("index"))
-  ) {
-    rules.push({
-      reason: "query intent match",
-      boost: 12,
-      score: (row) => {
-        const symbol = normalize(row.qualified_name);
-        let score = 0;
-        if (row.symbol_name === "detect_incremental") score += 22;
-        if (symbol.includes("incremental")) score += 12;
-        if (symbol.includes("manifest")) score += 10;
-        if (row.file_path.endsWith("detect.py")) score += 8;
-        return score;
-      }
-    });
-  }
+  appendIntentRules(rules, context, localToolIntentRuleRegistry);
 
   return rules;
+}
+
+function appendIntentRules(
+  rules: IntentRule[],
+  context: IntentRuleContext,
+  registry: IntentRuleRegistration[]
+): void {
+  for (const registration of registry) {
+    if (registration.applies(context)) {
+      rules.push(registration.createRule(context));
+    }
+  }
+}
+
+const genericIntentRuleRegistry: IntentRuleRegistration[] = [
+  {
+    id: "json-export",
+    applies: ({ tokens }) => tokens.has("export") && tokens.has("json"),
+    createRule: () => ({
+      reason: "json export intent",
+      boost: 12,
+      score: jsonExportIntentScore
+    })
+  },
+  {
+    id: "report-generation",
+    applies: ({ tokens }) => isReportGenerationQuestion(tokens),
+    createRule: () => ({
+      reason: "report generation intent",
+      boost: 12,
+      score: reportGenerationIntentScore
+    })
+  },
+  {
+    id: "community-detection",
+    applies: ({ tokens }) => tokens.has("community") && (tokens.has("detection") || tokens.has("detect") || tokens.has("cluster")),
+    createRule: () => ({
+      reason: "community detection intent",
+      boost: 12,
+      score: communityDetectionIntentScore
+    })
+  },
+  {
+    id: "mcp-server",
+    applies: ({ tokens }) => tokens.has("mcp") && tokens.has("server"),
+    createRule: () => ({
+      reason: "mcp server intent",
+      boost: 12,
+      score: mcpServerIntentScore
+    })
+  },
+  {
+    id: "code-extraction",
+    applies: ({ tokens }) => tokens.has("extract") || tokens.has("extraction"),
+    createRule: ({ tokens }) => ({
+      reason: "code extraction intent",
+      boost: 12,
+      score: (row) => codeExtractionIntentScore(row, tokens)
+    })
+  }
+];
+
+const graphBuildIntentRuleRegistry: IntentRuleRegistration[] = [
+  {
+    id: "graph-build",
+    applies: ({ tokens }) => isBuildConstructionQuestion(tokens),
+    createRule: ({ tokens }) => ({
+      reason: "graph build intent",
+      boost: 12,
+      score: (row) => graphBuildIntentScore(row, tokens)
+    })
+  }
+];
+
+const localToolIntentRuleRegistry: IntentRuleRegistration[] = [
+  {
+    id: "query-seed-selection",
+    applies: ({ tokens }) =>
+      (tokens.has("seed") || tokens.has("seeds")) && (tokens.has("query") || tokens.has("select") || tokens.has("selected")),
+    createRule: () => ({
+      reason: "query seed selection intent",
+      boost: 12,
+      score: querySeedSelectionIntentScore
+    })
+  },
+  {
+    id: "incremental-index-detection",
+    applies: ({ tokens }) =>
+      tokens.has("incremental") &&
+      (tokens.has("changed") || tokens.has("change") || tokens.has("indexing") || tokens.has("index")),
+    createRule: () => ({
+      reason: "incremental indexing intent",
+      boost: 12,
+      score: incrementalIndexingIntentScore
+    })
+  }
+];
+
+function jsonExportIntentScore(row: CandidateRow): number {
+  let score = 0;
+  if (row.symbol_name === "to_json") score += 20;
+  if (normalize(row.qualified_name).includes("to json")) score += 16;
+  if (row.file_path.endsWith("export.py")) score += 10;
+  if (normalize(row.qualified_name).includes("json")) score += 8;
+  return score;
+}
+
+function reportGenerationIntentScore(row: CandidateRow): number {
+  let score = 0;
+  if (row.symbol_name === "generate") score += 18;
+  if (row.file_path.endsWith("report.py")) score += 12;
+  if (normalize(row.qualified_name).includes("report")) score += 8;
+  return score;
+}
+
+function communityDetectionIntentScore(row: CandidateRow): number {
+  const symbol = normalize(row.qualified_name);
+  let score = 0;
+  if (row.file_path.endsWith("cluster.py")) score += 12;
+  if (symbol.includes("community")) score += 12;
+  if (symbol.includes("cluster")) score += 10;
+  if (symbol.includes("partition")) score += 8;
+  return score;
+}
+
+function mcpServerIntentScore(row: CandidateRow): number {
+  const symbol = normalize(row.qualified_name);
+  let score = 0;
+  if (row.symbol_name === "serve") score += 18;
+  if (row.file_path.endsWith("serve.py")) score += 12;
+  if (symbol.includes("server")) score += 8;
+  return score;
+}
+
+function codeExtractionIntentScore(row: CandidateRow, tokens: Set<string>): number {
+  const symbol = normalize(row.qualified_name);
+  let score = 0;
+  if (row.file_path.endsWith("extract.py")) score += 12;
+  if (symbol.includes("extract")) score += 14;
+  if (symbol.includes("python") && (tokens.has("code") || tokens.has("source"))) score += 4;
+  return score;
+}
+
+function graphBuildIntentScore(row: CandidateRow, tokens: Set<string>): number {
+  const symbol = normalize(row.qualified_name);
+  let score = 0;
+  if (row.file_path.endsWith("build.py")) score += 12;
+  if (row.symbol_name === "build") score += 16;
+  if (symbol.includes("build")) score += 10;
+  if (symbol.includes("from json") && tokens.has("graph")) score += 6;
+  return score;
+}
+
+function querySeedSelectionIntentScore(row: CandidateRow): number {
+  const symbol = normalize(row.qualified_name);
+  let score = 0;
+  if (row.symbol_name === "_pick_seeds") score += 18;
+  if (row.symbol_name === "_score_nodes") score += 12;
+  if (symbol.includes("seed")) score += 12;
+  if (row.file_path.endsWith("serve.py")) score += 8;
+  return score;
+}
+
+function incrementalIndexingIntentScore(row: CandidateRow): number {
+  const symbol = normalize(row.qualified_name);
+  let score = 0;
+  if (row.symbol_name === "detect_incremental") score += 22;
+  if (symbol.includes("incremental")) score += 12;
+  if (symbol.includes("manifest")) score += 10;
+  if (row.file_path.endsWith("detect.py")) score += 8;
+  return score;
 }
 
 function decoratorTargets(question: string): string[] {
